@@ -7,7 +7,7 @@ repositories {
 }
 
 dependencies {
-    val file = rootProject.file(".gradle/caches/paperweight/taskCache/mc-libraries.txt")
+    val file = rootProject.file(".gradle/caches/jsons/McLibraries.txt")
     if (file.exists()) {
         file.forEachLine { line ->
             if (!line.startsWith("org.lwjgl")) { // lwjgl is definitely client only
