@@ -1,5 +1,3 @@
-import io.papermc.paperweight.util.mcpConfig
-
 plugins {
     id("com.github.johnrengelman.shadow") version "6.0.0" apply false
     id("io.papermc.paperweight") version "1.0.0-SNAPSHOT"
@@ -27,8 +25,8 @@ subprojects {
 
 paperweight {
     minecraftVersion.set("1.16.1")
+    mcpConfigVersion.set("20201025.185922")
     mcpMappingsChannel.set("snapshot")
     mcpMappingsVersion.set("20200808-1.15.1")
-//    mcpConfigFile.set(project.file("/home/demonwav/IdeaProjects/MCPConfig/build/distributions/mcp_config-1.16.2-rc1.zip"))
 }
 
