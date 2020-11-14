@@ -1,11 +1,10 @@
 pluginManagement {
     repositories {
-        mavenLocal()
         mavenCentral()
-        jcenter()
         maven("https://oss.sonatype.org/content/repositories/snapshots/")
         maven("https://files.minecraftforge.net/maven/")
         gradlePluginPortal()
+        mavenLocal()
     }
 }
 
