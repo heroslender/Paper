@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Sun, 7 Oct 2018 12:05:28 -0700
+Subject: [PATCH] Add PlayerConnectionCloseEvent
+
+This event is invoked when a player has disconnected. It is guaranteed that,
+if the server is in online-mode, that the provided uuid and username have been
+validated.
+
+The event is invoked for players who have not yet logged into the world, whereas
+PlayerQuitEvent is only invoked on players who have logged into the world.
+
+The event is invoked for players who have already logged into the world,
+although whether or not the player exists in the world at the time of
+firing is undefined. (That is, whether the plugin can retrieve a Player object
+using the event parameters is undefined). However, it is guaranteed that this
+event is invoked AFTER PlayerQuitEvent, if the player has already logged into
+the world.
+
+This event is guaranteed to never fire unless AsyncPlayerPreLoginEvent has
+been called beforehand, and this event may not be called in parallel with
+AsyncPlayerPreLoginEvent for the same connection.
+
+Cancelling the AsyncPlayerPreLoginEvent guarantees the corresponding
+PlayerConnectionCloseEvent is never called.
+
+The event may be invoked asynchronously or synchronously. As it stands,
+it is never invoked asynchronously. However, plugins should check
+Event#isAsynchronous to be future-proof.
+
+On purpose, the deprecated PlayerPreLoginEvent event is left out of the
+API spec for this event. Plugins should not be using that event, and
+how PlayerPreLoginEvent interacts with PlayerConnectionCloseEvent
+is undefined.
+
+diff --git a/src/main/java/net/minecraft/network/NetworkManager.java b/src/main/java/net/minecraft/network/NetworkManager.java
+index 6f52fb26e9ee23e4fc8401bf4feb8927f7ef9e00..dd60b3b6d3865cd1e4128ec0d0d1682cb9a284c6 100644
+--- a/src/main/java/net/minecraft/network/NetworkManager.java
++++ b/src/main/java/net/minecraft/network/NetworkManager.java
+@@ -344,6 +344,26 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+                     this.func_150729_e().func_147231_a(new TranslationTextComponent("multiplayer.disconnect.generic"));
+                 }
+                 this.field_150745_j.clear(); // Free up packet queue.
++                // Paper start - Add PlayerConnectionCloseEvent
++                final INetHandler packetListener = this.func_150729_e();
++                if (packetListener instanceof ServerPlayNetHandler) {
++                    /* Player was logged in */
++                    final ServerPlayNetHandler playerConnection = (ServerPlayNetHandler) packetListener;
++                    new com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent(playerConnection.field_147369_b.field_96093_i,
++                        playerConnection.field_147369_b.func_195047_I_(), ((java.net.InetSocketAddress)field_150743_l).getAddress(), false).callEvent();
++                } else if (packetListener instanceof ServerLoginNetHandler) {
++                    /* Player is login stage */
++                    final ServerLoginNetHandler loginListener = (ServerLoginNetHandler) packetListener;
++                    switch (loginListener.getLoginState()) {
++                        case READY_TO_ACCEPT:
++                        case DELAY_ACCEPT:
++                        case ACCEPTED:
++                            final com.mojang.authlib.GameProfile profile = loginListener.getGameProfile(); /* Should be non-null at this stage */
++                            new com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent(profile.getId(), profile.getName(),
++                                ((java.net.InetSocketAddress)field_150743_l).getAddress(), false).callEvent();
++                    }
++                }
++                // Paper end
+             }
+ 
+         }
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index d481c5beb3fb98af829f098cf9e103c079024f84..d3659daa9e6d6bb8c3bfced39fc0fd2ae9da46ca 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -52,9 +52,9 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+     private final byte[] field_147330_e = new byte[4];
+     private final MinecraftServer field_147327_f;
+     public final NetworkManager field_147333_a;
+-    private ServerLoginNetHandler.State field_147328_g;
++    private ServerLoginNetHandler.State field_147328_g; public final ServerLoginNetHandler.State getLoginState() { return this.field_147328_g; }; // Paper - OBFHELPER
+     private int field_147336_h;
+-    private GameProfile field_147337_i; private void setGameProfile(final GameProfile profile) { this.field_147337_i = profile; } private GameProfile getGameProfile() { return this.field_147337_i; } // Paper - OBFHELPER
++    private GameProfile field_147337_i; private void setGameProfile(final GameProfile profile) { this.field_147337_i = profile; } public GameProfile getGameProfile() { return this.field_147337_i; } // Paper - OBFHELPER
+     private final String field_147334_j;
+     private SecretKey field_147335_k;
+     private ServerPlayerEntity field_181025_l;

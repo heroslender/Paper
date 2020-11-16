@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: killme <killme-git@ibts.me>
+Date: Sun, 12 Nov 2017 19:40:01 +0100
+Subject: [PATCH] Prevent logins from being processed when the player has
+ disconnected
+
+
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index 9b47aaf65271fb0d06cca6412fea1e92f00044af..8dddab5e457568330f25e9327a1286ee631f2a3a 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -70,7 +70,11 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+         }
+         // Paper end
+         if (this.field_147328_g == ServerLoginNetHandler.State.READY_TO_ACCEPT) {
+-            this.func_147326_c();
++            // Paper start - prevent logins to be processed even though disconnect was called
++            if (field_147333_a.func_150724_d()) {
++                this.func_147326_c();
++            }
++            // Paper end
+         } else if (this.field_147328_g == ServerLoginNetHandler.State.DELAY_ACCEPT) {
+             ServerPlayerEntity entityplayer = this.field_147327_f.func_184103_al().func_177451_a(this.field_147337_i.getId());
+ 

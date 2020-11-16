@@ -1,0 +1,96 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 17 Jun 2017 15:18:30 -0400
+Subject: [PATCH] Shoulder Entities Release API
+
+
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 0027355fc55411ba6212fdce9432fc78f120212b..989aeef63b521fe066f89a027ee54310b7def740 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -1872,20 +1872,44 @@ public abstract class PlayerEntity extends LivingEntity {
+ 
+     }
+ 
++    // Paper start
++    public Entity releaseLeftShoulderEntity() {
++        Entity entity = this.spawnEntityFromShoulder0(this.func_192023_dk());
++        if (entity != null) {
++            this.func_192029_h(new CompoundNBT());
++        }
++        return entity;
++    }
++
++    public Entity releaseRightShoulderEntity() {
++        Entity entity = this.spawnEntityFromShoulder0(this.func_192025_dl());
++        if (entity != null) {
++            this.func_192031_i(new CompoundNBT());
++        }
++        return entity;
++    }
++    // Paper - maintain old signature
+     private boolean spawnEntityFromShoulder(CompoundNBT nbttagcompound) { // CraftBukkit void->boolean
+-        if (!this.field_70170_p.field_72995_K && !nbttagcompound.isEmpty()) {
++        return spawnEntityFromShoulder0(nbttagcompound) != null;
++    }
++
++    // Paper - return entity
++    private Entity spawnEntityFromShoulder0(@Nullable CompoundNBT nbttagcompound) {
++        if (!this.field_70170_p.field_72995_K && nbttagcompound != null && !nbttagcompound.isEmpty()) {
+             return EntityType.func_220330_a(nbttagcompound, this.field_70170_p).map((entity) -> { // CraftBukkit
+                 if (entity instanceof TameableEntity) {
+                     ((TameableEntity) entity).func_184754_b(this.field_96093_i);
+                 }
+ 
+                 entity.func_70107_b(this.func_226277_ct_(), this.func_226278_cu_() + 0.699999988079071D, this.func_226281_cx_());
+-                return ((ServerWorld) this.field_70170_p).addEntitySerialized(entity, CreatureSpawnEvent.SpawnReason.SHOULDER_ENTITY); // CraftBukkit
+-            }).orElse(true); // CraftBukkit
++                boolean addedToWorld = ((ServerWorld) this.field_70170_p).addEntitySerialized(entity, CreatureSpawnEvent.SpawnReason.SHOULDER_ENTITY); // CraftBukkit
++                return addedToWorld ? entity : null;
++            }).orElse(null); // CraftBukkit // Paper - false -> null
+         }
+ 
+-        return true; // CraftBukkit
++        return null; // Paper - return null
+     }
++    // Paper end
+ 
+     @Override
+     public abstract boolean func_175149_v();
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
+index ce967e6055e88e6182706a6248a2dd83f1e085c7..47faeee3a498ed46989a80109bfce08fe1dcf625 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
+@@ -486,6 +486,32 @@ public class CraftHumanEntity extends CraftLivingEntity implements HumanEntity {
+         getHandle().func_184811_cZ().func_185145_a(CraftMagicNumbers.getItem(material), ticks);
+     }
+ 
++    // Paper start
++    @Override
++    public org.bukkit.entity.Entity releaseLeftShoulderEntity() {
++        if (!getHandle().func_192023_dk().isEmpty()) {
++            Entity entity = getHandle().releaseLeftShoulderEntity();
++            if (entity != null) {
++                return entity.getBukkitEntity();
++            }
++        }
++
++        return null;
++    }
++
++    @Override
++    public org.bukkit.entity.Entity releaseRightShoulderEntity() {
++        if (!getHandle().func_192025_dl().isEmpty()) {
++            Entity entity = getHandle().releaseRightShoulderEntity();
++            if (entity != null) {
++                return entity.getBukkitEntity();
++            }
++        }
++
++        return null;
++    }
++    // Paper end
++
+     @Override
+     public boolean discoverRecipe(NamespacedKey recipe) {
+         return discoverRecipes(Arrays.asList(recipe)) != 0;

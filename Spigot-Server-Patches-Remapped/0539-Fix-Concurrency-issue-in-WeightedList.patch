@@ -1,0 +1,153 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 6 Jul 2020 18:36:41 -0400
+Subject: [PATCH] Fix Concurrency issue in WeightedList
+
+if multiple threads from worldgen sort at same time, it will crash.
+So make a copy of the list for sorting purposes.
+
+diff --git a/src/main/java/net/minecraft/entity/ai/brain/task/MultiTask.java b/src/main/java/net/minecraft/entity/ai/brain/task/MultiTask.java
+index f721368df739f154754d5456d75aac172f80e4d2..5aba4386fcdc30797ec36a93ed2b737c5f77a1c3 100644
+--- a/src/main/java/net/minecraft/entity/ai/brain/task/MultiTask.java
++++ b/src/main/java/net/minecraft/entity/ai/brain/task/MultiTask.java
+@@ -18,7 +18,7 @@ public class MultiTask<E extends LivingEntity> extends Task<E> {
+     private final Set<MemoryModuleType<?>> field_220416_b;
+     private final MultiTask.Ordering field_220417_c;
+     private final MultiTask.RunType field_220418_d;
+-    private final WeightedList<Task<? super E>> field_220419_e = new WeightedList<>();
++    private final WeightedList<Task<? super E>> field_220419_e = new WeightedList<>(false); // Paper - don't use a clone
+ 
+     public MultiTask(Map<MemoryModuleType<?>, MemoryModuleStatus> map, Set<MemoryModuleType<?>> set, MultiTask.Ordering behaviorgate_order, MultiTask.RunType behaviorgate_execution, List<Pair<Task<? super E>, Integer>> list) {
+         super(map);
+@@ -66,10 +66,9 @@ public class MultiTask<E extends LivingEntity> extends Task<E> {
+         }).forEach((behavior) -> {
+             behavior.func_220380_e(p_212835_1_, p_212835_2_, p_212835_3_);
+         });
+-        Set set = this.field_220416_b;
+         Brain behaviorcontroller = p_212835_2_.func_213375_cj();
+ 
+-        set.forEach(behaviorcontroller::removeMemory);
++        this.field_220416_b.forEach(behaviorcontroller::func_218189_b); // Paper - decomp fix
+     }
+ 
+     @Override
+@@ -112,11 +111,11 @@ public class MultiTask<E extends LivingEntity> extends Task<E> {
+     static enum Ordering {
+ 
+         ORDERED((weightedlist) -> {
+-        }), SHUFFLED(WeightedList::a);
++        }), SHUFFLED(WeightedList::func_226309_a_);
+ 
+         private final Consumer<WeightedList<?>> field_220629_c;
+ 
+-        private Ordering(Consumer consumer) {
++        private Ordering(Consumer<WeightedList<?>> consumer) { // Paper - decomp fix
+             this.field_220629_c = consumer;
+         }
+ 
+diff --git a/src/main/java/net/minecraft/util/WeightedList.java b/src/main/java/net/minecraft/util/WeightedList.java
+index daa5e791d282f089cd354d2d26bc785e57463683..10afb7469c7fa3ec82b863359f3eab9bd64156ec 100644
+--- a/src/main/java/net/minecraft/util/WeightedList.java
++++ b/src/main/java/net/minecraft/util/WeightedList.java
+@@ -6,7 +6,7 @@ import com.mojang.serialization.Codec;
+ import com.mojang.serialization.DataResult;
+ import com.mojang.serialization.Dynamic;
+ import com.mojang.serialization.DynamicOps;
+-import com.mojang.serialization.OptionalDynamic;
++
+ import java.util.Comparator;
+ import java.util.List;
+ import java.util.Random;
+@@ -14,26 +14,32 @@ import java.util.stream.Stream;
+ 
+ public class WeightedList<U> {
+ 
+-    protected final List<WeightedList.Entry<U>> field_220658_a;
++    protected final List<WeightedList.Entry<U>> list; // Paper - decompile conflict
+     private final Random field_220659_b;
++    private final boolean isUnsafe; // Paper
+ 
+-    public WeightedList() {
+-        this(Lists.newArrayList());
++    // Paper start - add useClone option
++    public WeightedList() { this(true); }
++    public WeightedList(boolean isUnsafe) {
++        this(Lists.newArrayList(), isUnsafe);
+     }
+ 
+-    private WeightedList(List<WeightedList.Entry<U>> p_i231541_1_) {
++    private WeightedList(List<WeightedList.Entry<U>> p_i231541_1_) { this(p_i231541_1_, true); }
++    private WeightedList(List<WeightedList.Entry<U>> list, boolean isUnsafe) {
++        this.isUnsafe = isUnsafe;
++        // Paper end
+         this.field_220659_b = new Random();
+-        this.field_220658_a = Lists.newArrayList(p_i231541_1_);
++        this.list = Lists.newArrayList(list); // Paper - decompile conflict
+     }
+ 
+     public static <U> Codec<WeightedList<U>> func_234002_a_(Codec<U> p_234002_0_) {
+-        return WeightedList.field_220658_a.a(p_234002_0_).listOf().xmap(WeightedList::new, (weightedlist) -> {
+-            return weightedlist.a;
++        return WeightedList.Entry.func_234008_a_(p_234002_0_).listOf().xmap(WeightedList::new, (weightedlist) -> { // Paper - decompile conflict
++            return weightedlist.list; // Paper - decompile conflict
+         });
+     }
+ 
+     public WeightedList<U> func_226313_a_(U p_226313_1_, int p_226313_2_) {
+-        this.field_220658_a.add(new WeightedList.Entry<>(p_226313_1_, p_226313_2_));
++        this.list.add(new WeightedList.Entry<>(p_226313_1_, p_226313_2_)); // Paper - decompile conflict
+         return this;
+     }
+ 
+@@ -42,21 +48,20 @@ public class WeightedList<U> {
+     }
+ 
+     public WeightedList<U> func_226314_a_(Random p_226314_1_) {
+-        this.field_220658_a.forEach((weightedlist_a) -> {
+-            weightedlist_a.func_220648_a(p_226314_1_.nextFloat());
+-        });
+-        this.field_220658_a.sort(Comparator.comparingDouble((object) -> {
+-            return ((WeightedList.Entry) object).func_220649_a();
+-        }));
+-        return this;
++        // Paper start - make concurrent safe, work off a clone of the list
++        List<WeightedList.Entry<U>> list = isUnsafe ? new java.util.ArrayList<WeightedList.Entry<U>>(this.list) : this.list;
++        list.forEach((weightedlist_a) -> weightedlist_a.func_220648_a(p_226314_1_.nextFloat()));
++        list.sort(Comparator.comparingDouble(Entry::func_220649_a));
++        return isUnsafe ? new WeightedList<>(list, isUnsafe) : this;
++        // Paper end
+     }
+ 
+     public boolean func_234005_b_() {
+-        return this.field_220658_a.isEmpty();
++        return this.list.isEmpty(); // Paper - decompile conflict
+     }
+ 
+     public Stream<U> func_220655_b() {
+-        return this.field_220658_a.stream().map(WeightedList.field_220658_a::a);
++        return this.list.stream().map(WeightedList.Entry::func_220647_b); // Paper - decompile conflict
+     }
+ 
+     public U func_226318_b_(Random p_226318_1_) {
+@@ -64,7 +69,7 @@ public class WeightedList<U> {
+     }
+ 
+     public String toString() {
+-        return "WeightedList[" + this.field_220658_a + "]";
++        return "WeightedList[" + this.list + "]"; // Paper - decompile conflict
+     }
+ 
+     public static class Entry<T> {
+@@ -98,11 +103,7 @@ public class WeightedList<U> {
+             return new Codec<WeightedList.Entry<E>>() {
+                 public <T> DataResult<Pair<WeightedList.Entry<E>, T>> decode(DynamicOps<T> dynamicops, T t0) {
+                     Dynamic<T> dynamic = new Dynamic(dynamicops, t0);
+-                    OptionalDynamic optionaldynamic = dynamic.get("data");
+-                    Codec codec1 = p_234008_0_;
+-
+-                    p_234008_0_.getClass();
+-                    return optionaldynamic.flatMap(codec1::parse).map((object) -> {
++                    return dynamic.get("data").flatMap(p_234008_0_::parse).map((object) -> { // Paper - decompile error
+                         return new WeightedList.Entry<>(object, dynamic.get("weight").asInt(1));
+                     }).map((weightedlist_a) -> {
+                         return Pair.of(weightedlist_a, dynamicops.empty());

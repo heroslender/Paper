@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kashike <kashike@vq.lc>
+Date: Thu, 17 Aug 2017 16:08:20 -0700
+Subject: [PATCH] Allow specifying a custom "authentication servers down" kick
+ message
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index 5fa63d7ca20b88a44d8800b3ebf74e4c0e376d0b..cee8740e644c492e3d71fd58791e7d52d57e856d 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -1,5 +1,6 @@
+ package com.destroystokyo.paper;
+ 
++import com.google.common.base.Strings;
+ import com.google.common.base.Throwables;
+ 
+ import java.io.File;
+@@ -265,4 +266,9 @@ public class PaperConfig {
+     private static void suggestPlayersWhenNull() {
+         suggestPlayersWhenNullTabCompletions = getBoolean("settings.suggest-player-names-when-null-tab-completions", suggestPlayersWhenNullTabCompletions);
+     }
++
++    public static String authenticationServersDownKickMessage = ""; // empty = use translatable message
++    private static void authenticationServersDownKickMessage() {
++        authenticationServersDownKickMessage = Strings.emptyToNull(getString("messages.kick.authentication-servers-down", authenticationServersDownKickMessage));
++    }
+ }
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index 32233a786842fffef05723a94961ed2dfa6c940b..9b47aaf65271fb0d06cca6412fea1e92f00044af 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -261,6 +261,10 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+                             ServerLoginNetHandler.this.field_147337_i = ServerLoginNetHandler.this.func_152506_a(gameprofile);
+                             ServerLoginNetHandler.this.field_147328_g = ServerLoginNetHandler.State.READY_TO_ACCEPT;
+                         } else {
++                            // Paper start
++                            if (com.destroystokyo.paper.PaperConfig.authenticationServersDownKickMessage != null) {
++                                ServerLoginNetHandler.this.func_194026_b(new StringTextComponent(com.destroystokyo.paper.PaperConfig.authenticationServersDownKickMessage));
++                            } else // Paper end
+                             ServerLoginNetHandler.this.func_194026_b(new TranslationTextComponent("multiplayer.disconnect.authservers_down"));
+                             ServerLoginNetHandler.field_147332_c.error("Couldn't verify username because servers are unavailable");
+                         }

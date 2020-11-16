@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Tue, 4 Sep 2018 15:02:00 -0500
+Subject: [PATCH] Expose attack cooldown methods for Player
+
+
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 6c4795f0ef918eb72fe67d31155b339fb68fcb53..f2e97e9a50d58d2d4b9e2313af9fb9d06a30dc33 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -2100,6 +2100,7 @@ public abstract class PlayerEntity extends LivingEntity {
+         this.field_70180_af.func_187227_b(PlayerEntity.field_192033_bu, p_192031_1_);
+     }
+ 
++    public float getCooldownPeriod() { return this.func_184818_cX(); } // Paper - OBFHELPER
+     public float func_184818_cX() {
+         return (float) (1.0D / this.func_233637_b_(Attributes.field_233825_h_) * 20.0D);
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index dc57556658ebcf69abaea2159eea331d0dae3239..4c63a29a4024bcbdfebf7b2a3e7ef83d53821235 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -1976,6 +1976,20 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+         getInventory().setItemInMainHand(hand);
+     }
+ 
++    // Paper start
++    public float getCooldownPeriod() {
++        return getHandle().getCooldownPeriod();
++    }
++
++    public float getCooledAttackStrength(float adjustTicks) {
++        return getHandle().func_184825_o(adjustTicks);
++    }
++
++    public void resetCooldown() {
++        getHandle().func_184821_cY();
++    }
++    // Paper end
++
+     // Spigot start
+     private final Player.Spigot spigot = new Player.Spigot()
+     {

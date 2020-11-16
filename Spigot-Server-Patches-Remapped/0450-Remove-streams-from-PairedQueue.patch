@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Mon, 6 Apr 2020 18:10:43 -0700
+Subject: [PATCH] Remove streams from PairedQueue
+
+We shouldn't be doing stream calls just to see if the queue is
+empty. This creates loads of garbage thanks to how often it's called.
+
+diff --git a/src/main/java/net/minecraft/util/concurrent/ITaskQueue.java b/src/main/java/net/minecraft/util/concurrent/ITaskQueue.java
+index 1e4c3e9f7c2dadea77f17dfc7f73d3c87bd70649..2e72bc1a0842882a5562fcc4583e27c45b6adf23 100644
+--- a/src/main/java/net/minecraft/util/concurrent/ITaskQueue.java
++++ b/src/main/java/net/minecraft/util/concurrent/ITaskQueue.java
+@@ -20,32 +20,30 @@ public interface ITaskQueue<T, F> {
+ 
+     public static final class Priority implements ITaskQueue<ITaskQueue.RunnableWithPriority, Runnable> {
+ 
+-        private final List<Queue<Runnable>> field_219949_a;
++        private final List<Queue<Runnable>> field_219949_a; private final List<Queue<Runnable>> getQueues() { return this.field_219949_a; } // Paper - OBFHELPER
+ 
+         public Priority(int p_i50964_1_) {
+-            this.field_219949_a = (List) IntStream.range(0, p_i50964_1_).mapToObj((j) -> {
+-                return Queues.newConcurrentLinkedQueue();
+-            }).collect(Collectors.toList());
++            // Paper start - remove streams
++            this.field_219949_a = new java.util.ArrayList<>(p_i50964_1_); // queues
++            for (int j = 0; j < p_i50964_1_; ++j) {
++                this.getQueues().add(Queues.newConcurrentLinkedQueue());
++            }
++            // Paper end - remove streams
+         }
+ 
+         @Nullable
+         @Override
+         public Runnable func_212827_a_() {
+-            Iterator iterator = this.field_219949_a.iterator();
+-
+-            Runnable runnable;
+-
+-            do {
+-                if (!iterator.hasNext()) {
+-                    return null;
++            // Paper start - remove iterator creation
++            for (int i = 0, len = this.getQueues().size(); i < len; ++i) {
++                Queue<Runnable> queue = this.getQueues().get(i);
++                Runnable ret = queue.poll();
++                if (ret != null) {
++                    return ret;
+                 }
+-
+-                Queue<Runnable> queue = (Queue) iterator.next();
+-
+-                runnable = (Runnable) queue.poll();
+-            } while (runnable == null);
+-
+-            return runnable;
++            }
++            return null;
++            // Paper end - remove iterator creation
+         }
+ 
+         public boolean func_212828_a_(ITaskQueue.RunnableWithPriority p_212828_1_) {
+@@ -57,7 +55,16 @@ public interface ITaskQueue<T, F> {
+ 
+         @Override
+         public boolean func_219946_b() {
+-            return this.field_219949_a.stream().allMatch(Collection::isEmpty);
++            // Paper start - remove streams
++            // why are we doing streams every time we might want to execute a task?
++            for (int i = 0, len = this.getQueues().size(); i < len; ++i) {
++                Queue<Runnable> queue = this.getQueues().get(i);
++                if (!queue.isEmpty()) {
++                    return false;
++                }
++            }
++            return true;
++            // Paper end - remove streams
+         }
+     }
+ 

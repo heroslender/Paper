@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joseph Hirschfeld <joe@ibj.io>
+Date: Thu, 3 Mar 2016 02:46:17 -0600
+Subject: [PATCH] Add configurable portal search radius
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 62e793b71b313146b86b466421e7a5f894bef9df..cd47a4ca069df26969de3051c2aac80540093818 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -191,4 +191,11 @@ public class PaperWorldConfig {
+     private void allChunksAreSlimeChunks() {
+         allChunksAreSlimeChunks = getBoolean("all-chunks-are-slime-chunks", false);
+     }
++
++    public int portalSearchRadius;
++    public int portalCreateRadius;
++    private void portalSearchRadius() {
++        portalSearchRadius = getInt("portal-search-radius", 128);
++        portalCreateRadius = getInt("portal-create-radius", 16);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 5002e66f66cbe487d3d0bde91d8f2ee80830310c..7a260cf403c9ec5f42aca84de68cf2256131849f 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -2597,7 +2597,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+ 
+                 blockposition = new BlockPos(d0, this.func_226278_cu_(), d1);
+                 // CraftBukkit start
+-                EntityPortalEvent event = CraftEventFactory.callEntityPortalEvent(this, worldserver, blockposition, 128);
++                EntityPortalEvent event = CraftEventFactory.callEntityPortalEvent(this, worldserver, blockposition, worldserver.paperConfig.portalSearchRadius); // Paper - use portal search radius
+                 if (event == null) {
+                     return null;
+                 }
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index b001d49edbd335158e26f36dd0305e13a570b780..d72c774598c582d8b131b643e162d86c0b2eb091 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -936,7 +936,8 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+             // CraftBukkit start
+             Location enter = this.getBukkitEntity().getLocation();
+             Location exit = (worldserver == null) ? null : new Location(worldserver.getWorld(), d0, d1, d2, f1, f);
+-            PlayerPortalEvent event = new PlayerPortalEvent(this.getBukkitEntity(), enter, exit, cause, 128, true, resourcekey == DimensionType.field_236001_e_ ? 0 : 16);
++            com.destroystokyo.paper.PaperWorldConfig config = worldserver != null ? worldserver.paperConfig : worldserver1.paperConfig; // Paper - portal radius
++            PlayerPortalEvent event = new PlayerPortalEvent(this.getBukkitEntity(), enter, exit, cause, config.portalSearchRadius, true, resourcekey == DimensionType.field_236001_e_ ? 0 : config.portalCreateRadius); // Paper - portal radius
+             Bukkit.getServer().getPluginManager().callEvent(event);
+             if (event.isCancelled() || event.getTo() == null) {
+                 return null;
+diff --git a/src/main/java/net/minecraft/world/Teleporter.java b/src/main/java/net/minecraft/world/Teleporter.java
+index c8c05217af857970f03609148f56dc0b3fd0da6f..dc059c884d145c8740608146e0ab0ad01de6e08c 100644
+--- a/src/main/java/net/minecraft/world/Teleporter.java
++++ b/src/main/java/net/minecraft/world/Teleporter.java
+@@ -61,7 +61,7 @@ public class Teleporter {
+     @Nullable
+     public BlockPattern.PortalInfo func_222272_a(BlockPos p_222272_1_, Vector3d p_222272_2_, Direction p_222272_3_, double p_222272_4_, double p_222272_5_, boolean p_222272_6_) { // PAIL: rename to findPortal, d0 = portal offset x, d1 = portal offset z, flag = instanceof EntityHuman
+         // CraftBukkit start
+-        return findPortal(p_222272_1_, p_222272_2_, p_222272_3_, p_222272_4_, p_222272_5_, p_222272_6_, 128);
++        return findPortal(p_222272_1_, p_222272_2_, p_222272_3_, p_222272_4_, p_222272_5_, p_222272_6_, field_85192_a.paperConfig.portalSearchRadius); // Paper
+     }
+ 
+     @Nullable
+@@ -69,7 +69,7 @@ public class Teleporter {
+         // CraftBukkit end
+         PointOfInterestManager villageplace = this.field_85192_a.func_217443_B();
+ 
+-        villageplace.func_226347_a_(this.field_85192_a, blockposition, 128);
++        villageplace.func_226347_a_(this.field_85192_a, blockposition, searchRadius); // Paper - This impacts the # of chunks searched for entries
+         List<PointOfInterest> list = (List) villageplace.func_226353_b_((villageplacetype) -> {
+             return villageplacetype == PointOfInterestType.field_226358_u_;
+         }, blockposition, searchRadius, PointOfInterestManager.Status.ANY).collect(Collectors.toList()); // CraftBukkit - searchRadius

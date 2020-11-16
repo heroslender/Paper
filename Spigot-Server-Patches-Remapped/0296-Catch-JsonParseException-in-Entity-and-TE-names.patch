@@ -1,0 +1,114 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Sat, 22 Sep 2018 15:56:59 -0400
+Subject: [PATCH] Catch JsonParseException in Entity and TE names
+
+As a result, data that no longer parses correctly will not crash the server
+instead just logging the exception and continuing (and in most cases should
+fix the data)
+
+Player data is fixed pretty much immediately but some block data (like
+Shulkers) may need to be changed in order for it to re-save properly
+
+No more crashing though.
+
+diff --git a/src/main/java/net/minecraft/server/MCUtil.java b/src/main/java/net/minecraft/server/MCUtil.java
+index 4ff56b8aafed2f1b62a4c4be3a40247884b069a6..614b012c2aa2f5cde4ce14dae7571a9fea7a06ad 100644
+--- a/src/main/java/net/minecraft/server/MCUtil.java
++++ b/src/main/java/net/minecraft/server/MCUtil.java
+@@ -15,10 +15,12 @@ import org.spigotmc.AsyncCatcher;
+ import javax.annotation.Nonnull;
+ import javax.annotation.Nullable;
+ import net.minecraft.entity.Entity;
++import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.util.Direction;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.ChunkPos;
+ import net.minecraft.util.math.RayTraceContext;
++import net.minecraft.util.text.ITextComponent;
+ import net.minecraft.world.World;
+ import net.minecraft.world.server.ServerWorld;
+ import java.util.List;
+@@ -513,4 +515,19 @@ public final class MCUtil {
+                 return null;
+         }
+     }
++
++    @Nullable
++    public static ITextComponent getBaseComponentFromNbt(String key, CompoundNBT compound) {
++        if (!compound.func_74764_b(key)) {
++            return null;
++        }
++        String string = compound.func_74779_i(key);
++        try {
++            return ITextComponent.Serializer.jsonToComponent(string);
++        } catch (com.google.gson.JsonParseException e) {
++            org.bukkit.Bukkit.getLogger().warning("Unable to parse " + key + " from " + compound +": " + e.getMessage());
++        }
++
++        return null;
++    }
+ }
+diff --git a/src/main/java/net/minecraft/tileentity/BannerTileEntity.java b/src/main/java/net/minecraft/tileentity/BannerTileEntity.java
+index 134ba3edcd31c926707d5ae4e0ee8360f5105b7e..0b1265a624c0e8b560f963cc058f91448d5312fb 100644
+--- a/src/main/java/net/minecraft/tileentity/BannerTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/BannerTileEntity.java
+@@ -11,6 +11,7 @@ import net.minecraft.item.ItemStack;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.ListNBT;
+ import net.minecraft.network.play.server.SUpdateTileEntityPacket;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.util.INameable;
+ import net.minecraft.util.text.ITextComponent;
+ import net.minecraft.util.text.TranslationTextComponent;
+@@ -70,7 +71,7 @@ public class BannerTileEntity extends TileEntity implements INameable {
+     public void func_230337_a_(BlockState p_230337_1_, CompoundNBT p_230337_2_) {
+         super.func_230337_a_(p_230337_1_, p_230337_2_);
+         if (p_230337_2_.func_150297_b("CustomName", 8)) {
+-            this.field_190617_a = ITextComponent.Serializer.func_240643_a_(p_230337_2_.func_74779_i("CustomName"));
++            this.field_190617_a = MCUtil.getBaseComponentFromNbt("CustomName", p_230337_2_); // Paper - Catch ParseException
+         }
+ 
+         if (this.func_145830_o()) {
+diff --git a/src/main/java/net/minecraft/tileentity/CommandBlockLogic.java b/src/main/java/net/minecraft/tileentity/CommandBlockLogic.java
+index 80fcedf7b2b2a90d58e60362d0a5ec67d949f8a2..546b38ca36630699bf306b098b759620f8b28213 100644
+--- a/src/main/java/net/minecraft/tileentity/CommandBlockLogic.java
++++ b/src/main/java/net/minecraft/tileentity/CommandBlockLogic.java
+@@ -11,6 +11,7 @@ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.crash.ReportedException;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.nbt.CompoundNBT;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.ActionResultType;
+ import net.minecraft.util.StringUtils;
+@@ -75,7 +76,7 @@ public abstract class CommandBlockLogic implements ICommandSource {
+         this.field_145763_e = p_145759_1_.func_74779_i("Command");
+         this.field_145764_b = p_145759_1_.func_74762_e("SuccessCount");
+         if (p_145759_1_.func_150297_b("CustomName", 8)) {
+-            this.func_207405_b(ITextComponent.Serializer.func_240643_a_(p_145759_1_.func_74779_i("CustomName")));
++            this.func_207405_b(MCUtil.getBaseComponentFromNbt("CustomName", p_145759_1_)); // Paper - Catch ParseException
+         }
+ 
+         if (p_145759_1_.func_150297_b("TrackOutput", 1)) {
+diff --git a/src/main/java/net/minecraft/tileentity/LockableTileEntity.java b/src/main/java/net/minecraft/tileentity/LockableTileEntity.java
+index 2a32ffb3d0bb2a733d15c19f53672a295c5cd428..3e6ab2774bdfae4bd127fb650d15a7f364f02c0e 100644
+--- a/src/main/java/net/minecraft/tileentity/LockableTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/LockableTileEntity.java
+@@ -8,6 +8,7 @@ import net.minecraft.inventory.IInventory;
+ import net.minecraft.inventory.container.Container;
+ import net.minecraft.inventory.container.INamedContainerProvider;
+ import net.minecraft.nbt.CompoundNBT;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.util.INameable;
+ import net.minecraft.util.SoundCategory;
+ import net.minecraft.util.SoundEvents;
+@@ -30,7 +31,7 @@ public abstract class LockableTileEntity extends TileEntity implements IInventor
+         super.func_230337_a_(p_230337_1_, p_230337_2_);
+         this.field_174901_a = LockCode.func_180158_b(p_230337_2_);
+         if (p_230337_2_.func_150297_b("CustomName", 8)) {
+-            this.field_213909_b = ITextComponent.Serializer.func_240643_a_(p_230337_2_.func_74779_i("CustomName"));
++            this.field_213909_b = MCUtil.getBaseComponentFromNbt("CustomName", p_230337_2_); // Paper - Catch ParseException
+         }
+ 
+     }

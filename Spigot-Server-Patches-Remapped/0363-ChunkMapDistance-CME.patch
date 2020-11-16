@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Wed, 29 May 2019 04:01:22 +0100
+Subject: [PATCH] ChunkMapDistance CME
+
+
+diff --git a/src/main/java/net/minecraft/world/server/ChunkHolder.java b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+index 8cb6196d8fef82d65d9c7b021cb59a9d2a85b573..e537ac691b8a53e4f0b2c732fde63e75435bc4bf 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkHolder.java
++++ b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+@@ -39,6 +39,7 @@ public class ChunkHolder {
+     private static final CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219309_d = CompletableFuture.completedFuture(ChunkHolder.field_219308_c);
+     private static final List<ChunkStatus> field_219310_e = ChunkStatus.func_222582_a();
+     private static final ChunkHolder.LocationType[] field_219311_f = ChunkHolder.LocationType.values();
++    boolean isUpdateQueued = false; // Paper
+     private final AtomicReferenceArray<CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>>> field_219312_g;
+     private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_222983_h; private int fullChunkCreateCount; private volatile boolean isFullChunkReady; // Paper - cache chunk ticking stage
+     private volatile CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> field_219313_h; private volatile boolean isTickingReady; // Paper - cache chunk ticking stage
+diff --git a/src/main/java/net/minecraft/world/server/TicketManager.java b/src/main/java/net/minecraft/world/server/TicketManager.java
+index c8c9b5916da293803a98c9ada1804ad6131a9674..686559c7a0fbe49411b7b210a031eead74002a45 100644
+--- a/src/main/java/net/minecraft/world/server/TicketManager.java
++++ b/src/main/java/net/minecraft/world/server/TicketManager.java
+@@ -42,7 +42,16 @@ public abstract class TicketManager {
+     private final TicketManager.ChunkTicketTracker field_219378_f = new TicketManager.ChunkTicketTracker();
+     private final TicketManager.PlayerChunkTracker field_219381_i = new TicketManager.PlayerChunkTracker(8);
+     private final TicketManager.PlayerTicketTracker field_219382_j = new TicketManager.PlayerTicketTracker(33);
+-    private final Set<ChunkHolder> field_219383_k = Sets.newHashSet();
++    // Paper start use a queue, but still keep unique requirement
++    public final java.util.Queue<ChunkHolder> field_219383_k = new java.util.ArrayDeque<ChunkHolder>() {
++        @Override
++        public boolean add(ChunkHolder o) {
++            if (o.isUpdateQueued) return true;
++            o.isUpdateQueued = true;
++            return super.add(o);
++        }
++    };
++    // Paper end
+     private final ChunkTaskPriorityQueueSorter field_219384_l;
+     private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219385_m;
+     private final ITaskExecutor<ChunkTaskPriorityQueueSorter.RunnableEntry> field_219386_n;
+@@ -103,26 +112,14 @@ public abstract class TicketManager {
+             ;
+         }
+ 
++        // Paper start
+         if (!this.field_219383_k.isEmpty()) {
+-            // CraftBukkit start
+-            // Iterate pending chunk updates with protection against concurrent modification exceptions
+-            java.util.Iterator<ChunkHolder> iter = this.field_219383_k.iterator();
+-            int expectedSize = this.field_219383_k.size();
+-            do {
+-                ChunkHolder playerchunk = iter.next();
+-                iter.remove();
+-                expectedSize--;
+-
+-                playerchunk.func_219291_a(p_219353_1_);
+-
+-                // Reset iterator if set was modified using add()
+-                if (this.field_219383_k.size() != expectedSize) {
+-                    expectedSize = this.field_219383_k.size();
+-                    iter = this.field_219383_k.iterator();
+-                }
+-            } while (iter.hasNext());
+-            // CraftBukkit end
+-
++            while(!this.field_219383_k.isEmpty()) {
++                ChunkHolder remove = this.field_219383_k.remove();
++                remove.isUpdateQueued = false;
++                remove.func_219291_a(p_219353_1_);
++            }
++            // Paper end
+             return true;
+         } else {
+             if (!this.field_219387_o.isEmpty()) {

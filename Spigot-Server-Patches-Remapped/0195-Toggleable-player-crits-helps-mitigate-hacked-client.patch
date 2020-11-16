@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: MiniDigger <admin@minidigger.me>
+Date: Sat, 10 Mar 2018 00:50:24 +0100
+Subject: [PATCH] Toggleable player crits, helps mitigate hacked clients.
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 48fa2483fc657b36b8f2fd7d8b35703cff2698a5..3804c7cf96087cdf94fd5fbdce4ebcdafa9e0019 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -187,6 +187,11 @@ public class PaperWorldConfig {
+         disableChestCatDetection = getBoolean("game-mechanics.disable-chest-cat-detection", false);
+     }
+ 
++    public boolean disablePlayerCrits;
++    private void disablePlayerCrits() {
++        disablePlayerCrits = getBoolean("game-mechanics.disable-player-crits", false);
++    }
++
+     public boolean allChunksAreSlimeChunks;
+     private void allChunksAreSlimeChunks() {
+         allChunksAreSlimeChunks = getBoolean("all-chunks-are-slime-chunks", false);
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index a1544d5ac3103ce3e7eaff306344fc9f97671ad8..9f52eb8c3c263b28bdf883da8811ef846b9d6e12 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -1136,6 +1136,7 @@ public abstract class PlayerEntity extends LivingEntity {
+ 
+                     boolean flag2 = flag && this.field_70143_R > 0.0F && !this.field_70122_E && !this.func_70617_f_() && !this.func_70090_H() && !this.func_70644_a(Effects.field_76440_q) && !this.func_184218_aH() && p_71059_1_ instanceof LivingEntity;
+ 
++                    flag2 = flag2 && !field_70170_p.paperConfig.disablePlayerCrits; // Paper
+                     flag2 = flag2 && !this.func_70051_ag();
+                     if (flag2) {
+                         f *= 1.5F;

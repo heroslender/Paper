@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AlphaBlend <whizkid3000@hotmail.com>
+Date: Sun, 16 Oct 2016 23:19:30 -0700
+Subject: [PATCH] Add EntityZapEvent
+
+
+diff --git a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+index 1dca721de229f36892da094300f9b1759b0be792..c7005293f968efeabef229cf6bdf94d3cf069f41 100644
+--- a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
++++ b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+@@ -784,6 +784,12 @@ public class VillagerEntity extends AbstractVillagerEntity implements IReputatio
+             VillagerEntity.field_184243_a.info("Villager {} was struck by lightning {}.", this, p_70077_1_);
+             WitchEntity entitywitch = (WitchEntity) EntityType.field_200759_ay.func_200721_a(this.field_70170_p);
+ 
++            // Paper start
++            if (org.bukkit.craftbukkit.event.CraftEventFactory.callEntityZapEvent(this, p_70077_1_, entitywitch).isCancelled()) {
++                return;
++            }
++            // Paper end
++
+             entitywitch.func_70012_b(this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), this.field_70177_z, this.field_70125_A);
+             entitywitch.func_213386_a(this.field_70170_p, this.field_70170_p.func_175649_E(entitywitch.func_233580_cy_()), SpawnReason.CONVERSION, (ILivingEntityData) null, (CompoundNBT) null);
+             entitywitch.func_94061_f(this.func_175446_cd());
+diff --git a/src/main/java/net/minecraft/entity/passive/PigEntity.java b/src/main/java/net/minecraft/entity/passive/PigEntity.java
+index 82ab28adcfe2f199ea07cd3ea8a8e6c9abc29366..d585665920139ec94e41ec239624e847c9ffd5a5 100644
+--- a/src/main/java/net/minecraft/entity/passive/PigEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/PigEntity.java
+@@ -253,6 +253,11 @@ public class PigEntity extends AnimalEntity implements IRideable, IEquipable {
+             }
+ 
+             entitypigzombie.func_110163_bv();
++            // Paper start
++            if (CraftEventFactory.callEntityZapEvent(this, p_70077_1_, entitypigzombie).isCancelled()) {
++                return;
++            }
++            // Paper end
+             // CraftBukkit start
+             if (CraftEventFactory.callPigZapEvent(this, p_70077_1_, entitypigzombie).isCancelled()) {
+                 return;
+diff --git a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+index e15cec5bcfb00b72a3a3360c88b0ea66738665db..1c4a8dd301e6d5f4f6d450f3c6581535912c0356 100644
+--- a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
++++ b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+@@ -1078,6 +1078,14 @@ public class CraftEventFactory {
+         return event;
+     }
+ 
++    // Paper start
++    public static com.destroystokyo.paper.event.entity.EntityZapEvent callEntityZapEvent (Entity entity, Entity lightning, Entity changedEntity) {
++        com.destroystokyo.paper.event.entity.EntityZapEvent event = new com.destroystokyo.paper.event.entity.EntityZapEvent(entity.getBukkitEntity(), (LightningStrike) lightning.getBukkitEntity(), changedEntity.getBukkitEntity());
++        entity.getBukkitEntity().getServer().getPluginManager().callEvent(event);
++        return event;
++    }
++    // Paper end
++
+     public static HorseJumpEvent callHorseJumpEvent(Entity horse, float power) {
+         HorseJumpEvent event = new HorseJumpEvent((AbstractHorse) horse.getBukkitEntity(), power);
+         horse.getBukkitEntity().getServer().getPluginManager().callEvent(event);

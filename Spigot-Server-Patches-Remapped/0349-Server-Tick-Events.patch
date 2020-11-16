@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 27 Mar 2019 22:48:45 -0400
+Subject: [PATCH] Server Tick Events
+
+Fires event at start and end of a server tick
+
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 57fe27a2ff999319efc052b6cfcc8954448c3165..0d09037e5934edd08cf65f2a2311921c12f8630b 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -1226,6 +1226,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         });
+         isOversleep = false;MinecraftTimings.serverOversleep.stopTiming();
+         // Paper end
++        new com.destroystokyo.paper.event.server.ServerTickStartEvent(this.field_71315_w+1).callEvent(); // Paper
+ 
+         ++this.field_71315_w;
+         this.func_71190_q(p_71217_1_);
+@@ -1269,6 +1270,12 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         }
+         // Paper end
+ 
++        // Paper start
++        long endTime = System.nanoTime();
++        long remaining = (TICK_TIME - (endTime - lastTick)) - catchupTime;
++        new com.destroystokyo.paper.event.server.ServerTickEndEvent(this.field_71315_w, ((double)(endTime - lastTick) / 1000000D), remaining).callEvent();
++        // Paper end
++
+         this.field_71304_b.func_76320_a("tallying");
+         long l = this.field_71311_j[this.field_71315_w % 100] = Util.func_211178_c() - i;
+ 

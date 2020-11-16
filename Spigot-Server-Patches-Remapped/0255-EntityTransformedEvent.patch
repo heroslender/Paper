@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Anthony MacAllister <anthonymmacallister@gmail.com>
+Date: Thu, 26 Jul 2018 15:30:03 -0400
+Subject: [PATCH] EntityTransformedEvent
+
+
+diff --git a/src/main/java/net/minecraft/entity/MobEntity.java b/src/main/java/net/minecraft/entity/MobEntity.java
+index 757dcad078dc68f1e24f7d2397dac37023fcf8be..8443be1ed6b785bb457b8e54056933277ae6d671 100644
+--- a/src/main/java/net/minecraft/entity/MobEntity.java
++++ b/src/main/java/net/minecraft/entity/MobEntity.java
+@@ -1313,6 +1313,7 @@ public abstract class MobEntity extends LivingEntity {
+             if (CraftEventFactory.callEntityTransformEvent(this, t0, EntityTransformEvent.TransformReason.DROWNED).isCancelled()) {
+                 return null;
+             }
++            if (!new com.destroystokyo.paper.event.entity.EntityTransformedEvent(this.getBukkitEntity(), t0.getBukkitEntity(), com.destroystokyo.paper.event.entity.EntityTransformedEvent.TransformedReason.DROWNED).callEvent()) return null; // Paper
+             this.field_70170_p.addEntity(t0, CreatureSpawnEvent.SpawnReason.DROWNED);
+             // CraftBukkit end
+             this.func_70106_y();
+diff --git a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+index 35c477951b13604938d18fad331f57b26406164f..da65f67eedb504eaf26114cd1f76f99826b83801 100644
+--- a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
++++ b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+@@ -803,6 +803,7 @@ public class VillagerEntity extends AbstractVillagerEntity implements IReputatio
+             if (CraftEventFactory.callEntityTransformEvent(this, entitywitch, EntityTransformEvent.TransformReason.LIGHTNING).isCancelled()) {
+                 return;
+             }
++            if (!new com.destroystokyo.paper.event.entity.EntityTransformedEvent(this.getBukkitEntity(), entitywitch.getBukkitEntity(), com.destroystokyo.paper.event.entity.EntityTransformedEvent.TransformedReason.LIGHTNING).callEvent()) return; // Paper
+             this.field_70170_p.addEntity(entitywitch, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.LIGHTNING);
+             // CraftBukkit end
+             this.func_70106_y();
+diff --git a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+index daef0f04d5e00fff5bafb7ae70c67521502aed88..62f6818fb3a2cbf9e599653d8a7f352fbd956a64 100644
+--- a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+@@ -457,6 +457,7 @@ public class ZombieEntity extends MonsterEntity {
+             if (CraftEventFactory.callEntityTransformEvent(this, entityzombievillager, EntityTransformEvent.TransformReason.INFECTION).isCancelled()) {
+                 return;
+             }
++            if (!new com.destroystokyo.paper.event.entity.EntityTransformedEvent(this.getBukkitEntity(), entityvillager.getBukkitEntity(), com.destroystokyo.paper.event.entity.EntityTransformedEvent.TransformedReason.INFECTED).callEvent()) return; // Paper
+             entityvillager.func_70106_y(); // CraftBukkit - from above
+             this.field_70170_p.addEntity(entityzombievillager, CreatureSpawnEvent.SpawnReason.INFECTION); // CraftBukkit - add SpawnReason
+             // CraftBukkit end
+diff --git a/src/main/java/net/minecraft/entity/monster/ZombieVillagerEntity.java b/src/main/java/net/minecraft/entity/monster/ZombieVillagerEntity.java
+index a08d4d4412e57bdbb8488e8908a12cf4f13465a5..92e203d2dc105d6c34637e9390caa0b420c03820 100644
+--- a/src/main/java/net/minecraft/entity/monster/ZombieVillagerEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/ZombieVillagerEntity.java
+@@ -254,6 +254,7 @@ public class ZombieVillagerEntity extends ZombieEntity implements IVillagerDataH
+             ((ZombieVillager) getBukkitEntity()).setConversionTime(-1); // SPIGOT-5208: End conversion to stop event spam
+             return;
+         }
++        if (!new com.destroystokyo.paper.event.entity.EntityTransformedEvent(this.getBukkitEntity(), entityvillager.getBukkitEntity(), com.destroystokyo.paper.event.entity.EntityTransformedEvent.TransformedReason.CURED).callEvent()) return; // Paper
+         this.func_70106_y(); // CraftBukkit - from above
+         p_213791_1_.addEntity(entityvillager, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.CURED); // CraftBukkit - add SpawnReason
+         // CraftBukkit end
+diff --git a/src/main/java/net/minecraft/entity/passive/MooshroomEntity.java b/src/main/java/net/minecraft/entity/passive/MooshroomEntity.java
+index 17af95ab1eb6ed3d219cfd30b4e153037595abf1..96bf16c1f4b2634d5990f6e01f9ab39a86420ce2 100644
+--- a/src/main/java/net/minecraft/entity/passive/MooshroomEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/MooshroomEntity.java
+@@ -186,6 +186,7 @@ public class MooshroomEntity extends CowEntity implements IShearable {
+             if (CraftEventFactory.callEntityTransformEvent(this, entitycow, EntityTransformEvent.TransformReason.SHEARED).isCancelled()) {
+                 return;
+             }
++            if (!new com.destroystokyo.paper.event.entity.EntityTransformedEvent(this.getBukkitEntity(), entitycow.getBukkitEntity(), com.destroystokyo.paper.event.entity.EntityTransformedEvent.TransformedReason.SHEARED).callEvent()) return; // Paper
+             this.field_70170_p.addEntity(entitycow, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SHEARED);
+ 
+             this.func_70106_y(); // CraftBukkit - from above

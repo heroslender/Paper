@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mrapple <tony@oc.tc>
+Date: Sun, 25 Nov 2012 13:43:39 -0600
+Subject: [PATCH] Add methods for working with arrows stuck in living entities
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+index 8f6ad39a8f9ea25a820a0a78d9c80378d83b7dcd..873a0a66c8a16e2d4c052a5a27bffd21e7f45bd5 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+@@ -634,4 +634,16 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+     public <T> void setMemory(MemoryKey<T> memoryKey, T t) {
+         getHandle().func_213375_cj().func_218205_a(CraftMemoryKey.fromMemoryKey(memoryKey), CraftMemoryMapper.toNms(t));
+     }
++
++    // Paper start
++    @Override
++    public int getArrowsStuck() {
++        return getHandle().func_85035_bI();
++    }
++
++    @Override
++    public void setArrowsStuck(int arrows) {
++        getHandle().func_85034_r(arrows);
++    }
++    // Paper end
+ }

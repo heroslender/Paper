@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sun, 28 Jul 2019 00:51:11 +0100
+Subject: [PATCH] Mark entities as being ticked when notifying navigation
+
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index bc03d182caf875bb3503850ed2f88fe2699d1211..fa74ab3f48b66ae60259eec9e76e90154ad5dfe6 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1421,6 +1421,7 @@ public class ServerWorld extends World implements ISeedReader {
+         VoxelShape voxelshape1 = p_184138_3_.func_196952_d(this, p_184138_1_);
+ 
+         if (VoxelShapes.func_197879_c(voxelshape, voxelshape1, IBooleanFunction.field_223236_g_)) {
++            boolean wasTicking = this.field_217492_a; this.field_217492_a = true; // Paper
+             Iterator iterator = this.field_217495_I.iterator();
+ 
+             while (iterator.hasNext()) {
+@@ -1431,6 +1432,7 @@ public class ServerWorld extends World implements ISeedReader {
+                 }
+             }
+ 
++            this.field_217492_a = wasTicking; // Paper
+         }
+     }
+ 

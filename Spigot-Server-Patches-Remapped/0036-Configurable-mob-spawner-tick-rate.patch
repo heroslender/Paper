@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sudzzy <originmc@outlook.com>
+Date: Wed, 2 Mar 2016 15:03:53 -0600
+Subject: [PATCH] Configurable mob spawner tick rate
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index f53d8b96757cbedc5fbb16195952a7da5c07164f..428deed56dae597291670bea8c8a6a67ce4d940f 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -171,4 +171,9 @@ public class PaperWorldConfig {
+     private void disableIceAndSnow(){
+         disableIceAndSnow = getBoolean("disable-ice-and-snow", false);
+     }
++
++    public int mobSpawnerTickRate;
++    private void mobSpawnerTickRate() {
++        mobSpawnerTickRate = getInt("mob-spawner-tick-rate", 1);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+index ed45090bdb1848407a511b562e5467fabe92d54f..ec70a3dd7648a9c06eb4cd22ce08801ba16c2e11 100644
+--- a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+@@ -44,6 +44,7 @@ public abstract class AbstractSpawner {
+     public int field_98292_k = 6;
+     public int field_98289_l = 16;
+     public int field_98290_m = 4;
++    private int tickDelay = 0; // Paper
+ 
+     public AbstractSpawner() {}
+ 
+@@ -73,6 +74,10 @@ public abstract class AbstractSpawner {
+     }
+ 
+     public void func_98278_g() {
++        // Paper start - Configurable mob spawner tick rate
++        if (field_98286_b > 0 && --tickDelay > 0) return;
++        tickDelay = this.func_98271_a().paperConfig.mobSpawnerTickRate;
++        // Paper end
+         if (!this.func_98279_f()) {
+             this.field_98284_d = this.field_98287_c;
+         } else {
+@@ -87,18 +92,18 @@ public abstract class AbstractSpawner {
+                 world.func_195594_a(ParticleTypes.field_197601_L, d0, d1, d2, 0.0D, 0.0D, 0.0D);
+                 world.func_195594_a(ParticleTypes.field_197631_x, d0, d1, d2, 0.0D, 0.0D, 0.0D);
+                 if (this.field_98286_b > 0) {
+-                    --this.field_98286_b;
++                    this.field_98286_b -= tickDelay; // Paper
+                 }
+ 
+                 this.field_98284_d = this.field_98287_c;
+                 this.field_98287_c = (this.field_98287_c + (double) (1000.0F / ((float) this.field_98286_b + 200.0F))) % 360.0D;
+             } else {
+-                if (this.field_98286_b == -1) {
++                if (this.field_98286_b < -tickDelay) { // Paper
+                     this.func_98273_j();
+                 }
+ 
+                 if (this.field_98286_b > 0) {
+-                    --this.field_98286_b;
++                    this.field_98286_b -= tickDelay; // Paper
+                     return;
+                 }
+ 

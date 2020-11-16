@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sat, 7 Mar 2020 00:07:51 +0000
+Subject: [PATCH] Validate tripwire hook placement before update
+
+
+diff --git a/src/main/java/net/minecraft/block/TripWireHookBlock.java b/src/main/java/net/minecraft/block/TripWireHookBlock.java
+index 521650906bbc164a72b61acc8b3fab9256911114..cac0f8e8f08e488c46a7ace7ed9ea022fad0f57d 100644
+--- a/src/main/java/net/minecraft/block/TripWireHookBlock.java
++++ b/src/main/java/net/minecraft/block/TripWireHookBlock.java
+@@ -169,6 +169,7 @@ public class TripWireHookBlock extends Block {
+ 
+         this.func_180694_a(p_176260_1_, p_176260_2_, flag4, flag5, flag2, flag3);
+         if (!p_176260_4_) {
++            if (p_176260_1_.func_180495_p(p_176260_2_).func_177230_c() == Blocks.field_150479_bC) // Paper - validate
+             p_176260_1_.func_180501_a(p_176260_2_, (BlockState) iblockdata3.func_206870_a(TripWireHookBlock.field_176264_a, enumdirection), 3);
+             if (p_176260_5_) {
+                 this.func_176262_b(p_176260_1_, p_176260_2_, enumdirection);

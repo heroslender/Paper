@@ -1,0 +1,132 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 6 Nov 2017 21:08:22 -0500
+Subject: [PATCH] API to get a BlockState without a snapshot
+
+This allows you to get a BlockState without creating a snapshot, operating
+on the real tile entity.
+
+This is useful for where performance is needed
+
+also Avoid NPE during CraftBlockEntityState load if could not get TE
+
+If Tile Entity was null, correct Sign to return empty lines instead of null
+
+diff --git a/src/main/java/net/minecraft/tileentity/TileEntity.java b/src/main/java/net/minecraft/tileentity/TileEntity.java
+index 80745391e2793197ead8372ec2a13f8e9f57e6d6..2e5a528c9e8e5fe994edf9cbbd0fc6424a720810 100644
+--- a/src/main/java/net/minecraft/tileentity/TileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/TileEntity.java
+@@ -243,7 +243,12 @@ public abstract class TileEntity implements KeyedObject { // Paper
+     }
+ 
+     // CraftBukkit start - add method
++    // Paper start
+     public InventoryHolder getOwner() {
++        return getOwner(true);
++    }
++    public InventoryHolder getOwner(boolean useSnapshot) {
++        // Paper end
+         if (field_145850_b == null) return null;
+         // Spigot start
+         org.bukkit.block.Block block = field_145850_b.getWorld().getBlockAt(field_174879_c.func_177958_n(), field_174879_c.func_177956_o(), field_174879_c.func_177952_p());
+@@ -252,7 +257,7 @@ public abstract class TileEntity implements KeyedObject { // Paper
+             return null;
+         }
+         // Spigot end
+-        org.bukkit.block.BlockState state = block.getState();
++        org.bukkit.block.BlockState state = block.getState(useSnapshot); // Paper
+         if (state instanceof InventoryHolder) return (InventoryHolder) state;
+         return null;
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+index c90610636bd923165388b490fe41339a44a0b185..09e8a7a9e8a43b33fdf53d0b7eabfcf66c8136b4 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+@@ -305,6 +305,20 @@ public class CraftBlock implements Block {
+ 
+     @Override
+     public BlockState getState() {
++        // Paper start - allow disabling the use of snapshots
++        return getState(true);
++    }
++    public BlockState getState(boolean useSnapshot) {
++        boolean prev = CraftBlockEntityState.DISABLE_SNAPSHOT;
++        CraftBlockEntityState.DISABLE_SNAPSHOT = !useSnapshot;
++        try {
++            return getState0();
++        } finally {
++            CraftBlockEntityState.DISABLE_SNAPSHOT = prev;
++        }
++    }
++    public BlockState getState0() {
++        // Paper end
+         Material material = getType();
+ 
+         switch (material) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftBlockEntityState.java b/src/main/java/org/bukkit/craftbukkit/block/CraftBlockEntityState.java
+index 7df6d7b252a9b8e28dc1099a3fdf729eacb368c8..da77aa4e8272b11323a49c12272da2fcded21383 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftBlockEntityState.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftBlockEntityState.java
+@@ -26,20 +26,40 @@ public class CraftBlockEntityState<T extends TileEntity> extends CraftBlockState
+         this.tileEntity = tileEntityClass.cast(world.getHandle().func_175625_s(this.getPosition()));
+         Preconditions.checkState(this.tileEntity != null, "Tile is null, asynchronous access? " + block);
+ 
++        // Paper start
++        this.snapshotDisabled = DISABLE_SNAPSHOT;
++        if (DISABLE_SNAPSHOT) {
++            this.snapshot = this.tileEntity;
++        } else {
++            this.snapshot = this.createSnapshot(this.tileEntity);
++        }
+         // copy tile entity data:
+-        this.snapshot = this.createSnapshot(tileEntity);
+-        this.load(snapshot);
++        if(this.snapshot != null) {
++            this.load(this.snapshot);
++        }
++        // Paper end
+     }
+ 
++    public final boolean snapshotDisabled; // Paper
++    public static boolean DISABLE_SNAPSHOT = false; // Paper
++
+     public CraftBlockEntityState(Material material, T tileEntity) {
+         super(material);
+ 
+         this.tileEntityClass = (Class<T>) tileEntity.getClass();
+         this.tileEntity = tileEntity;
+-
++        // Paper start
++        this.snapshotDisabled = DISABLE_SNAPSHOT;
++        if (DISABLE_SNAPSHOT) {
++            this.snapshot = this.tileEntity;
++        } else {
++            this.snapshot = this.createSnapshot(this.tileEntity);
++        }
+         // copy tile entity data:
+-        this.snapshot = this.createSnapshot(tileEntity);
+-        this.load(snapshot);
++        if(this.snapshot != null) {
++            this.load(this.snapshot);
++        }
++        // Paper end
+     }
+ 
+     private T createSnapshot(T tileEntity) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftSign.java b/src/main/java/org/bukkit/craftbukkit/block/CraftSign.java
+index 281f04e11f4243189b472ecb6b2e172bf407ac1f..eebf5a1fd5e623945a902075b64355b1777e18bc 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftSign.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftSign.java
+@@ -16,10 +16,12 @@ public class CraftSign extends CraftBlockEntityState<SignTileEntity> implements
+ 
+     public CraftSign(final Block block) {
+         super(block, SignTileEntity.class);
++        if (lines == null) { lines = new String[]{"", "", "", ""}; } // Paper
+     }
+ 
+     public CraftSign(final Material material, final SignTileEntity te) {
+         super(material, te);
++        if (lines == null) { lines = new String[]{"", "", "", ""}; } // Paper
+     }
+ 
+     @Override

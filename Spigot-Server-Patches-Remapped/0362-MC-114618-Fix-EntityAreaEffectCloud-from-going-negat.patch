@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <blake.galbreath@gmail.com>
+Date: Mon, 27 May 2019 17:35:39 -0500
+Subject: [PATCH] MC-114618 - Fix EntityAreaEffectCloud from going negative
+ size
+
+
+diff --git a/src/main/java/net/minecraft/entity/AreaEffectCloudEntity.java b/src/main/java/net/minecraft/entity/AreaEffectCloudEntity.java
+index 584f9989a16e6f83481d57f70d6c991b8e8fc67d..eaa23d80caa1d9e2635a53b44b4e28e4105d9c69 100644
+--- a/src/main/java/net/minecraft/entity/AreaEffectCloudEntity.java
++++ b/src/main/java/net/minecraft/entity/AreaEffectCloudEntity.java
+@@ -195,6 +195,12 @@ public class AreaEffectCloudEntity extends Entity {
+         super.func_70071_h_();
+         boolean flag = this.func_184497_n();
+         float f = this.func_184490_j();
++        // Paper start - fix MC-114618
++        if (f < 0.0F) {
++            this.func_70106_y();
++            return;
++        }
++        // Paper end
+ 
+         if (this.field_70170_p.field_72995_K) {
+             IParticleData particleparam = this.func_195058_l();

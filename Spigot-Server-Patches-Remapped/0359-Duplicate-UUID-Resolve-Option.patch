@@ -1,0 +1,245 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 21 Jul 2018 14:27:34 -0400
+Subject: [PATCH] Duplicate UUID Resolve Option
+
+Due to a bug in https://github.com/PaperMC/Paper/commit/2e29af3df05ec0a383f48be549d1c03200756d24
+which was added all the way back in March of 2016, it was unknown (potentially not at the time)
+that an entity might actually change the seed of the random object.
+
+At some point, EntitySquid did start setting the seed. Due to this shared random, this caused
+every entity to use a Random object with a predictable seed.
+
+This has caused entities to potentially generate with the same UUID....
+
+Over the years, servers have had entities disappear, but no sign of trouble
+because CraftBukkit removed the log lines indicating that something was wrong.
+
+We have fixed the root issue causing duplicate UUID's, however we now have chunk
+files full of entities that have the same UUID as another entity!
+
+When these chunks load, the 2nd entity will not be added to the world correctly.
+
+If that chunk loads in a different order in the future, then it will reverse and the
+missing one is now the one added to the world and not the other. This results in very
+inconsistent entity behavior.
+
+This change allows you to recover any duplicate entity by generating a new UUID for it.
+This also lets you delete them instead if you don't want to risk having new entities added to
+the world that you previously did not see.
+
+But for those who are ok with leaving this inconsistent behavior, you may use WARN or NOTHING options.
+
+It is recommended you regenerate the entities, as these were legit entities, and deserve your love.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index a73b88d51608ce94f6e4c9013c8c4de97523fe42..6e29e3294d0661cc35d53b4201d980a2db4f5c93 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -405,4 +405,43 @@ public class PaperWorldConfig {
+     private void preventMovingIntoUnloadedChunks() {
+         preventMovingIntoUnloadedChunks = getBoolean("prevent-moving-into-unloaded-chunks", false);
+     }
++
++    public enum DuplicateUUIDMode {
++        SAFE_REGEN, DELETE, NOTHING, WARN
++    }
++    public DuplicateUUIDMode duplicateUUIDMode = DuplicateUUIDMode.SAFE_REGEN;
++    public int duplicateUUIDDeleteRange = 32;
++    private void repairDuplicateUUID() {
++        String desiredMode = getString("duplicate-uuid-resolver", "saferegen").toLowerCase().trim();
++        duplicateUUIDDeleteRange = getInt("duplicate-uuid-saferegen-delete-range", duplicateUUIDDeleteRange);
++        switch (desiredMode.toLowerCase()) {
++            case "regen":
++            case "regenerate":
++            case "saferegen":
++            case "saferegenerate":
++                duplicateUUIDMode = DuplicateUUIDMode.SAFE_REGEN;
++                log("Duplicate UUID Resolve: Regenerate New UUID if distant (Delete likely duplicates within " + duplicateUUIDDeleteRange + " blocks)");
++                break;
++            case "remove":
++            case "delete":
++                duplicateUUIDMode = DuplicateUUIDMode.DELETE;
++                log("Duplicate UUID Resolve: Delete Entity");
++                break;
++            case "silent":
++            case "nothing":
++                duplicateUUIDMode = DuplicateUUIDMode.NOTHING;
++                logError("Duplicate UUID Resolve: Do Nothing (no logs) - Warning, may lose indication of bad things happening");
++                break;
++            case "log":
++            case "warn":
++                duplicateUUIDMode = DuplicateUUIDMode.WARN;
++                log("Duplicate UUID Resolve: Warn (do nothing but log it happened, may be spammy)");
++                break;
++            default:
++                duplicateUUIDMode = DuplicateUUIDMode.WARN;
++                logError("Warning: Invalid duplicate-uuid-resolver config " + desiredMode + " - must be one of: regen, delete, nothing, warn");
++                log("Duplicate UUID Resolve: Warn (do nothing but log it happened, may be spammy)");
++                break;
++        }
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index eaa585bd99659589ed32c787bca66e462cd26427..f1fa0bd7e7f4232f900192d148e9d1161a9f0c73 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -2774,6 +2774,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         });
+     }
+ 
++    public final void setUUID(UUID uuid) { func_184221_a(uuid); } // Paper - OBFHELPER
+     public void func_184221_a(UUID p_184221_1_) {
+         this.field_96093_i = p_184221_1_;
+         this.field_189513_ar = this.field_96093_i.toString();
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 16eaecf4ed0886fac87c005be20117b0a07b60e8..4e6c6070c0b9cbb3ce7532e769497d520949e61e 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -540,6 +540,7 @@ public class Chunk implements IChunk {
+         if (i != this.field_212816_F.field_77276_a || j != this.field_212816_F.field_77275_b) {
+             Chunk.field_150817_t.warn("Wrong location! ({}, {}) should be ({}, {}), {}", i, j, this.field_212816_F.field_77276_a, this.field_212816_F.field_77275_b, p_76612_1_);
+             p_76612_1_.field_70128_L = true;
++            return; // Paper
+         }
+ 
+         int k = MathHelper.func_76128_c(p_76612_1_.func_226278_cu_() / 16.0D);
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 8b0c708c850b82d38aff7e867af67d01d5e0fb51..96527c89db7ef54eaafcfe5bebbf881a836fbd3c 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -1,6 +1,7 @@
+ package net.minecraft.world.server;
+ 
+ import co.aikar.timings.Timing; // Paper
++import com.destroystokyo.paper.PaperWorldConfig; // Paper
+ import com.google.common.collect.ImmutableList;
+ import com.google.common.collect.Iterables;
+ import com.google.common.collect.ComparisonChain; // Paper
+@@ -23,14 +24,17 @@ import it.unimi.dsi.fastutil.objects.ObjectIterator;
+ import java.io.File;
+ import java.io.IOException;
+ import java.io.Writer;
++import java.util.HashMap; // Paper
+ import java.util.Collection;
+ import java.util.Iterator;
+ import java.util.List;
++import java.util.Map; // Paper
+ import java.util.Objects;
+ import java.util.Optional;
+ import java.util.Queue;
+ import java.util.Set;
+ import java.util.concurrent.CancellationException;
++import java.util.UUID; // Paper
+ import java.util.concurrent.CompletableFuture;
+ import java.util.concurrent.CompletionException;
+ import java.util.concurrent.Executor;
+@@ -76,6 +80,7 @@ import net.minecraft.util.palette.UpgradeData;
+ import net.minecraft.village.PointOfInterestManager;
+ import net.minecraft.world.GameRules;
+ import net.minecraft.world.TrackedEntity;
++import net.minecraft.world.World;
+ import net.minecraft.world.chunk.Chunk;
+ import net.minecraft.world.chunk.ChunkPrimer;
+ import net.minecraft.world.chunk.ChunkPrimerWrapper;
+@@ -701,12 +706,12 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+                             // CraftBukkit start - these are spawned serialized (DefinedStructure) and we don't call an add event below at the moment due to ordering complexities
+                             boolean needsRemoval = false;
+                             if (chunk.needsDecoration && !this.field_219255_i.getServer().getServer().func_230538_V_() && entity instanceof INPC) {
+-                                entity.func_70106_y();
++                                entity.field_70128_L = true; // Paper
+                                 needsRemoval = true;
+                             }
+-
+-                            if (!(entity instanceof PlayerEntity) && (needsRemoval || !this.field_219255_i.func_217440_f(entity))) {
+-                                // CraftBukkit end
++                            // CraftBukkit end
++                            checkDupeUUID(entity); // Paper
++                            if (!(entity instanceof PlayerEntity) && (entity.field_70128_L || !this.field_219255_i.func_217440_f(entity))) { // Paper
+                                 if (list == null) {
+                                     list = Lists.newArrayList(new Entity[]{entity});
+                                 } else {
+@@ -733,6 +738,44 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         });
+     }
+ 
++    // Paper start
++    private void checkDupeUUID(Entity entity) {
++        PaperWorldConfig.DuplicateUUIDMode mode = field_219255_i.paperConfig.duplicateUUIDMode;
++        if (mode != PaperWorldConfig.DuplicateUUIDMode.WARN
++            && mode != PaperWorldConfig.DuplicateUUIDMode.DELETE
++            && mode != PaperWorldConfig.DuplicateUUIDMode.SAFE_REGEN) {
++            return;
++        }
++        Entity other = field_219255_i.func_217461_a(entity.field_96093_i);
++
++        if (mode == PaperWorldConfig.DuplicateUUIDMode.SAFE_REGEN && other != null && !other.field_70128_L
++                && Objects.equals(other.func_70022_Q(), entity.func_70022_Q())
++                && entity.getBukkitEntity().getLocation().distance(other.getBukkitEntity().getLocation()) < field_219255_i.paperConfig.duplicateUUIDDeleteRange
++        ) {
++            if (World.DEBUG_ENTITIES) field_219250_d.warn("[DUPE-UUID] Duplicate UUID found used by " + other + ", deleted entity " + entity + " because it was near the duplicate and likely an actual duplicate. See https://github.com/PaperMC/Paper/issues/1223 for discussion on what this is about.");
++            entity.field_70128_L = true;
++            return;
++        }
++        if (other != null && !other.field_70128_L) {
++            switch (mode) {
++                case SAFE_REGEN: {
++                    entity.setUUID(UUID.randomUUID());
++                    if (World.DEBUG_ENTITIES) field_219250_d.warn("[DUPE-UUID] Duplicate UUID found used by " + other + ", regenerated UUID for " + entity + ". See https://github.com/PaperMC/Paper/issues/1223 for discussion on what this is about.");
++                    break;
++                }
++                case DELETE: {
++                    if (World.DEBUG_ENTITIES) field_219250_d.warn("[DUPE-UUID] Duplicate UUID found used by " + other + ", deleted entity " + entity + ". See https://github.com/PaperMC/Paper/issues/1223 for discussion on what this is about.");
++                    entity.field_70128_L = true;
++                    break;
++                }
++                default:
++                    if (World.DEBUG_ENTITIES) field_219250_d.warn("[DUPE-UUID] Duplicate UUID found used by " + other + ", doing nothing to " + entity + ". See https://github.com/PaperMC/Paper/issues/1223 for discussion on what this is about.");
++                    break;
++            }
++        }
++    }
++    // Paper end
++
+     public CompletableFuture<Either<Chunk, ChunkHolder.IChunkLoadingError>> func_219179_a(ChunkHolder p_219179_1_) {
+         ChunkPos chunkcoordintpair = p_219179_1_.func_219277_h();
+         CompletableFuture<Either<List<IChunk>, ChunkHolder.IChunkLoadingError>> completablefuture = this.func_219236_a(chunkcoordintpair, 1, (i) -> {
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index e8a735013f48a4ad006a658ac66f09abc0da267d..508970e9fc73858a0607f73f79156d8ac0f89bc9 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -5,6 +5,8 @@ import com.google.common.collect.ImmutableList;
+ import com.google.common.collect.Iterables;
+ import co.aikar.timings.TimingHistory; // Paper
+ import co.aikar.timings.Timings; // Paper
++
++import com.destroystokyo.paper.PaperWorldConfig; // Paper
+ import com.google.common.collect.Lists;
+ import com.google.common.collect.Maps;
+ import com.google.common.collect.Queues;
+@@ -1089,8 +1091,24 @@ public class ServerWorld extends World implements ISeedReader {
+         if (entity1 == null) {
+             return false;
+         } else {
+-            ServerWorld.field_147491_a.error("Keeping entity {} that already exists with UUID {}", EntityType.func_200718_a(entity1.func_200600_R()), p_217478_1_.func_110124_au().toString()); // CraftBukkit // paper
++            // Paper start
++            if (entity1.field_70128_L) {
++                func_217484_g(entity1); // remove the existing entity
++                return false;
++            }
++            // Paper end
++            ServerWorld.field_147491_a.error("Keeping entity {} that already exists with UUID {}", entity1, p_217478_1_.func_110124_au().toString()); // CraftBukkit // paper
+             ServerWorld.field_147491_a.error("Deleting duplicate entity {}", p_217478_1_); // CraftBukkit // paper
++
++            // Paper start
++            if (DEBUG_ENTITIES && p_217478_1_.field_70170_p.paperConfig.duplicateUUIDMode != PaperWorldConfig.DuplicateUUIDMode.NOTHING) {
++                if (entity1.addedToWorldStack != null) {
++                    entity1.addedToWorldStack.printStackTrace();
++                }
++
++                getAddToWorldStackTrace(p_217478_1_).printStackTrace();
++            }
++            // Paper end
+             return true;
+         }
+     }

@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Wed, 1 Jul 2020 11:57:40 -0500
+Subject: [PATCH] Update itemstack legacy name and lore
+
+
+diff --git a/src/main/java/net/minecraft/item/ItemStack.java b/src/main/java/net/minecraft/item/ItemStack.java
+index b0ef59a2b35aec2d16f9006ecc231baf602524f3..5196cb30f6c384fe5c3873907bad60c10aa840fc 100644
+--- a/src/main/java/net/minecraft/item/ItemStack.java
++++ b/src/main/java/net/minecraft/item/ItemStack.java
+@@ -42,6 +42,7 @@ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.INBT;
+ import net.minecraft.nbt.ListNBT;
+ import net.minecraft.nbt.NBTDynamicOps;
++import net.minecraft.nbt.StringNBT;
+ import net.minecraft.network.play.server.SChangeBlockPacket;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.stats.Stats;
+@@ -136,6 +137,44 @@ public final class ItemStack {
+             list.sort((Comparator<? super INBT>) enchantSorter); // Paper
+         } catch (Exception ignored) {}
+     }
++
++    private void processText() {
++        CompoundNBT display = getSubTag("display");
++        if (display != null) {
++            if (display.func_150297_b("Name", 8)) {
++                String json = display.func_74779_i("Name");
++                if (json != null && json.contains("\u00A7")) {
++                    try {
++                        display.func_218657_a("Name", convert(json));
++                    } catch (JsonParseException jsonparseexception) {
++                        display.func_82580_o("Name");
++                    }
++                }
++            }
++            if (display.func_150297_b("Lore", 9)) {
++                ListNBT list = display.func_150295_c("Lore", 8);
++                for (int index = 0; index < list.size(); index++) {
++                    String json = list.func_150307_f(index);
++                    if (json != null && json.contains("\u00A7")) { // Only try if it has legacy in the unparsed json
++                        try {
++                            list.set(index, convert(json));
++                        } catch (JsonParseException e) {
++                            list.set(index, StringNBT.create(org.bukkit.craftbukkit.util.CraftChatMessage.toJSON(new StringTextComponent(""))));
++                        }
++                    }
++                }
++            }
++        }
++    }
++
++    private StringNBT convert(String json) {
++        ITextComponent component = ITextComponent.Serializer.jsonToComponent(json);
++        if (component instanceof StringTextComponent && component.func_150261_e().contains("\u00A7") && component.func_150253_a().isEmpty()) {
++            // Only convert if the root component is a single comp with legacy in it, don't convert already normal components
++            component = org.bukkit.craftbukkit.util.CraftChatMessage.fromString(component.func_150261_e())[0];
++        }
++        return StringNBT.create(org.bukkit.craftbukkit.util.CraftChatMessage.toJSON(component));
++    }
+     // Paper end
+ 
+     public ItemStack(IItemProvider imaterial) {
+@@ -181,6 +220,7 @@ public final class ItemStack {
+             // CraftBukkit start - make defensive copy as this data may be coming from the save thread
+             this.field_77990_d = (CompoundNBT) nbttagcompound.func_74775_l("tag").func_74737_b();
+             processEnchantOrder(this.field_77990_d); // Paper
++            processText(); // Paper
+             this.func_77973_b().func_179215_a(this.field_77990_d);
+             // CraftBukkit end
+         }
+@@ -664,6 +704,7 @@ public final class ItemStack {
+         }
+     }
+ 
++    @Nullable public CompoundNBT getSubTag(String s) { return func_179543_a(s); } // Paper - OBFHELPER
+     @Nullable
+     public CompoundNBT func_179543_a(String p_179543_1_) {
+         return this.field_77990_d != null && this.field_77990_d.func_150297_b(p_179543_1_, 10) ? this.field_77990_d.func_74775_l(p_179543_1_) : null;
+diff --git a/src/main/java/net/minecraft/nbt/StringNBT.java b/src/main/java/net/minecraft/nbt/StringNBT.java
+index dc01f9a1e9f0eda56e045901bb3e02fa85b77c36..0cc2add1bd403bca8fe40c9bb12661bb42281876 100644
+--- a/src/main/java/net/minecraft/nbt/StringNBT.java
++++ b/src/main/java/net/minecraft/nbt/StringNBT.java
+@@ -43,6 +43,7 @@ public class StringNBT implements INBT {
+         this.field_74751_a = p_i1389_1_;
+     }
+ 
++    public static StringNBT create(String s) { return func_229705_a_(s); } // Paper - OBFHELPER
+     public static StringNBT func_229705_a_(String p_229705_0_) {
+         return p_229705_0_.isEmpty() ? StringNBT.field_229704_b_ : new StringNBT(p_229705_0_);
+     }

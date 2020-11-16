@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 19 Jan 2018 08:15:29 -0600
+Subject: [PATCH] PlayerAdvancementCriterionGrantEvent
+
+
+diff --git a/src/main/java/net/minecraft/advancements/PlayerAdvancements.java b/src/main/java/net/minecraft/advancements/PlayerAdvancements.java
+index 729f7c65b9a9b607fbc4670d9763b28c26c05135..ea86ed9e872942acd382fbb839d82ad643da9297 100644
+--- a/src/main/java/net/minecraft/advancements/PlayerAdvancements.java
++++ b/src/main/java/net/minecraft/advancements/PlayerAdvancements.java
+@@ -290,6 +290,12 @@ public class PlayerAdvancements {
+         boolean flag1 = advancementprogress.func_192105_a();
+ 
+         if (advancementprogress.func_192109_a(p_192750_2_)) {
++            // Paper start
++            if (!new com.destroystokyo.paper.event.player.PlayerAdvancementCriterionGrantEvent(this.field_192762_j.getBukkitEntity(), p_192750_1_.bukkit, p_192750_2_).callEvent()) {
++                advancementprogress.func_192101_b(p_192750_2_);
++                return false;
++            }
++            // Paper end
+             this.func_193765_c(p_192750_1_);
+             this.field_192761_i.add(p_192750_1_);
+             flag = true;

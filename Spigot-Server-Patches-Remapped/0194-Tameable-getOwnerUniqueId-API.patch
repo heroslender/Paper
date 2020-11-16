@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 24 Feb 2018 01:14:55 -0500
+Subject: [PATCH] Tameable#getOwnerUniqueId API
+
+This is faster if all you need is the UUID, as .getOwner() will cause
+an OfflinePlayer to be loaded from disk.
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftAbstractHorse.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftAbstractHorse.java
+index 82c26be792cb13af0a6767b7526b58e04f4ba880..52f4187ee55f49ec0144b62d5573ebbcdf2f0201 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftAbstractHorse.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftAbstractHorse.java
+@@ -90,6 +90,9 @@ public abstract class CraftAbstractHorse extends CraftAnimals implements Abstrac
+         }
+     }
+ 
++    public UUID getOwnerUniqueId() {
++        return getOwnerUUID();
++    }
+     public UUID getOwnerUUID() {
+         return getHandle().func_184780_dh();
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftTameableAnimal.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftTameableAnimal.java
+index 99f72cc59dd73eaf8ea5c081f239b60cb95556de..f470bf783f0dca395ca57ee166bdd70fc7349834 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftTameableAnimal.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftTameableAnimal.java
+@@ -17,6 +17,9 @@ public class CraftTameableAnimal extends CraftAnimals implements Tameable, Creat
+         return (TameableEntity) super.getHandle();
+     }
+ 
++    public UUID getOwnerUniqueId() {
++        return getOwnerUUID();
++    }
+     public UUID getOwnerUUID() {
+         try {
+             return getHandle().func_184753_b();

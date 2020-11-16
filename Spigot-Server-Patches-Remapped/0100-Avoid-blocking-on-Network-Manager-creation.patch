@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 16 May 2016 23:19:16 -0400
+Subject: [PATCH] Avoid blocking on Network Manager creation
+
+Per Paper issue 294
+
+diff --git a/src/main/java/net/minecraft/network/NetworkSystem.java b/src/main/java/net/minecraft/network/NetworkSystem.java
+index f03d6000f703faf9b5f2deb4abfa700792848421..9670eae30d992ccc2bde56a390c5c458d28ae320 100644
+--- a/src/main/java/net/minecraft/network/NetworkSystem.java
++++ b/src/main/java/net/minecraft/network/NetworkSystem.java
+@@ -45,6 +45,15 @@ public class NetworkSystem {
+     public volatile boolean field_151277_a;
+     private final List<ChannelFuture> field_151274_e = Collections.synchronizedList(Lists.newArrayList());
+     private final List<NetworkManager> field_151272_f = Collections.synchronizedList(Lists.newArrayList());
++    // Paper start - prevent blocking on adding a new network manager while the server is ticking
++    private final java.util.Queue<NetworkManager> pending = new java.util.concurrent.ConcurrentLinkedQueue<>();
++    private void addPending() {
++        NetworkManager manager = null;
++        while ((manager = pending.poll()) != null) {
++            field_151272_f.add(manager);
++        }
++    }
++    // Paper end
+ 
+     public NetworkSystem(MinecraftServer p_i45292_1_) {
+         this.field_151273_d = p_i45292_1_;
+@@ -79,7 +88,7 @@ public class NetworkSystem {
+                     channel.pipeline().addLast("timeout", new ReadTimeoutHandler(30)).addLast("legacy_query", new LegacyPingHandler(NetworkSystem.this)).addLast("splitter", new NettyVarint21FrameDecoder()).addLast("decoder", new NettyPacketDecoder(PacketDirection.SERVERBOUND)).addLast("prepender", new NettyVarint21FrameEncoder()).addLast("encoder", new NettyPacketEncoder(PacketDirection.CLIENTBOUND));
+                     NetworkManager networkmanager = new NetworkManager(PacketDirection.SERVERBOUND);
+ 
+-                    NetworkSystem.this.field_151272_f.add(networkmanager);
++                    pending.add(networkmanager); // Paper
+                     channel.pipeline().addLast("packet_handler", networkmanager);
+                     networkmanager.func_150719_a(new ServerHandshakeNetHandler(NetworkSystem.this.field_151273_d, networkmanager));
+                 }
+@@ -118,6 +127,7 @@ public class NetworkSystem {
+ 
+         synchronized (this.field_151272_f) {
+             // Spigot Start
++            this.addPending(); // Paper
+             // This prevents players from 'gaming' the server, and strategically relogging to increase their position in the tick order
+             if ( org.spigotmc.SpigotConfig.playerShuffle > 0 && MinecraftServer.currentTick % org.spigotmc.SpigotConfig.playerShuffle == 0 )
+             {

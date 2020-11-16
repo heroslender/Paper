@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 3 Jul 2017 18:11:10 -0500
+Subject: [PATCH] ProfileWhitelistVerifyEvent
+
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index f65f7a983be534c3cf9b4395f313b440bf6e19bf..9e5058b77c60a1bfc4ab0ef486da671e66387a19 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -607,9 +607,9 @@ public abstract class PlayerList {
+ 
+             // return chatmessage;
+             if (!gameprofilebanentry.func_73682_e()) event.disallow(PlayerLoginEvent.Result.KICK_BANNED, CraftChatMessage.fromComponent(chatmessage)); // Spigot
+-        } else if (!this.func_152607_e(gameprofile)) {
++        } else if (!this.isWhitelisted(gameprofile, event)) { // Paper
+             chatmessage = new TranslationTextComponent("multiplayer.disconnect.not_whitelisted");
+-            event.disallow(PlayerLoginEvent.Result.KICK_WHITELIST, org.spigotmc.SpigotConfig.whitelistMessage); // Spigot
++            //event.disallow(PlayerLoginEvent.Result.KICK_WHITELIST, org.spigotmc.SpigotConfig.whitelistMessage); // Spigot // Paper - moved to isWhitelisted
+         } else if (func_72363_f().func_152708_a(socketaddress) && !func_72363_f().func_152709_b(socketaddress).func_73682_e()) {
+             IPBanEntry ipbanentry = this.field_72413_h.func_152709_b(socketaddress);
+ 
+@@ -990,9 +990,25 @@ public abstract class PlayerList {
+         this.field_72400_f.func_195571_aL().func_197051_a(p_187245_1_);
+     }
+ 
++    // Paper start
+     public boolean func_152607_e(GameProfile p_152607_1_) {
+-        return !this.field_72409_l || this.field_72414_i.func_152692_d(p_152607_1_) || this.field_72411_j.func_152692_d(p_152607_1_);
++        return isWhitelisted(p_152607_1_, null);
+     }
++    public boolean isWhitelisted(GameProfile gameprofile, org.bukkit.event.player.PlayerLoginEvent loginEvent) {
++        boolean isOp = this.field_72414_i.func_152692_d(gameprofile);
++        boolean isWhitelisted = !this.field_72409_l || isOp || this.field_72411_j.func_152692_d(gameprofile);
++        final com.destroystokyo.paper.event.profile.ProfileWhitelistVerifyEvent event;
++        event = new com.destroystokyo.paper.event.profile.ProfileWhitelistVerifyEvent(MCUtil.toBukkit(gameprofile), this.field_72409_l, isWhitelisted, isOp, org.spigotmc.SpigotConfig.whitelistMessage);
++        event.callEvent();
++        if (!event.isWhitelisted()) {
++            if (loginEvent != null) {
++                loginEvent.disallow(PlayerLoginEvent.Result.KICK_WHITELIST, event.getKickMessage() == null ? org.spigotmc.SpigotConfig.whitelistMessage : event.getKickMessage());
++            }
++            return false;
++        }
++        return true;
++    }
++    // Paper end
+ 
+     public boolean func_152596_g(GameProfile p_152596_1_) {
+         return this.field_72414_i.func_152692_d(p_152596_1_) || this.field_72400_f.func_213199_b(p_152596_1_) && this.field_72400_f.func_240793_aU_().func_76086_u() || this.field_72407_n;

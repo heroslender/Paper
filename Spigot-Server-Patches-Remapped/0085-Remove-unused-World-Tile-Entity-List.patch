@@ -1,0 +1,90 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 13 Apr 2016 00:25:28 -0400
+Subject: [PATCH] Remove unused World Tile Entity List
+
+Massive hit to performance and it is completely unnecessary.
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index e37bab25e9ef68f0d59e0e1ffc7582ebf6b44492..fcfec1452f3db0c06b513bfd637b915b39163021 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -92,7 +92,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     public static final RegistryKey<World> field_234919_h_ = RegistryKey.func_240903_a_(Registry.field_239699_ae_, new ResourceLocation("the_nether"));
+     public static final RegistryKey<World> field_234920_i_ = RegistryKey.func_240903_a_(Registry.field_239699_ae_, new ResourceLocation("the_end"));
+     private static final Direction[] field_200007_a = Direction.values();
+-    public final List<TileEntity> field_147482_g = Lists.newArrayList();
++    //public final List<TileEntity> tileEntityList = Lists.newArrayList(); // Paper - remove unused list
+     public final List<TileEntity> field_175730_i = Lists.newArrayList();
+     protected final List<TileEntity> field_147484_a = Lists.newArrayList();
+     protected final java.util.Set<TileEntity> field_147483_b = com.google.common.collect.Sets.newHashSet();
+@@ -719,9 +719,9 @@ public abstract class World implements IWorld, AutoCloseable {
+                     }, p_175700_1_::func_174877_v});
+         }
+ 
+-        boolean flag = this.field_147482_g.add(p_175700_1_);
++        boolean flag = true; // Paper - remove unused list
+ 
+-        if (flag && p_175700_1_ instanceof ITickableTileEntity) {
++        if (flag && p_175700_1_ instanceof ITickableTileEntity && !this.field_175730_i.contains(p_175700_1_)) { // Paper
+             this.field_175730_i.add(p_175700_1_);
+         }
+ 
+@@ -757,7 +757,7 @@ public abstract class World implements IWorld, AutoCloseable {
+         timings.tileEntityTick.startTiming(); // Spigot
+         if (!this.field_147483_b.isEmpty()) {
+             this.field_175730_i.removeAll(this.field_147483_b);
+-            this.field_147482_g.removeAll(this.field_147483_b);
++            //this.tileEntityList.removeAll(this.tileEntityListUnload); // Paper - remove unused list
+             this.field_147483_b.clear();
+         }
+ 
+@@ -818,7 +818,7 @@ public abstract class World implements IWorld, AutoCloseable {
+                 tilesThisCycle--;
+                 this.field_175730_i.remove(tileTickPosition--);
+                 // Spigot end
+-                this.field_147482_g.remove(tileentity);
++                //this.tileEntityList.remove(tileentity); // Paper - remove unused list
+                 if (this.func_175667_e(tileentity.func_174877_v())) {
+                     this.func_175726_f(tileentity.func_174877_v()).func_177425_e(tileentity.func_174877_v());
+                 }
+@@ -848,7 +848,7 @@ public abstract class World implements IWorld, AutoCloseable {
+                         this.func_184138_a(tileentity1.func_174877_v(), iblockdata, iblockdata, 3);
+                         // CraftBukkit start
+                         // From above, don't screw this up - SPIGOT-1746
+-                        if (!this.field_147482_g.contains(tileentity1)) {
++                        if (true) { // Paper - remove unused list
+                             this.func_175700_a(tileentity1);
+                         }
+                         // CraftBukkit end
+@@ -990,7 +990,7 @@ public abstract class World implements IWorld, AutoCloseable {
+         } else {
+             if (tileentity != null) {
+                 this.field_147484_a.remove(tileentity);
+-                this.field_147482_g.remove(tileentity);
++                //this.tileEntityList.remove(tileentity); // Paper - remove unused list
+                 this.field_175730_i.remove(tileentity);
+             }
+ 
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index b1df5c87ec9e1ffa5aa61ca1cb8723b971fb791e..53a7e133838e5830eb611d8463a7c56956939b00 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1643,7 +1643,7 @@ public class ServerWorld extends World implements ISeedReader {
+             }
+ 
+             bufferedwriter.write(String.format("entities: %d\n", this.field_217498_x.size()));
+-            bufferedwriter.write(String.format("block_entities: %d\n", this.field_147482_g.size()));
++            bufferedwriter.write(String.format("block_entities: %d\n", this.field_175730_i.size())); // Paper - remove unused list
+             bufferedwriter.write(String.format("block_ticks: %d\n", this.G().func_225420_a()));
+             bufferedwriter.write(String.format("fluid_ticks: %d\n", this.F().func_225420_a()));
+             bufferedwriter.write("distance_manager: " + playerchunkmap.func_219246_e().func_225412_c() + "\n");
+@@ -1782,7 +1782,7 @@ public class ServerWorld extends World implements ISeedReader {
+ 
+     private void func_225321_a(Writer p_225321_1_) throws IOException {
+         CSVWriter csvwriter = CSVWriter.func_225428_a().func_225423_a("x").func_225423_a("y").func_225423_a("z").func_225423_a("type").func_225422_a(p_225321_1_);
+-        Iterator iterator = this.field_147482_g.iterator();
++        Iterator iterator = this.field_175730_i.iterator(); // Paper - remove unused list
+ 
+         while (iterator.hasNext()) {
+             TileEntity tileentity = (TileEntity) iterator.next();

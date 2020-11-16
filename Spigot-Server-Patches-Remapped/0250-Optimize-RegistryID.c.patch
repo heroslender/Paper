@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrew Steinborn <git@steinborn.me>
+Date: Mon, 23 Jul 2018 13:08:19 -0400
+Subject: [PATCH] Optimize RegistryID.c()
+
+This is a frequent hotspot for world loading/saving.
+
+diff --git a/src/main/java/net/minecraft/util/IntIdentityHashBiMap.java b/src/main/java/net/minecraft/util/IntIdentityHashBiMap.java
+index 925b4c993398f75d976990938c9ceb7cc3d3eb79..abcda667ff5e6555dd50b9dfe9512a791db337f0 100644
+--- a/src/main/java/net/minecraft/util/IntIdentityHashBiMap.java
++++ b/src/main/java/net/minecraft/util/IntIdentityHashBiMap.java
+@@ -15,12 +15,14 @@ public class IntIdentityHashBiMap<K> implements IObjectIntIterable<K> {
+     private K[] field_186820_d;
+     private int field_186821_e;
+     private int field_186822_f;
++    private java.util.BitSet usedIds; // Paper
+ 
+     public IntIdentityHashBiMap(int p_i46830_1_) {
+         p_i46830_1_ = (int) ((float) p_i46830_1_ / 0.8F);
+         this.field_186818_b = (K[]) (new Object[p_i46830_1_]); // Paper - decompile fix
+         this.field_186819_c = new int[p_i46830_1_];
+         this.field_186820_d = (K[]) (new Object[p_i46830_1_]); // Paper - decompile fix
++        this.usedIds = new java.util.BitSet(); // Paper
+     }
+ 
+     public int func_186815_a(@Nullable K p_186815_1_) {
+@@ -49,9 +51,14 @@ public class IntIdentityHashBiMap<K> implements IObjectIntIterable<K> {
+     }
+ 
+     private int func_186809_c() {
+-        while (this.field_186821_e < this.field_186820_d.length && this.field_186820_d[this.field_186821_e] != null) {
+-            ++this.field_186821_e;
++        // Paper start
++        /*
++        while (this.e < this.d.length && this.d[this.e] != null) {
++            ++this.e;
+         }
++        */
++        this.field_186821_e = this.usedIds.nextClearBit(0);
++        // Paper end
+ 
+         return this.field_186821_e;
+     }
+@@ -65,6 +72,7 @@ public class IntIdentityHashBiMap<K> implements IObjectIntIterable<K> {
+         this.field_186820_d = (K[]) (new Object[p_186807_1_]); // Paper - decompile fix
+         this.field_186821_e = 0;
+         this.field_186822_f = 0;
++        this.usedIds.clear(); // Paper
+ 
+         for (int j = 0; j < ak.length; ++j) {
+             if (ak[j] != null) {
+@@ -90,6 +98,7 @@ public class IntIdentityHashBiMap<K> implements IObjectIntIterable<K> {
+         this.field_186818_b[k] = p_186814_1_;
+         this.field_186819_c[k] = p_186814_2_;
+         this.field_186820_d[p_186814_2_] = p_186814_1_;
++        this.usedIds.set(p_186814_2_); // Paper
+         ++this.field_186822_f;
+         if (p_186814_2_ == this.field_186821_e) {
+             ++this.field_186821_e;
+@@ -154,6 +163,7 @@ public class IntIdentityHashBiMap<K> implements IObjectIntIterable<K> {
+         Arrays.fill(this.field_186820_d, (Object) null);
+         this.field_186821_e = 0;
+         this.field_186822_f = 0;
++        this.usedIds.clear(); // Paper
+     }
+ 
+     public int func_186810_b() {

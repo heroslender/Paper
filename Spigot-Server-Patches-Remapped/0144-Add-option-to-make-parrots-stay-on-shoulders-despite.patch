@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Tue, 16 May 2017 21:29:08 -0500
+Subject: [PATCH] Add option to make parrots stay on shoulders despite movement
+
+Makes parrots not fall off whenever the player changes height, or touches water, or gets hit by a passing leaf.
+Instead, switches the behavior so that players have to sneak to make the birds leave.
+
+I suspect Mojang may switch to this behavior before full release.
+
+To be converted into a Paper-API event at some point in the future?
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 04ee0856a8c62e1afb438d4fddf40e605e82a074..0cc7ad571eba249199a2e5e8ec567a874241c903 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -323,4 +323,10 @@ public class PaperWorldConfig {
+         maxCollisionsPerEntity = getInt( "max-entity-collisions", this.spigotConfig.getInt("max-entity-collisions", 8) );
+         log( "Max Entity Collisions: " + maxCollisionsPerEntity );
+     }
++
++    public boolean parrotsHangOnBetter;
++    private void parrotsHangOnBetter() {
++        parrotsHangOnBetter = getBoolean("parrots-are-unaffected-by-player-movement", false);
++        log("Parrots are unaffected by player movement: " + parrotsHangOnBetter);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 17afa9513153b1feadb318a1b3b50e9cf296da30..0027355fc55411ba6212fdce9432fc78f120212b 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -529,7 +529,7 @@ public abstract class PlayerEntity extends LivingEntity {
+         this.func_192028_j(this.func_192023_dk());
+         this.func_192028_j(this.func_192025_dl());
+         if (!this.field_70170_p.field_72995_K && (this.field_70143_R > 0.5F || this.func_70090_H()) || this.field_71075_bZ.field_75100_b || this.func_70608_bn()) {
+-            this.func_192030_dh();
++            if (!this.field_70170_p.paperConfig.parrotsHangOnBetter) this.func_192030_dh(); // Paper - Hang on!
+         }
+ 
+     }
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 8bb426c783a0645eb2fe5f14e4b6516b99792106..68f5adef69174257a934057900671a078c90b652 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1960,6 +1960,13 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+         switch (p_147357_1_.func_180764_b()) {
+             case PRESS_SHIFT_KEY:
+                 this.field_147369_b.func_226284_e_(true);
++
++            // Paper start - Hang on!
++            if (this.field_147369_b.field_70170_p.paperConfig.parrotsHangOnBetter) {
++                this.field_147369_b.func_192030_dh();
++            }
++            // Paper end
++
+                 break;
+             case RELEASE_SHIFT_KEY:
+                 this.field_147369_b.func_226284_e_(false);

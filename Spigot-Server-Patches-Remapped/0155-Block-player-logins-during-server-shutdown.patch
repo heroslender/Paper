@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Sun, 2 Jul 2017 21:35:56 -0500
+Subject: [PATCH] Block player logins during server shutdown
+
+
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index 2e6cd7f7bd7b6af6ea9aaa5c692297748347e6aa..32233a786842fffef05723a94961ed2dfa6c940b 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -63,6 +63,12 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+     }
+ 
+     public void func_73660_a() {
++        // Paper start - Do not allow logins while the server is shutting down
++        if (!MinecraftServer.getServer().func_71278_l()) {
++            this.func_194026_b(new TranslationTextComponent(org.spigotmc.SpigotConfig.restartMessage));
++            return;
++        }
++        // Paper end
+         if (this.field_147328_g == ServerLoginNetHandler.State.READY_TO_ACCEPT) {
+             this.func_147326_c();
+         } else if (this.field_147328_g == ServerLoginNetHandler.State.DELAY_ACCEPT) {

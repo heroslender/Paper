@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 18 Apr 2020 15:59:41 -0400
+Subject: [PATCH] Don't crash if player is attempted to be removed from
+ untracked chunk.
+
+I suspect it deals with teleporting as it uses players current x/y/z
+
+diff --git a/src/main/java/net/minecraft/world/server/TicketManager.java b/src/main/java/net/minecraft/world/server/TicketManager.java
+index 686559c7a0fbe49411b7b210a031eead74002a45..d1a5983d582cc9d854b8041e02a4481ca83e6c1e 100644
+--- a/src/main/java/net/minecraft/world/server/TicketManager.java
++++ b/src/main/java/net/minecraft/world/server/TicketManager.java
+@@ -247,8 +247,8 @@ public abstract class TicketManager {
+         long i = p_219367_1_.func_218155_u().func_201841_a();
+         ObjectSet<ServerPlayerEntity> objectset = (ObjectSet) this.field_219375_c.get(i);
+ 
+-        objectset.remove(p_219367_2_);
+-        if (objectset.isEmpty()) {
++        if (objectset != null) objectset.remove(p_219367_2_); // Paper - some state corruption happens here, don't crash, clean up gracefully.
++        if (objectset == null || objectset.isEmpty()) { // Paper
+             this.field_219375_c.remove(i);
+             this.field_219381_i.func_215491_b(i, Integer.MAX_VALUE, false);
+             this.field_219382_j.func_215491_b(i, Integer.MAX_VALUE, false);

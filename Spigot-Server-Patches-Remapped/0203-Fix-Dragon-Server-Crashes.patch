@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 21 Mar 2018 20:52:07 -0400
+Subject: [PATCH] Fix Dragon Server Crashes
+
+If the dragon tries to find "ground" and hits a hole, or off edge,
+it will infinitely keep looking for non air and eventually crash.
+
+diff --git a/src/main/java/net/minecraft/entity/boss/dragon/phase/FlamingSittingPhase.java b/src/main/java/net/minecraft/entity/boss/dragon/phase/FlamingSittingPhase.java
+index 422b3db6f2439cc6e79288ffbafb68efee939604..ca1a068b9d3dab6024e5d947b82d4589abeffe8c 100644
+--- a/src/main/java/net/minecraft/entity/boss/dragon/phase/FlamingSittingPhase.java
++++ b/src/main/java/net/minecraft/entity/boss/dragon/phase/FlamingSittingPhase.java
+@@ -63,7 +63,7 @@ public class FlamingSittingPhase extends SittingPhase {
+             double d3 = d2;
+             BlockPos.Mutable blockposition_mutableblockposition = new BlockPos.Mutable(d0, d2, d1);
+ 
+-            while (this.field_188661_a.field_70170_p.func_175623_d(blockposition_mutableblockposition)) {
++            while (this.field_188661_a.field_70170_p.func_175623_d(blockposition_mutableblockposition ) && d2 > 0) { // Paper
+                 --d3;
+                 if (d3 < 0.0D) {
+                     d3 = d2;

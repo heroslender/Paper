@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mariell Hoversholm <proximyst@proximyst.com>
+Date: Sat, 16 May 2020 10:05:30 +0200
+Subject: [PATCH] Add permission for command blocks
+
+
+diff --git a/src/main/java/net/minecraft/block/CommandBlockBlock.java b/src/main/java/net/minecraft/block/CommandBlockBlock.java
+index 434820c8fd481bb235a719f82d84bfb80006b7cd..6ce769090475651f82b881c4e87716a943a252af 100644
+--- a/src/main/java/net/minecraft/block/CommandBlockBlock.java
++++ b/src/main/java/net/minecraft/block/CommandBlockBlock.java
+@@ -128,7 +128,7 @@ public class CommandBlockBlock extends ContainerBlock {
+     public ActionResultType func_225533_a_(BlockState p_225533_1_, World p_225533_2_, BlockPos p_225533_3_, PlayerEntity p_225533_4_, Hand p_225533_5_, BlockRayTraceResult p_225533_6_) {
+         TileEntity tileentity = p_225533_2_.func_175625_s(p_225533_3_);
+ 
+-        if (tileentity instanceof CommandBlockTileEntity && p_225533_4_.func_195070_dx()) {
++        if (tileentity instanceof CommandBlockTileEntity && (p_225533_4_.func_195070_dx() || (p_225533_4_.func_184812_l_() && p_225533_4_.getBukkitEntity().hasPermission("minecraft.commandblock")))) { // Paper - command block permission
+             p_225533_4_.func_184824_a((CommandBlockTileEntity) tileentity);
+             return ActionResultType.func_233537_a_(p_225533_2_.field_72995_K);
+         } else {
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 0d6a3177acc9d4388c96c1ddc2fa29ba4a6f9a96..2abfb2b7b6928ed3903a4de13cd04dbb856fa01d 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -754,7 +754,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+         PacketThreadUtil.func_218796_a(p_210153_1_, this, this.field_147369_b.func_71121_q());
+         if (!this.field_147367_d.func_82356_Z()) {
+             this.field_147369_b.func_145747_a(new TranslationTextComponent("advMode.notEnabled"), Util.field_240973_b_);
+-        } else if (!this.field_147369_b.func_195070_dx()) {
++        } else if (!this.field_147369_b.func_195070_dx() && !this.field_147369_b.func_184812_l_() && !this.field_147369_b.getBukkitEntity().hasPermission("minecraft.commandblock")) { // Paper - command block permission
+             this.field_147369_b.func_145747_a(new TranslationTextComponent("advMode.notAllowed"), Util.field_240973_b_);
+         } else {
+             CommandBlockLogic commandblocklistenerabstract = null;
+@@ -817,7 +817,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+         PacketThreadUtil.func_218796_a(p_210158_1_, this, this.field_147369_b.func_71121_q());
+         if (!this.field_147367_d.func_82356_Z()) {
+             this.field_147369_b.func_145747_a(new TranslationTextComponent("advMode.notEnabled"), Util.field_240973_b_);
+-        } else if (!this.field_147369_b.func_195070_dx()) {
++        } else if (!this.field_147369_b.func_195070_dx() && !this.field_147369_b.func_184812_l_() && !this.field_147369_b.getBukkitEntity().hasPermission("minecraft.commandblock")) { // Paper - command block permission
+             this.field_147369_b.func_145747_a(new TranslationTextComponent("advMode.notAllowed"), Util.field_240973_b_);
+         } else {
+             CommandBlockLogic commandblocklistenerabstract = p_210158_1_.func_210371_a(this.field_147369_b.field_70170_p);
+diff --git a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+index 6e62014bc44460ee63adfbb0afd16727a307a9dd..a08d64938d256dc58abc1223e6b735ad21e874f8 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
++++ b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+@@ -387,7 +387,7 @@ public class PlayerInteractionManager {
+             TileEntity tileentity = this.field_73092_a.func_175625_s(p_180237_1_);
+             Block block = iblockdata.func_177230_c();
+ 
+-            if ((block instanceof CommandBlockBlock || block instanceof StructureBlock || block instanceof JigsawBlock) && !this.field_73090_b.func_195070_dx()) {
++            if ((block instanceof CommandBlockBlock || block instanceof StructureBlock || block instanceof JigsawBlock) && !this.field_73090_b.func_195070_dx() && !(block instanceof CommandBlockBlock && (this.field_73090_b.func_184812_l_() && this.field_73090_b.getBukkitEntity().hasPermission("minecraft.commandblock")))) { // Paper - command block permission
+                 this.field_73092_a.func_184138_a(p_180237_1_, iblockdata, iblockdata, 3);
+                 return false;
+             } else if (this.field_73090_b.func_223729_a((World) this.field_73092_a, p_180237_1_, this.field_73091_c)) {
+diff --git a/src/main/java/net/minecraft/tileentity/CommandBlockLogic.java b/src/main/java/net/minecraft/tileentity/CommandBlockLogic.java
+index 546b38ca36630699bf306b098b759620f8b28213..d0a35a09c516683ac3b5ed02c5efd34ced739d91 100644
+--- a/src/main/java/net/minecraft/tileentity/CommandBlockLogic.java
++++ b/src/main/java/net/minecraft/tileentity/CommandBlockLogic.java
+@@ -195,7 +195,7 @@ public abstract class CommandBlockLogic implements ICommandSource {
+     }
+ 
+     public ActionResultType func_175574_a(PlayerEntity p_175574_1_) {
+-        if (!p_175574_1_.func_195070_dx()) {
++        if (!p_175574_1_.func_195070_dx() && !p_175574_1_.func_184812_l_() && !p_175574_1_.getBukkitEntity().hasPermission("minecraft.commandblock")) { // Paper - command block permission
+             return ActionResultType.PASS;
+         } else {
+             if (p_175574_1_.func_130014_f_().field_72995_K) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/util/permissions/CraftDefaultPermissions.java b/src/main/java/org/bukkit/craftbukkit/util/permissions/CraftDefaultPermissions.java
+index 525ebf961e5da0687183a5e2ead23ed92cbd9d79..a4a809f302c5ff9c76cde5fc0add2ceec1bdf9b5 100644
+--- a/src/main/java/org/bukkit/craftbukkit/util/permissions/CraftDefaultPermissions.java
++++ b/src/main/java/org/bukkit/craftbukkit/util/permissions/CraftDefaultPermissions.java
+@@ -16,6 +16,7 @@ public final class CraftDefaultPermissions {
+         DefaultPermissions.registerPermission(ROOT + ".nbt.copy", "Gives the user the ability to copy NBT in creative", org.bukkit.permissions.PermissionDefault.TRUE, parent);
+         DefaultPermissions.registerPermission(ROOT + ".debugstick", "Gives the user the ability to use the debug stick in creative", org.bukkit.permissions.PermissionDefault.OP, parent);
+         DefaultPermissions.registerPermission(ROOT + ".debugstick.always", "Gives the user the ability to use the debug stick in all game modes", org.bukkit.permissions.PermissionDefault.FALSE, parent);
++        DefaultPermissions.registerPermission(ROOT + ".commandblock", "Gives the user the ability to use command blocks.", org.bukkit.permissions.PermissionDefault.OP, parent); // Paper
+         // Spigot end
+         parent.recalculatePermissibles();
+     }

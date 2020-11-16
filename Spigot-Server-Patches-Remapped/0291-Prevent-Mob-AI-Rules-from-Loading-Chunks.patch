@@ -1,0 +1,91 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 10 Sep 2018 23:56:36 -0400
+Subject: [PATCH] Prevent Mob AI Rules from Loading Chunks
+
+
+diff --git a/src/main/java/net/minecraft/entity/ai/RandomPositionGenerator.java b/src/main/java/net/minecraft/entity/ai/RandomPositionGenerator.java
+index 4da880a4b936a97f92ba6390b7c1e3ee65e72ea4..1bd3283b5fe09f0a84a4812d9b17abbdf9a79b74 100644
+--- a/src/main/java/net/minecraft/entity/ai/RandomPositionGenerator.java
++++ b/src/main/java/net/minecraft/entity/ai/RandomPositionGenerator.java
+@@ -6,6 +6,7 @@ import java.util.function.ToDoubleFunction;
+ import javax.annotation.Nullable;
+ import net.minecraft.dispenser.IPosition;
+ import net.minecraft.entity.CreatureEntity;
++import net.minecraft.fluid.FluidState;
+ import net.minecraft.pathfinding.PathNavigator;
+ import net.minecraft.pathfinding.PathNodeType;
+ import net.minecraft.pathfinding.WalkNodeProcessor;
+@@ -128,6 +129,7 @@ public class RandomPositionGenerator {
+                 }
+ 
+                 blockposition2 = new BlockPos((double) k1 + p_226339_0_.func_226277_ct_(), (double) l1 + p_226339_0_.func_226278_cu_(), (double) i2 + p_226339_0_.func_226281_cx_());
++                if (!p_226339_0_.field_70170_p.C(blockposition2)) continue; // Paper
+                 if (blockposition2.func_177956_o() >= 0 && blockposition2.func_177956_o() <= p_226339_0_.field_70170_p.func_217301_I() && (!flag3 || p_226339_0_.func_213389_a(blockposition2)) && (!p_226339_11_ || navigationabstract.func_188555_b(blockposition2))) {
+                     if (p_226339_8_) {
+                         blockposition2 = func_226342_a_(blockposition2, random.nextInt(p_226339_9_ + 1) + p_226339_10_, p_226339_0_.field_70170_p.func_217301_I(), (blockposition3) -> {
+@@ -135,7 +137,8 @@ public class RandomPositionGenerator {
+                         });
+                     }
+ 
+-                    if (p_226339_5_ || !p_226339_0_.field_70170_p.func_204610_c(blockposition2).func_206884_a((ITag) FluidTags.field_206959_a)) {
++                    FluidState fluid = p_226339_0_.field_70170_p.getFluidIfLoaded(blockposition2); // Paper
++                    if (p_226339_5_ || (fluid != null && !fluid.func_206884_a((ITag) FluidTags.field_206959_a))) { // Paper
+                         PathNodeType pathtype = WalkNodeProcessor.func_237231_a_((IBlockReader) p_226339_0_.field_70170_p, blockposition2.func_239590_i_());
+ 
+                         if (p_226339_0_.func_184643_a(pathtype) == 0.0F) {
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/BreakBlockGoal.java b/src/main/java/net/minecraft/entity/ai/goal/BreakBlockGoal.java
+index 9ea9edf8667157a3882bb4ab2c7f03f05ce89fe0..eeec56d963e279cc32d720de03ca0d24ce6725de 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/BreakBlockGoal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/BreakBlockGoal.java
+@@ -16,7 +16,6 @@ import net.minecraft.world.IBlockReader;
+ import net.minecraft.world.IWorld;
+ import net.minecraft.world.IWorldReader;
+ import net.minecraft.world.World;
+-import net.minecraft.world.chunk.ChunkStatus;
+ import net.minecraft.world.chunk.IChunk;
+ import net.minecraft.world.server.ServerWorld;
+ // CraftBukkit start
+@@ -29,11 +28,13 @@ public class BreakBlockGoal extends MoveToBlockGoal {
+     private final Block field_203117_f;
+     private final MobEntity field_203118_g;
+     private int field_203119_h;
++    private World world; // Paper
+ 
+     public BreakBlockGoal(Block block, CreatureEntity entitycreature, double d0, int i) {
+         super(entitycreature, d0, 24, i);
+         this.field_203117_f = block;
+         this.field_203118_g = entitycreature;
++        this.world = entitycreature.field_70170_p; // Paper
+     }
+ 
+     @Override
+@@ -131,7 +132,9 @@ public class BreakBlockGoal extends MoveToBlockGoal {
+ 
+     @Nullable
+     private BlockPos func_203115_a(BlockPos p_203115_1_, IBlockReader p_203115_2_) {
+-        if (p_203115_2_.func_180495_p(p_203115_1_).func_203425_a(this.field_203117_f)) {
++        Block block = world.getBlockIfLoaded(p_203115_1_); // Paper
++        if (block == null) return null; // Paper
++        if (block.func_235332_a_(this.field_203117_f)) { // Paper
+             return p_203115_1_;
+         } else {
+             BlockPos[] ablockposition = new BlockPos[]{p_203115_1_.func_177977_b(), p_203115_1_.func_177976_e(), p_203115_1_.func_177974_f(), p_203115_1_.func_177978_c(), p_203115_1_.func_177968_d(), p_203115_1_.func_177977_b().func_177977_b()};
+@@ -141,7 +144,7 @@ public class BreakBlockGoal extends MoveToBlockGoal {
+             for (int j = 0; j < i; ++j) {
+                 BlockPos blockposition1 = ablockposition1[j];
+ 
+-                if (p_203115_2_.func_180495_p(blockposition1).func_203425_a(this.field_203117_f)) {
++                if (p_203115_2_.getBlockIfLoaded(blockposition1).func_235332_a_(this.field_203117_f)) { // Paper
+                     return blockposition1;
+                 }
+             }
+@@ -152,7 +155,7 @@ public class BreakBlockGoal extends MoveToBlockGoal {
+ 
+     @Override
+     protected boolean func_179488_a(IWorldReader p_179488_1_, BlockPos p_179488_2_) {
+-        IChunk ichunkaccess = p_179488_1_.func_217353_a(p_179488_2_.func_177958_n() >> 4, p_179488_2_.func_177952_p() >> 4, ChunkStatus.field_222617_m, false);
++        IChunk ichunkaccess = p_179488_1_.getChunkIfLoadedImmediately(p_179488_2_.func_177958_n() >> 4, p_179488_2_.func_177952_p() >> 4); // Paper
+ 
+         return ichunkaccess == null ? false : ichunkaccess.func_180495_p(p_179488_2_).func_203425_a(this.field_203117_f) && ichunkaccess.func_180495_p(p_179488_2_.func_177984_a()).func_196958_f() && ichunkaccess.func_180495_p(p_179488_2_.func_177981_b(2)).func_196958_f();
+     }

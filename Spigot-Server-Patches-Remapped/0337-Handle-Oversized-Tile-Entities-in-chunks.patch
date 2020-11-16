@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 6 May 2020 05:00:57 -0400
+Subject: [PATCH] Handle Oversized Tile Entities in chunks
+
+Splits out Extra Packets if too many TE's are encountered to prevent
+creating too large of a packet to sed.
+
+Co authored by Spottedleaf
+
+diff --git a/src/main/java/net/minecraft/network/NetworkManager.java b/src/main/java/net/minecraft/network/NetworkManager.java
+index d0591515bae2269efb08294062d336c619edfc24..3ccf8e64ba14475ed7367e624eef7f431f1178a8 100644
+--- a/src/main/java/net/minecraft/network/NetworkManager.java
++++ b/src/main/java/net/minecraft/network/NetworkManager.java
+@@ -226,7 +226,7 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+             return; // Do nothing
+         }
+         p_201058_1_.onPacketDispatch(getPlayer());
+-        if (connected && (net.minecraft.network.NetworkManager.InnerUtil.canSendImmediate(this, p_201058_1_) || (
++        if (connected && (InnerUtil.canSendImmediate(this, p_201058_1_) || (
+             MCUtil.isMainThread() && p_201058_1_.isReady() && this.field_150745_j.isEmpty() &&
+             (p_201058_1_.getExtraPackets() == null || p_201058_1_.getExtraPackets().isEmpty())
+         ))) {
+@@ -234,7 +234,7 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+             return;
+         }
+         // write the packets to the queue, then flush - antixray hooks there already
+-        java.util.List<IPacket> extraPackets = net.minecraft.network.NetworkManager.InnerUtil.buildExtraPackets(p_201058_1_);
++        java.util.List<IPacket> extraPackets = InnerUtil.buildExtraPackets(p_201058_1_);
+         boolean hasExtraPackets = extraPackets != null && !extraPackets.isEmpty();
+         if (!hasExtraPackets) {
+             this.field_150745_j.add(new NetworkManager.QueuedPacket(p_201058_1_, p_201058_2_));
+diff --git a/src/main/java/net/minecraft/network/play/server/SChunkDataPacket.java b/src/main/java/net/minecraft/network/play/server/SChunkDataPacket.java
+index d5b04788b49998ef11a5dec3c154c3f8a43ed2a9..f2d567b4a1652442806f1a9ff3be228c382951f8 100644
+--- a/src/main/java/net/minecraft/network/play/server/SChunkDataPacket.java
++++ b/src/main/java/net/minecraft/network/play/server/SChunkDataPacket.java
+@@ -37,6 +37,15 @@ public class SChunkDataPacket implements IPacket<IClientPlayNetHandler> {
+ 
+     public SChunkDataPacket() {}
+ 
++    // Paper start
++    private final java.util.List<IPacket> extraPackets = new java.util.ArrayList<>();
++    private static final int TE_LIMIT = Integer.getInteger("Paper.excessiveTELimit", 750);
++
++    @Override
++    public java.util.List<IPacket> getExtraPackets() {
++        return extraPackets;
++    }
++    // Paper end
+     public SChunkDataPacket(Chunk chunk, int i, boolean flag) {
+         ChunkPos chunkcoordintpair = chunk.func_76632_l();
+ 
+@@ -64,6 +73,7 @@ public class SChunkDataPacket implements IPacket<IClientPlayNetHandler> {
+         this.field_186948_c = this.func_218708_a(new PacketBuffer(this.func_186945_f()), chunk, i);
+         this.field_189557_e = Lists.newArrayList();
+         iterator = chunk.func_177434_r().entrySet().iterator();
++        int totalTileEntities = 0; // Paper
+ 
+         while (iterator.hasNext()) {
+             entry = (Entry) iterator.next();
+@@ -72,6 +82,15 @@ public class SChunkDataPacket implements IPacket<IClientPlayNetHandler> {
+             int j = blockposition.func_177956_o() >> 4;
+ 
+             if (this.func_149274_i() || (i & 1 << j) != 0) {
++                // Paper start - improve oversized chunk data packet handling
++                if (++totalTileEntities > TE_LIMIT) {
++                    SUpdateTileEntityPacket updatePacket = tileentity.func_189518_D_();
++                    if (updatePacket != null) {
++                        this.extraPackets.add(updatePacket);
++                        continue;
++                    }
++                }
++                // Paper end
+                 CompoundNBT nbttagcompound = tileentity.func_189517_E_();
+                 if (tileentity instanceof SkullTileEntity) { SkullTileEntity.sanitizeTileEntityUUID(nbttagcompound); } // Paper
+ 

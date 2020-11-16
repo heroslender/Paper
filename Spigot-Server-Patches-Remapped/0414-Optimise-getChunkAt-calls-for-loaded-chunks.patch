@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Sat, 25 Jan 2020 17:04:35 -0800
+Subject: [PATCH] Optimise getChunkAt calls for loaded chunks
+
+bypass the need to get a player chunk, then get the either,
+then unwrap it...
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 8512f7ae48b1d86e28e746de31e88ea69e84cb4d..c9da6e1b29af3faf86237c7d2b927af8c58676d2 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -380,6 +380,14 @@ public abstract class World implements IWorld, AutoCloseable {
+ 
+     @Override
+     public Chunk func_212866_a_(int p_212866_1_, int p_212866_2_) {
++        // Paper start - optimise this for loaded chunks
++        if (Thread.currentThread() == this.field_217407_c) {
++            Chunk ifLoaded = ((ServerWorld) this).E().getChunkAtIfLoadedMainThread(p_212866_1_, p_212866_2_);
++            if (ifLoaded != null) {
++                return ifLoaded;
++            }
++        }
++        // Paper end
+         return (Chunk) this.func_217348_a(p_212866_1_, p_212866_2_, ChunkStatus.field_222617_m);
+     }
+ 
+diff --git a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+index 923cbaab05010aeea26cc833a1a10fbe4470fa87..5736b67e08e6ac8b0d936101d14f9e0d698ffaa2 100644
+--- a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
++++ b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+@@ -476,6 +476,12 @@ public class ServerChunkProvider extends AbstractChunkProvider {
+                 return this.func_212849_a_(p_212849_1_, p_212849_2_, p_212849_3_, p_212849_4_);
+             }, this.field_217243_i).join();
+         } else {
++            // Paper start - optimise for loaded chunks
++            Chunk ifLoaded = this.getChunkAtIfLoadedMainThread(p_212849_1_, p_212849_2_);
++            if (ifLoaded != null) {
++                return ifLoaded;
++            }
++            // Paper end
+             IProfiler gameprofilerfiller = this.field_73251_h.func_217381_Z();
+ 
+             gameprofilerfiller.func_230035_c_("getChunk");
+@@ -526,39 +532,7 @@ public class ServerChunkProvider extends AbstractChunkProvider {
+         if (Thread.currentThread() != this.field_217241_g) {
+             return null;
+         } else {
+-            this.field_73251_h.func_217381_Z().func_230035_c_("getChunkNow");
+-            long k = ChunkPos.func_77272_a(p_225313_1_, p_225313_2_);
+-
+-            for (int l = 0; l < 4; ++l) {
+-                if (k == this.field_222875_n[l] && this.field_222876_o[l] == ChunkStatus.field_222617_m) {
+-                    IChunk ichunkaccess = this.field_222877_p[l];
+-
+-                    return ichunkaccess instanceof Chunk ? (Chunk) ichunkaccess : null;
+-                }
+-            }
+-
+-            ChunkHolder playerchunk = this.func_217213_a(k);
+-
+-            if (playerchunk == null) {
+-                return null;
+-            } else {
+-                Either<IChunk, ChunkHolder.IChunkLoadingError> either = (Either) playerchunk.func_225410_b(ChunkStatus.field_222617_m).getNow(null); // CraftBukkit - decompile error
+-
+-                if (either == null) {
+-                    return null;
+-                } else {
+-                    IChunk ichunkaccess1 = (IChunk) either.left().orElse(null); // CraftBukkit - decompile error
+-
+-                    if (ichunkaccess1 != null) {
+-                        this.func_225315_a(k, ichunkaccess1, ChunkStatus.field_222617_m);
+-                        if (ichunkaccess1 instanceof Chunk) {
+-                            return (Chunk) ichunkaccess1;
+-                        }
+-                    }
+-
+-                    return null;
+-                }
+-            }
++            return this.getChunkAtIfLoadedMainThread(p_225313_1_, p_225313_2_); // Paper - optimise for loaded chunks
+         }
+     }
+ 

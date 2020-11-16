@@ -1,0 +1,393 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 6 May 2020 04:53:35 -0400
+Subject: [PATCH] Optimize Network Manager and add advanced packet support
+
+Adds ability for 1 packet to bundle other packets to follow it
+Adds ability for a packet to delay sending more packets until a state is ready.
+
+Removes synchronization from sending packets
+Removes processing packet queue off of main thread
+  - for the few cases where it is allowed, order is not necessary nor
+    should it even be happening concurrently in first place (handshaking/login/status)
+
+Ensures packets sent asynchronously are dispatched on main thread
+
+This helps ensure safety for ProtocolLib as packet listeners
+are commonly accessing world state. This will allow you to schedule
+a packet to be sent async, but itll be dispatched sync for packet
+listeners to process.
+
+This should solve some deadlock risks
+
+Also adds Netty Channel Flush Consolidation to reduce the amount of flushing
+
+Also avoids spamming closed channel exception by rechecking closed state in dispatch
+and then catch exceptions and close if they fire.
+
+Part of this commit was authored by: Spottedleaf
+
+diff --git a/src/main/java/net/minecraft/network/IPacket.java b/src/main/java/net/minecraft/network/IPacket.java
+index ee5dfe1f4335a43b2ee25c072027a99918b5ae55..30e9aafdf5a0142850e0276530a6e80e4d6dd638 100644
+--- a/src/main/java/net/minecraft/network/IPacket.java
++++ b/src/main/java/net/minecraft/network/IPacket.java
+@@ -1,6 +1,8 @@
+ package net.minecraft.network;
+ 
++import io.netty.channel.ChannelFuture; // Paper
+ import java.io.IOException;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ 
+ public interface IPacket<T extends INetHandler> {
+ 
+@@ -11,6 +13,20 @@ public interface IPacket<T extends INetHandler> {
+     void func_148833_a(T p_148833_1_);
+ 
+     // Paper start
++
++    /**
++     * @param player Null if not at PLAY stage yet
++     */
++    default void onPacketDispatch(@javax.annotation.Nullable ServerPlayerEntity player) {}
++
++    /**
++     * @param player Null if not at PLAY stage yet
++     * @param future Can be null if packet was cancelled
++     */
++    default void onPacketDispatchFinish(@javax.annotation.Nullable ServerPlayerEntity player, @javax.annotation.Nullable ChannelFuture future) {}
++    default boolean hasFinishListener() { return false; }
++    default boolean isReady() { return true; }
++    default java.util.List<IPacket> getExtraPackets() { return null; }
+     default boolean packetTooLarge(NetworkManager manager) {
+         return false;
+     }
+diff --git a/src/main/java/net/minecraft/network/NetworkManager.java b/src/main/java/net/minecraft/network/NetworkManager.java
+index dd60b3b6d3865cd1e4128ec0d0d1682cb9a284c6..d0591515bae2269efb08294062d336c619edfc24 100644
+--- a/src/main/java/net/minecraft/network/NetworkManager.java
++++ b/src/main/java/net/minecraft/network/NetworkManager.java
+@@ -21,9 +21,14 @@ import java.net.SocketAddress;
+ import java.util.Queue;
+ import javax.annotation.Nullable;
+ import javax.crypto.SecretKey;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.network.login.ServerLoginNetHandler;
+ import net.minecraft.network.play.ServerPlayNetHandler;
++import net.minecraft.network.play.server.SChatPacket;
+ import net.minecraft.network.play.server.SDisconnectPacket;
++import net.minecraft.network.play.server.SKeepAlivePacket;
++import net.minecraft.network.play.server.STabCompletePacket;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.CryptManager;
+ import net.minecraft.util.LazyValue;
+@@ -73,6 +78,10 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+     public int protocolVersion;
+     public java.net.InetSocketAddress virtualHost;
+     private static boolean enableExplicitFlush = Boolean.getBoolean("paper.explicit-flush");
++    // Optimize network
++    boolean isPending = true;
++    boolean queueImmunity = false;
++    ProtocolType protocol;
+     // Paper end
+ 
+     public NetworkManager(PacketDirection enumprotocoldirection) {
+@@ -96,6 +105,7 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+     }
+ 
+     public void func_150723_a(ProtocolType p_150723_1_) {
++        protocol = p_150723_1_; // Paper
+         this.field_150746_k.attr(NetworkManager.field_150739_c).set(p_150723_1_);
+         this.field_150746_k.config().setAutoRead(true);
+         NetworkManager.field_150735_g.debug("Enabled auto read");
+@@ -166,19 +176,82 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+         Validate.notNull(p_150719_1_, "packetListener", new Object[0]);
+         this.field_150744_m = p_150719_1_;
+     }
++    // Paper start
++    ServerPlayerEntity getPlayer() {
++        if (field_150744_m instanceof ServerPlayNetHandler) {
++            return ((ServerPlayNetHandler) field_150744_m).field_147369_b;
++        } else {
++            return null;
++        }
++    }
++    private static class InnerUtil { // Attempt to hide these methods from ProtocolLib so it doesn't accidently pick them up.
++        private static java.util.List<IPacket> buildExtraPackets(IPacket packet) {
++            java.util.List<IPacket> extra = packet.getExtraPackets();
++            if (extra == null || extra.isEmpty()) {
++                return null;
++            }
++            java.util.List<IPacket> ret = new java.util.ArrayList<>(1 + extra.size());
++            buildExtraPackets0(extra, ret);
++            return ret;
++        }
++
++        private static void buildExtraPackets0(java.util.List<IPacket> extraPackets, java.util.List<IPacket> into) {
++            for (IPacket extra : extraPackets) {
++                into.add(extra);
++                java.util.List<IPacket> extraExtra = extra.getExtraPackets();
++                if (extraExtra != null && !extraExtra.isEmpty()) {
++                    buildExtraPackets0(extraExtra, into);
++                }
++            }
++        }
++        // Paper start
++        private static boolean canSendImmediate(NetworkManager networkManager, IPacket<?> packet) {
++            return networkManager.isPending || networkManager.protocol != ProtocolType.PLAY ||
++                packet instanceof SKeepAlivePacket ||
++                packet instanceof SChatPacket ||
++                packet instanceof STabCompletePacket;
++        }
++        // Paper end
++    }
++    // Paper end
+ 
+     public void func_179290_a(IPacket<?> p_179290_1_) {
+         this.func_201058_a(p_179290_1_, (GenericFutureListener) null);
+     }
+ 
+     public void func_201058_a(IPacket<?> p_201058_1_, @Nullable GenericFutureListener<? extends Future<? super Void>> p_201058_2_) {
+-        if (this.func_150724_d()) {
+-            this.func_150733_h();
+-            this.func_150732_b(p_201058_1_, p_201058_2_);
+-        } else {
+-            this.field_150745_j.add(new NetworkManager.QueuedPacket(p_201058_1_, p_201058_2_));
++        // Paper start - handle oversized packets better
++        boolean connected = this.func_150724_d();
++        if (!connected && !preparing) {
++            return; // Do nothing
++        }
++        p_201058_1_.onPacketDispatch(getPlayer());
++        if (connected && (net.minecraft.network.NetworkManager.InnerUtil.canSendImmediate(this, p_201058_1_) || (
++            MCUtil.isMainThread() && p_201058_1_.isReady() && this.field_150745_j.isEmpty() &&
++            (p_201058_1_.getExtraPackets() == null || p_201058_1_.getExtraPackets().isEmpty())
++        ))) {
++            this.dispatchPacket(p_201058_1_, p_201058_2_);
++            return;
+         }
++        // write the packets to the queue, then flush - antixray hooks there already
++        java.util.List<IPacket> extraPackets = net.minecraft.network.NetworkManager.InnerUtil.buildExtraPackets(p_201058_1_);
++        boolean hasExtraPackets = extraPackets != null && !extraPackets.isEmpty();
++        if (!hasExtraPackets) {
++            this.field_150745_j.add(new NetworkManager.QueuedPacket(p_201058_1_, p_201058_2_));
++        } else {
++            java.util.List<NetworkManager.QueuedPacket> packets = new java.util.ArrayList<>(1 + extraPackets.size());
++            packets.add(new NetworkManager.QueuedPacket(p_201058_1_, null)); // delay the future listener until the end of the extra packets
++
++            for (int i = 0, len = extraPackets.size(); i < len;) {
++                IPacket extra = extraPackets.get(i);
++                boolean end = ++i == len;
++                packets.add(new NetworkManager.QueuedPacket(extra, end ? p_201058_2_ : null)); // append listener to the end
++            }
+ 
++            this.field_150745_j.addAll(packets); // atomic
++        }
++        this.sendPacketQueue();
++        // Paper end
+     }
+ 
+     private void dispatchPacket(IPacket<?> packet, @Nullable GenericFutureListener<? extends Future<? super Void>> genericFutureListener) { this.func_150732_b(packet, genericFutureListener); } // Paper - OBFHELPER
+@@ -192,54 +265,119 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+             this.field_150746_k.config().setAutoRead(false);
+         }
+ 
++        ServerPlayerEntity player = getPlayer(); // Paper
+         if (this.field_150746_k.eventLoop().inEventLoop()) {
+             if (enumprotocol != enumprotocol1) {
+                 this.func_150723_a(enumprotocol);
+             }
++            // Paper start
++            if (!func_150724_d()) {
++                p_150732_1_.onPacketDispatchFinish(player, null);
++                return;
++            }
++            try {
++                // Paper end
+ 
+             ChannelFuture channelfuture = this.field_150746_k.writeAndFlush(p_150732_1_);
+ 
+             if (p_150732_2_ != null) {
+                 channelfuture.addListener(p_150732_2_);
+             }
++            // Paper start
++            if (p_150732_1_.hasFinishListener()) {
++                channelfuture.addListener((ChannelFutureListener) channelFuture -> p_150732_1_.onPacketDispatchFinish(player, channelFuture));
++            }
++            // Paper end
+ 
+             channelfuture.addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
++            // Paper start
++            } catch (Exception e) {
++                field_150735_g.error("NetworkException: " + player, e);
++                func_150718_a(new TranslationTextComponent("disconnect.genericReason", "Internal Exception: " + e.getMessage()));;
++                p_150732_1_.onPacketDispatchFinish(player, null);
++            }
++            // Paper end
+         } else {
+             this.field_150746_k.eventLoop().execute(() -> {
+                 if (enumprotocol != enumprotocol1) {
+                     this.func_150723_a(enumprotocol);
+                 }
+ 
++                // Paper start
++                if (!func_150724_d()) {
++                    p_150732_1_.onPacketDispatchFinish(player, null);
++                    return;
++                }
++                try {
++                    // Paper end
+                 ChannelFuture channelfuture1 = this.field_150746_k.writeAndFlush(p_150732_1_);
+ 
++
+                 if (p_150732_2_ != null) {
+                     channelfuture1.addListener(p_150732_2_);
+                 }
++                // Paper start
++                if (p_150732_1_.hasFinishListener()) {
++                    channelfuture1.addListener((ChannelFutureListener) channelFuture -> p_150732_1_.onPacketDispatchFinish(player, channelFuture));
++                }
++                // Paper end
+ 
+                 channelfuture1.addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
++                // Paper start
++                } catch (Exception e) {
++                    field_150735_g.error("NetworkException: " + player, e);
++                    func_150718_a(new TranslationTextComponent("disconnect.genericReason", "Internal Exception: " + e.getMessage()));;
++                    p_150732_1_.onPacketDispatchFinish(player, null);
++                }
++                // Paper end
+             });
+         }
+ 
+     }
+ 
+-    private void sendPacketQueue() { this.func_150733_h(); } // Paper - OBFHELPER
+-    private void func_150733_h() {
+-        if (this.field_150746_k != null && this.field_150746_k.isOpen()) {
+-            Queue queue = this.field_150745_j;
+-
++    // Paper start - rewrite this to be safer on
++    private boolean sendPacketQueue() { return this.o(); } // OBFHELPER // void -> boolean
++    private boolean o() { // void -> boolean
++        if (!func_150724_d()) {
++            return true;
++        }
++        if (MCUtil.isMainThread()) {
++            return processQueue();
++        } else if (isPending) {
++            // Should only happen during login/status stages
+             synchronized (this.field_150745_j) {
+-                NetworkManager.QueuedPacket networkmanager_queuedpacket;
+-
+-                while ((networkmanager_queuedpacket = (NetworkManager.QueuedPacket) this.field_150745_j.poll()) != null) {
+-                    this.func_150732_b(networkmanager_queuedpacket.field_150774_a, networkmanager_queuedpacket.field_201049_b);
+-                }
++                return this.processQueue();
++            }
++        }
++        return false;
++    }
++    private boolean processQueue() {
++        if (this.field_150745_j.isEmpty()) return true;
++        // If we are on main, we are safe here in that nothing else should be processing queue off main anymore
++        // But if we are not on main due to login/status, the parent is synchronized on packetQueue
++        java.util.Iterator<QueuedPacket> iterator = this.field_150745_j.iterator();
++        while (iterator.hasNext()) {
++            NetworkManager.QueuedPacket queued = iterator.next(); // poll -> peek
++
++            // Fix NPE (Spigot bug caused by handleDisconnection())
++            if (queued == null) {
++                return true;
++            }
+ 
++            IPacket<?> packet = queued.getPacket();
++            if (!packet.isReady()) {
++                return false;
++            } else {
++                iterator.remove();
++                this.dispatchPacket(packet, queued.getGenericFutureListener());
+             }
+         }
++        return true;
+     }
++    // Paper end
+ 
+     public void func_74428_b() {
+-        this.func_150733_h();
++        this.o();
+         if (this.field_150744_m instanceof ServerLoginNetHandler) {
+             ((ServerLoginNetHandler) this.field_150744_m).func_73660_a();
+         }
+@@ -265,9 +403,21 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+         return this.field_150743_l;
+     }
+ 
++    // Paper start
++    public void clearPacketQueue() {
++        ServerPlayerEntity player = getPlayer();
++        field_150745_j.forEach(queuedPacket -> {
++            IPacket<?> packet = queuedPacket.getPacket();
++            if (packet.hasFinishListener()) {
++                packet.onPacketDispatchFinish(player, null);
++            }
++        });
++        field_150745_j.clear();
++    } // Paper end
+     public void func_150718_a(ITextComponent p_150718_1_) {
+         // Spigot Start
+         this.preparing = false;
++        clearPacketQueue(); // Paper
+         // Spigot End
+         if (this.field_150746_k.isOpen()) {
+             this.field_150746_k.close(); // We can't wait as this may be called from an event loop.
+@@ -335,7 +485,7 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+     public void func_179293_l() {
+         if (this.field_150746_k != null && !this.field_150746_k.isOpen()) {
+             if (this.field_179297_n) {
+-                NetworkManager.field_150735_g.warn("handleDisconnection() called twice");
++                //NetworkManager.LOGGER.warn("handleDisconnection() called twice"); // Paper - Do not log useless message
+             } else {
+                 this.field_179297_n = true;
+                 if (this.func_150730_f() != null) {
+@@ -343,7 +493,7 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+                 } else if (this.func_150729_e() != null) {
+                     this.func_150729_e().func_147231_a(new TranslationTextComponent("multiplayer.disconnect.generic"));
+                 }
+-                this.field_150745_j.clear(); // Free up packet queue.
++                clearPacketQueue(); // Paper
+                 // Paper start - Add PlayerConnectionCloseEvent
+                 final INetHandler packetListener = this.func_150729_e();
+                 if (packetListener instanceof ServerPlayNetHandler) {
+diff --git a/src/main/java/net/minecraft/network/NetworkSystem.java b/src/main/java/net/minecraft/network/NetworkSystem.java
+index 9670eae30d992ccc2bde56a390c5c458d28ae320..7de08b9f9aaa8a1895d37993e5a6aca65c9cbc6b 100644
+--- a/src/main/java/net/minecraft/network/NetworkSystem.java
++++ b/src/main/java/net/minecraft/network/NetworkSystem.java
+@@ -15,6 +15,7 @@ import io.netty.channel.epoll.EpollServerSocketChannel;
+ import io.netty.channel.nio.NioEventLoopGroup;
+ import io.netty.channel.socket.ServerSocketChannel;
+ import io.netty.channel.socket.nio.NioServerSocketChannel;
++import io.netty.handler.flush.FlushConsolidationHandler; // Paper
+ import io.netty.handler.timeout.ReadTimeoutHandler;
+ import java.io.IOException;
+ import java.net.InetAddress;
+@@ -47,10 +48,12 @@ public class NetworkSystem {
+     private final List<NetworkManager> field_151272_f = Collections.synchronizedList(Lists.newArrayList());
+     // Paper start - prevent blocking on adding a new network manager while the server is ticking
+     private final java.util.Queue<NetworkManager> pending = new java.util.concurrent.ConcurrentLinkedQueue<>();
++    private static final boolean disableFlushConsolidation = Boolean.getBoolean("Paper.disableFlushConsolidate"); // Paper
+     private void addPending() {
+         NetworkManager manager = null;
+         while ((manager = pending.poll()) != null) {
+             field_151272_f.add(manager);
++            manager.isPending = false;
+         }
+     }
+     // Paper end
+@@ -85,6 +88,7 @@ public class NetworkSystem {
+                         ;
+                     }
+ 
++                    if (!disableFlushConsolidation) channel.pipeline().addFirst(new FlushConsolidationHandler()); // Paper
+                     channel.pipeline().addLast("timeout", new ReadTimeoutHandler(30)).addLast("legacy_query", new LegacyPingHandler(NetworkSystem.this)).addLast("splitter", new NettyVarint21FrameDecoder()).addLast("decoder", new NettyPacketDecoder(PacketDirection.SERVERBOUND)).addLast("prepender", new NettyVarint21FrameEncoder()).addLast("encoder", new NettyPacketEncoder(PacketDirection.CLIENTBOUND));
+                     NetworkManager networkmanager = new NetworkManager(PacketDirection.SERVERBOUND);
+ 

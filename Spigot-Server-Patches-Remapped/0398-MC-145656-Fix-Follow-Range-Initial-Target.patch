@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Wed, 18 Dec 2019 22:21:35 -0600
+Subject: [PATCH] MC-145656 Fix Follow Range Initial Target
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index c51a149fd9cd7f2d250f07a4ca0e7ce8c9b91383..f0a28d787e06ceae71034f757637b4c90b6f3c04 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -577,4 +577,9 @@ public class PaperWorldConfig {
+     private void pillagerSettings() {
+         disablePillagerPatrols = getBoolean("game-mechanics.disable-pillager-patrols", disablePillagerPatrols);
+     }
++
++    public boolean entitiesTargetWithFollowRange = false;
++    private void entitiesTargetWithFollowRange() {
++        entitiesTargetWithFollowRange = getBoolean("entities-target-with-follow-range", entitiesTargetWithFollowRange);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/EntityPredicate.java b/src/main/java/net/minecraft/entity/EntityPredicate.java
+index 25042e398ee30967c966f1e3826e3917e9abc7f9..5917774e5e71947139202083bd7d7b12cc9f528d 100644
+--- a/src/main/java/net/minecraft/entity/EntityPredicate.java
++++ b/src/main/java/net/minecraft/entity/EntityPredicate.java
+@@ -2,6 +2,8 @@ package net.minecraft.entity;
+ 
+ import java.util.function.Predicate;
+ import javax.annotation.Nullable;
++import net.minecraft.entity.ai.attributes.Attributes;
++import net.minecraft.entity.ai.attributes.ModifiableAttributeInstance;
+ 
+ public class EntityPredicate {
+ 
+@@ -80,7 +82,7 @@ public class EntityPredicate {
+ 
+                 if (this.field_221017_b > 0.0D) {
+                     double d0 = this.field_221022_g ? p_221015_2_.func_213340_A(p_221015_1_) : 1.0D;
+-                    double d1 = this.field_221017_b * d0;
++                    double d1 = (useFollowRange ? getFollowRange(p_221015_1_) : this.field_221017_b) * d0; // Paper
+                     double d2 = p_221015_1_.func_70092_e(p_221015_2_.func_226277_ct_(), p_221015_2_.func_226278_cu_(), p_221015_2_.func_226281_cx_());
+ 
+                     if (d2 > d1 * d1) {
+@@ -96,4 +98,18 @@ public class EntityPredicate {
+             return true;
+         }
+     }
++
++    // Paper start
++    private boolean useFollowRange = false;
++
++    public EntityPredicate useFollowRange() {
++        this.useFollowRange = true;
++        return this;
++    }
++
++    private double getFollowRange(LivingEntity entityliving) {
++        ModifiableAttributeInstance attributeinstance = entityliving.func_110148_a(Attributes.field_233819_b_);
++        return attributeinstance == null ? 16.0D : attributeinstance.func_111126_e();
++    }
++    // Paper end
+ }
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/NearestAttackableTargetGoal.java b/src/main/java/net/minecraft/entity/ai/goal/NearestAttackableTargetGoal.java
+index dc81e9534bc4eaf41923b92381c828d37ad11432..d454aa9da35b29e74c88a81d4eb65276fb2e354d 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/NearestAttackableTargetGoal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/NearestAttackableTargetGoal.java
+@@ -31,6 +31,7 @@ public class NearestAttackableTargetGoal<T extends LivingEntity> extends TargetG
+         this.field_75308_c = i;
+         this.func_220684_a(EnumSet.of(Goal.Flag.TARGET));
+         this.field_220779_d = (new EntityPredicate()).func_221013_a(this.func_111175_f()).func_221012_a(predicate);
++        if (entityinsentient.field_70170_p.paperConfig.entitiesTargetWithFollowRange) this.field_220779_d.useFollowRange(); // Paper
+     }
+ 
+     @Override

@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: chickeneer <emcchickeneer@gmail.com>
+Date: Tue, 17 Mar 2020 14:18:50 -0500
+Subject: [PATCH] Do not allow bees to load chunks for beehives
+
+
+diff --git a/src/main/java/net/minecraft/entity/passive/BeeEntity.java b/src/main/java/net/minecraft/entity/passive/BeeEntity.java
+index b46ff732d18612d2fb4261558ac09f833fef731d..09b3780fa74c4a68840b1e241f3b709bb5c51b23 100644
+--- a/src/main/java/net/minecraft/entity/passive/BeeEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/BeeEntity.java
+@@ -358,6 +358,7 @@ public class BeeEntity extends AnimalEntity implements IAngerable, IFlyingAnimal
+         if (this.field_226369_bI_ == null) {
+             return false;
+         } else {
++            if (!this.field_70170_p.isLoadedAndInBounds(field_226369_bI_)) return false; // Paper
+             TileEntity tileentity = this.field_70170_p.func_175625_s(this.field_226369_bI_);
+ 
+             return tileentity instanceof BeehiveTileEntity && ((BeehiveTileEntity) tileentity).func_226968_d_();
+@@ -390,6 +391,7 @@ public class BeeEntity extends AnimalEntity implements IAngerable, IFlyingAnimal
+     }
+ 
+     private boolean func_226435_i_(BlockPos p_226435_1_) {
++        if (!this.field_70170_p.isLoadedAndInBounds(p_226435_1_)) return false; // Paper
+         TileEntity tileentity = this.field_70170_p.func_175625_s(p_226435_1_);
+ 
+         return tileentity instanceof BeehiveTileEntity ? !((BeehiveTileEntity) tileentity).func_226970_h_() : false;
+@@ -632,6 +634,7 @@ public class BeeEntity extends AnimalEntity implements IAngerable, IFlyingAnimal
+         @Override
+         public boolean func_225506_g_() {
+             if (BeeEntity.this.func_226409_eA_() && BeeEntity.this.func_226415_eI_() && BeeEntity.this.field_226369_bI_.func_218137_a((IPosition) BeeEntity.this.func_213303_ch(), 2.0D)) {
++                if (!BeeEntity.this.field_70170_p.isLoadedAndInBounds(BeeEntity.this.field_226369_bI_)) return false; // Paper
+                 TileEntity tileentity = BeeEntity.this.field_70170_p.func_175625_s(BeeEntity.this.field_226369_bI_);
+ 
+                 if (tileentity instanceof BeehiveTileEntity) {
+@@ -655,6 +658,7 @@ public class BeeEntity extends AnimalEntity implements IAngerable, IFlyingAnimal
+ 
+         @Override
+         public void func_75249_e() {
++            if (!BeeEntity.this.field_70170_p.isLoadedAndInBounds(BeeEntity.this.field_226369_bI_)) return; // Paper
+             TileEntity tileentity = BeeEntity.this.field_70170_p.func_175625_s(BeeEntity.this.field_226369_bI_);
+ 
+             if (tileentity instanceof BeehiveTileEntity) {

@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jedediah Smith <jedediah@silencegreys.com>
+Date: Sat, 2 Apr 2016 05:09:16 -0400
+Subject: [PATCH] Add PlayerUseUnknownEntityEvent
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 4408cc4e1982548fd69f914660aa22d7d11cd664..60b71e62a33e4c1d9665bd9b95a99e7093de2526 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -2096,6 +2096,16 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                 }
+             }
+         }
++        // Paper start - fire event
++        else {
++            this.server.getPluginManager().callEvent(new com.destroystokyo.paper.event.player.PlayerUseUnknownEntityEvent(
++                this.getPlayer(),
++                p_147340_1_.getEntityId(),
++                p_147340_1_.func_149565_c() == CUseEntityPacket.Action.ATTACK,
++                p_147340_1_.func_186994_b() == Hand.MAIN_HAND ? EquipmentSlot.HAND : EquipmentSlot.OFF_HAND
++            ));
++        }
++        // Paper end
+ 
+     }
+ 
+diff --git a/src/main/java/net/minecraft/network/play/client/CUseEntityPacket.java b/src/main/java/net/minecraft/network/play/client/CUseEntityPacket.java
+index 155d1b94ac0cabb23fa060a44120e44a844e3eb7..08b618e29167f9a91ca78243702c12634d9dbad9 100644
+--- a/src/main/java/net/minecraft/network/play/client/CUseEntityPacket.java
++++ b/src/main/java/net/minecraft/network/play/client/CUseEntityPacket.java
+@@ -12,7 +12,7 @@ import net.minecraft.world.World;
+ 
+ public class CUseEntityPacket implements IPacket<IServerPlayNetHandler> {
+ 
+-    private int field_149567_a;
++    private int field_149567_a; public int getEntityId() { return this.field_149567_a; } // Paper - add accessor
+     private CUseEntityPacket.Action field_149566_b;
+     private Vector3d field_179713_c;
+     private Hand field_186995_d;

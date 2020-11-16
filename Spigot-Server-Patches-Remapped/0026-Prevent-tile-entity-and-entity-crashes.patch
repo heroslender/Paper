@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 1 Mar 2016 23:52:34 -0600
+Subject: [PATCH] Prevent tile entity and entity crashes
+
+
+diff --git a/src/main/java/net/minecraft/tileentity/TileEntity.java b/src/main/java/net/minecraft/tileentity/TileEntity.java
+index 5f033f9093eef960b24f62e855014133459a00e6..b034441905cb7d0f834e43dd57a5a3389dde472b 100644
+--- a/src/main/java/net/minecraft/tileentity/TileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/TileEntity.java
+@@ -206,7 +206,12 @@ public abstract class TileEntity implements KeyedObject { // Paper
+             return Registry.field_212626_o.func_177774_c(this.func_200662_C()) + " // " + this.getClass().getCanonicalName();
+         });
+         if (this.field_145850_b != null) {
+-            CrashReportCategory.func_175750_a(p_145828_1_, this.field_174879_c, this.func_195044_w());
++            // Paper start - Prevent TileEntity and Entity crashes
++            BlockState block = this.func_195044_w();
++            if (block != null) {
++                CrashReportCategory.func_175750_a(p_145828_1_, this.field_174879_c, block);
++            }
++            // Paper end
+             CrashReportCategory.func_175750_a(p_145828_1_, this.field_174879_c, this.field_145850_b.func_180495_p(this.field_174879_c));
+         }
+     }
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index c587acc5cdecbc2eecde3509c7c79f8a4e473fc6..e650e60fcda8ffcad5bd42ea28865898ae7ab9a8 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -773,11 +773,13 @@ public abstract class World implements IWorld, AutoCloseable {
+ 
+                         gameprofilerfiller.func_76319_b();
+                     } catch (Throwable throwable) {
+-                        CrashReport crashreport = CrashReport.func_85055_a(throwable, "Ticking block entity");
+-                        CrashReportCategory crashreportsystemdetails = crashreport.func_85058_a("Block entity being ticked");
+-
+-                        tileentity.func_145828_a(crashreportsystemdetails);
+-                        throw new ReportedException(crashreport);
++                        // Paper start - Prevent tile entity and entity crashes
++                        System.err.println("TileEntity threw exception at " + tileentity.field_145850_b.getWorld().getName() + ":" + tileentity.field_174879_c.func_177958_n() + "," + tileentity.field_174879_c.func_177956_o() + "," + tileentity.field_174879_c.func_177952_p());
++                        throwable.printStackTrace();
++                        tilesThisCycle--;
++                        this.field_175730_i.remove(tileTickPosition--);
++                        continue;
++                        // Paper end
+                     }
+                     // Spigot start
+                     finally {
+@@ -843,11 +845,12 @@ public abstract class World implements IWorld, AutoCloseable {
+         try {
+             p_217390_1_.accept(p_217390_2_);
+         } catch (Throwable throwable) {
+-            CrashReport crashreport = CrashReport.func_85055_a(throwable, "Ticking entity");
+-            CrashReportCategory crashreportsystemdetails = crashreport.func_85058_a("Entity being ticked");
+-
+-            p_217390_2_.func_85029_a(crashreportsystemdetails);
+-            throw new ReportedException(crashreport);
++            // Paper start - Prevent tile entity and entity crashes
++            System.err.println("Entity threw exception at " + p_217390_2_.field_70170_p.getWorld().getName() + ":" + p_217390_2_.func_226277_ct_() + "," + p_217390_2_.func_226278_cu_() + "," + p_217390_2_.func_226281_cx_());
++            throwable.printStackTrace();
++            p_217390_2_.field_70128_L = true;
++            return;
++            // Paper end
+         }
+     }
+ 

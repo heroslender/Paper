@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DoctorDark <doctordark11@gmail.com>
+Date: Wed, 16 Mar 2016 02:21:39 -0500
+Subject: [PATCH] Configurable end credits
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index f7a0a33e49cadf9b2bd43f118c106937760da762..50dec5cb5e924301842300e8fc80cb671b6b9173 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -144,4 +144,10 @@ public class PaperWorldConfig {
+             }
+         }
+     }
++
++    public boolean disableEndCredits;
++    private void disableEndCredits() {
++        disableEndCredits = getBoolean("game-mechanics.disable-end-credits", false);
++        log("End credits disabled: " + disableEndCredits);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 72e6ae45d11266c61f7730572b59bbfd7a71ca15..f4a5d2c01cfd7ced86c93a40a707803a9e15c50a 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -181,7 +181,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     private long field_143005_bX = Util.func_211177_b();
+     private Entity field_175401_bS;
+     public boolean field_184851_cj;
+-    private boolean field_192040_cp;
++    private boolean field_192040_cp; private void setHasSeenCredits(boolean has) { this.field_192040_cp = has; } // Paper - OBFHELPER
+     private final ServerRecipeBook field_192041_cq = new ServerRecipeBook();
+     private Vector3d field_193107_ct;
+     private int field_193108_cu;
+@@ -870,6 +870,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+             this.func_71121_q().func_217434_e(this);
+             if (!this.field_71136_j) {
+                 this.field_71136_j = true;
++                if (field_70170_p.paperConfig.disableEndCredits) this.setHasSeenCredits(true); // Paper - Toggle to always disable end credits
+                 this.field_71135_a.func_147359_a(new SChangeGameStatePacket(SChangeGameStatePacket.field_241768_e_, this.field_192040_cp ? 0.0F : 1.0F));
+                 this.field_192040_cp = true;
+             }

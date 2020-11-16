@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 15 Aug 2017 22:29:12 -0400
+Subject: [PATCH] Expand World.spawnParticle API and add Builder
+
+Adds ability to control who receives it and who is the source/sender (vanish API)
+the standard API is to send the packet to everyone in the world, which is ineffecient.
+Adds an option to control the force mode of the particle.
+
+This adds a new Builder API which is much friendlier to use.
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 8aa41f130fbd569d0241196068bd37a9bbda6b67..0538b8f2204f8dca35d5e44e213c11450e9b40a0 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -158,7 +158,7 @@ public class ServerWorld extends World implements ISeedReader {
+     public final Int2ObjectMap<Entity> field_217498_x = new Int2ObjectLinkedOpenHashMap();
+     private final Map<UUID, Entity> field_175741_N = Maps.newHashMap();
+     private final Queue<Entity> field_217499_z = Queues.newArrayDeque();
+-    private final List<ServerPlayerEntity> field_217491_A = Lists.newArrayList();
++    public final List<ServerPlayerEntity> field_217491_A = Lists.newArrayList(); // Paper - private -> public
+     public final ServerChunkProvider field_241102_C_; // Paper - public
+     boolean field_217492_a;
+     private final MinecraftServer field_73061_a;
+@@ -1411,12 +1411,17 @@ public class ServerWorld extends World implements ISeedReader {
+     }
+ 
+     public <T extends IParticleData> int sendParticles(ServerPlayerEntity sender, T t0, double d0, double d1, double d2, int i, double d3, double d4, double d5, double d6, boolean force) {
++        // Paper start - Particle API Expansion
++        return sendParticles(field_217491_A, sender, t0, d0, d1, d2, i, d3, d4, d5, d6, force);
++    }
++    public <T extends IParticleData> int sendParticles(List<ServerPlayerEntity> receivers, ServerPlayerEntity sender, T t0, double d0, double d1, double d2, int i, double d3, double d4, double d5, double d6, boolean force) {
++        // Paper end
+         SSpawnParticlePacket packetplayoutworldparticles = new SSpawnParticlePacket(t0, force, d0, d1, d2, (float) d3, (float) d4, (float) d5, (float) d6, i);
+         // CraftBukkit end
+         int j = 0;
+ 
+-        for (int k = 0; k < this.field_217491_A.size(); ++k) {
+-            ServerPlayerEntity entityplayer = (ServerPlayerEntity) this.field_217491_A.get(k);
++        for (PlayerEntity entityhuman : receivers) { // Paper - Particle API Expansion
++            ServerPlayerEntity entityplayer = (ServerPlayerEntity) entityhuman; // Paper - Particle API Expansion
+             if (sender != null && !entityplayer.getBukkitEntity().canSee(sender.getBukkitEntity())) continue; // CraftBukkit
+ 
+             if (this.func_195601_a(entityplayer, force, d0, d1, d2, packetplayoutworldparticles)) { // CraftBukkit
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index f26ac2053f9e8105b48d06da71731c3d4ebbada7..0e617aa57f94ab26a67b743b94f0cb5ac293a358 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -2323,11 +2323,17 @@ public class CraftWorld implements World {
+ 
+     @Override
+     public <T> void spawnParticle(Particle particle, double x, double y, double z, int count, double offsetX, double offsetY, double offsetZ, double extra, T data, boolean force) {
++        // Paper start - Particle API Expansion
++        spawnParticle(particle, null, null, x, y, z, count, offsetX, offsetY, offsetZ, extra, data, force);
++    }
++    public <T> void spawnParticle(Particle particle, List<Player> receivers, Player sender, double x, double y, double z, int count, double offsetX, double offsetY, double offsetZ, double extra, T data, boolean force) {
++        // Paper end
+         if (data != null && !particle.getDataType().isInstance(data)) {
+             throw new IllegalArgumentException("data should be " + particle.getDataType() + " got " + data.getClass());
+         }
+         getHandle().sendParticles(
+-                null, // Sender
++                receivers == null ? getHandle().field_217491_A : receivers.stream().map(player -> ((CraftPlayer) player).getHandle()).collect(java.util.stream.Collectors.toList()), // Paper -  Particle API Expansion
++                sender != null ? ((CraftPlayer) sender).getHandle() : null, // Sender // Paper - Particle API Expansion
+                 CraftParticle.toNMS(particle, data), // Particle
+                 x, y, z, // Position
+                 count,  // Count

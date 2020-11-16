@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 21 Jul 2018 01:59:59 -0500
+Subject: [PATCH] PlayerElytraBoostEvent
+
+
+diff --git a/src/main/java/net/minecraft/item/FireworkRocketItem.java b/src/main/java/net/minecraft/item/FireworkRocketItem.java
+index 16fea7403267f034608fd2911bb3fea0746d9200..0bff83bdd32d2432acd73ce5ceae02179f5473b5 100644
+--- a/src/main/java/net/minecraft/item/FireworkRocketItem.java
++++ b/src/main/java/net/minecraft/item/FireworkRocketItem.java
+@@ -3,6 +3,7 @@ package net.minecraft.item;
+ import java.util.Arrays;
+ import java.util.Comparator;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.entity.projectile.FireworkRocketEntity;
+ import net.minecraft.util.ActionResult;
+ import net.minecraft.util.ActionResultType;
+@@ -44,11 +45,16 @@ public class FireworkRocketItem extends Item {
+                 // Paper start
+                 final FireworkRocketEntity entityfireworks = new FireworkRocketEntity(p_77659_1_, itemstack, p_77659_2_);
+                 entityfireworks.spawningEntity = p_77659_2_.func_110124_au();
+-                p_77659_1_.func_217376_c(entityfireworks);
+-                // Paper end
+-                if (!p_77659_2_.field_71075_bZ.field_75098_d) {
+-                    itemstack.func_190918_g(1);
++                // Paper start
++                com.destroystokyo.paper.event.player.PlayerElytraBoostEvent event = new com.destroystokyo.paper.event.player.PlayerElytraBoostEvent((org.bukkit.entity.Player) p_77659_2_.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemstack), (org.bukkit.entity.Firework) entityfireworks.getBukkitEntity());
++                if (event.callEvent() && p_77659_1_.func_217376_c(entityfireworks)) {
++                    if (event.shouldConsume() && !p_77659_2_.field_71075_bZ.field_75098_d) {
++                        itemstack.func_190918_g(1);
++                    } else ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
++                } else if (p_77659_2_ instanceof ServerPlayerEntity) {
++                    ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
+                 }
++                // Paper end
+             }
+ 
+             return ActionResult.func_233538_a_(p_77659_2_.func_184586_b(p_77659_3_), p_77659_1_.func_201670_d());

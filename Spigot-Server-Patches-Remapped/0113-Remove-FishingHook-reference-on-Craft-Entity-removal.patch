@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 16 Jun 2016 00:17:23 -0400
+Subject: [PATCH] Remove FishingHook reference on Craft Entity removal
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftFishHook.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftFishHook.java
+index eb3c429e76ebebebbf56be6b915dfe21d643b0f9..11f9d0c3f60b5df42374d08289128225ba0934f3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftFishHook.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftFishHook.java
+@@ -48,4 +48,15 @@ public class CraftFishHook extends CraftProjectile implements FishHook {
+         Validate.isTrue(chance >= 0 && chance <= 1, "The bite chance must be between 0 and 1.");
+         this.biteChance = chance;
+     }
++
++    // Paper start
++    @Override
++    public void remove() {
++        super.remove();
++        if (getHandle().func_234606_i_() != null) {
++            getHandle().func_234606_i_().field_71104_cf = null;
++        }
++    }
++    // Paper end
++
+ }

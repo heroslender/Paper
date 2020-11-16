@@ -1,0 +1,341 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Thu, 2 Aug 2018 08:44:35 -0500
+Subject: [PATCH] Add hand to bucket events
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index e6550814f8ef16efa06eff256f295200bc4dd496..a17a6607b52dbebe349068089c5463aba1c298e2 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -2584,7 +2584,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         if (blockposition == null) { // CraftBukkit
+             if (this.field_70170_p.func_234922_V_() == DimensionType.field_236001_e_ && worldserver.func_234922_V_() == DimensionType.field_235999_c_) { // CraftBukkit
+                 // CraftBukkit start
+-                EntityPortalEvent event = CraftEventFactory.callEntityPortalEvent(this, worldserver, worldserver.func_205770_a(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, worldserver.func_241135_u_()), 0);
++                EntityPortalEvent event = CraftEventFactory.callEntityPortalEvent(this, worldserver, worldserver.func_205770_a(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, worldserver.getSpawn()), 0);
+                 if (event == null) {
+                     return null;
+                 }
+diff --git a/src/main/java/net/minecraft/entity/passive/CowEntity.java b/src/main/java/net/minecraft/entity/passive/CowEntity.java
+index 836e40fa5890fb45f9f4f66f7d92511f0dd3083e..8d4f5a8ea08325a77e40382b1acee3c2ae45eccb 100644
+--- a/src/main/java/net/minecraft/entity/passive/CowEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/CowEntity.java
+@@ -87,7 +87,7 @@ public class CowEntity extends AnimalEntity {
+ 
+         if (itemstack.func_77973_b() == Items.field_151133_ar && !this.func_70631_g_()) {
+             // CraftBukkit start - Got milk?
+-            org.bukkit.event.player.PlayerBucketFillEvent event = CraftEventFactory.callPlayerBucketFillEvent((ServerWorld) p_230254_1_.field_70170_p, p_230254_1_, this.func_233580_cy_(), this.func_233580_cy_(), null, itemstack, Items.field_151117_aB);
++            org.bukkit.event.player.PlayerBucketFillEvent event = CraftEventFactory.callPlayerBucketFillEvent((ServerWorld) p_230254_1_.field_70170_p, p_230254_1_, this.func_233580_cy_(), this.func_233580_cy_(), null, itemstack, Items.field_151117_aB, p_230254_2_); // Paper - add enumHand
+ 
+             if (event.isCancelled()) {
+                 return ActionResultType.PASS;
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index b333cbf25ac697b3f35594cf84deefc649657708..70e41787b88b3d8a9c5e68a4186d6d192c1df081 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -220,7 +220,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public final com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> cachedSingleHashSet; // Paper
+ 
+     public ServerPlayerEntity(MinecraftServer minecraftserver, ServerWorld worldserver, GameProfile gameprofile, PlayerInteractionManager playerinteractmanager) {
+-        super(worldserver, worldserver.func_241135_u_(), gameprofile);
++        super(worldserver, worldserver.getSpawn(), gameprofile);
+         this.field_241137_cq_ = World.field_234918_g_;
+         playerinteractmanager.field_73090_b = this;
+         this.field_71134_c = playerinteractmanager;
+@@ -241,7 +241,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     // Yes, this doesn't match Vanilla, but it's the best we can do for now.
+     // If this is an issue, PRs are welcome
+     public final BlockPos getSpawnPoint(ServerWorld worldserver) {
+-        BlockPos blockposition = worldserver.func_241135_u_();
++        BlockPos blockposition = worldserver.getSpawn();
+ 
+         if (worldserver.func_230315_m_().func_218272_d() && worldserver.field_241103_E_.func_76077_q() != GameType.ADVENTURE) {
+             int i = Math.max(0, this.field_71133_b.func_184108_a(worldserver));
+@@ -278,7 +278,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     // CraftBukkit end
+ 
+     private void func_205734_a(ServerWorld p_205734_1_) {
+-        BlockPos blockposition = p_205734_1_.func_241135_u_();
++        BlockPos blockposition = p_205734_1_.getSpawn();
+ 
+         if (p_205734_1_.func_230315_m_().func_218272_d() && p_205734_1_.field_241103_E_.func_76077_q() != GameType.ADVENTURE) { // CraftBukkit
+             int i = Math.max(0, this.field_71133_b.func_184108_a(p_205734_1_));
+@@ -449,7 +449,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+             }
+             if (world == null || position == null) {
+                 world = ((CraftWorld) Bukkit.getServer().getWorlds().get(0)).getHandle();
+-                position = Vector3d.func_237489_a_(((ServerWorld) world).func_241135_u_());
++                position = Vector3d.func_237489_a_(((ServerWorld) world).getSpawn());
+             }
+             this.field_70170_p = world;
+             this.func_70107_b(position.func_82615_a(), position.func_82617_b(), position.func_82616_c());
+diff --git a/src/main/java/net/minecraft/item/BucketItem.java b/src/main/java/net/minecraft/item/BucketItem.java
+index 6afc5a5bc96d31e37936ae94b87d7ef3ecbda305..b111048da21d6fbc8b3289f14e2b80e19a1a5e96 100644
+--- a/src/main/java/net/minecraft/item/BucketItem.java
++++ b/src/main/java/net/minecraft/item/BucketItem.java
+@@ -72,7 +72,7 @@ public class BucketItem extends Item {
+                     if (iblockdata.func_177230_c() instanceof IBucketPickupHandler) {
+                         // CraftBukkit start
+                         Fluid dummyFluid = ((IBucketPickupHandler) iblockdata.func_177230_c()).func_204508_a(DummyGeneratorAccess.INSTANCE, blockposition, iblockdata);
+-                        PlayerBucketFillEvent event = CraftEventFactory.callPlayerBucketFillEvent((ServerWorld) p_77659_1_, p_77659_2_, blockposition, blockposition, movingobjectpositionblock.func_216354_b(), itemstack, dummyFluid.func_204524_b());
++                        PlayerBucketFillEvent event = CraftEventFactory.callPlayerBucketFillEvent((ServerWorld) p_77659_1_, p_77659_2_, blockposition, blockposition, movingobjectpositionblock.func_216354_b(), itemstack, dummyFluid.func_204524_b(), p_77659_3_); // Paper - add enumhand
+ 
+                         if (event.isCancelled()) {
+                             ((ServerPlayerEntity) p_77659_2_).field_71135_a.func_147359_a(new SChangeBlockPacket(p_77659_1_, blockposition)); // SPIGOT-5163 (see PlayerInteractManager)
+@@ -100,7 +100,7 @@ public class BucketItem extends Item {
+                     iblockdata = p_77659_1_.func_180495_p(blockposition);
+                     BlockPos blockposition2 = iblockdata.func_177230_c() instanceof ILiquidContainer && this.field_77876_a == Fluids.field_204546_a ? blockposition : blockposition1;
+ 
+-                    if (this.a(p_77659_2_, p_77659_1_, blockposition2, movingobjectpositionblock1, movingobjectpositionblock1.func_216354_b(), blockposition, itemstack)) { // CraftBukkit
++                    if (this.a(p_77659_2_, p_77659_1_, blockposition2, movingobjectpositionblock1, movingobjectpositionblock1.func_216354_b(), blockposition, itemstack, p_77659_3_)) { // CraftBukkit // Paper - add enumhand
+                         this.func_203792_a(p_77659_1_, itemstack, blockposition2);
+                         if (p_77659_2_ instanceof ServerPlayerEntity) {
+                             CriteriaTriggers.field_193137_x.func_193173_a((ServerPlayerEntity) p_77659_2_, blockposition2, itemstack);
+@@ -125,10 +125,12 @@ public class BucketItem extends Item {
+     public void func_203792_a(World p_203792_1_, ItemStack p_203792_2_, BlockPos p_203792_3_) {}
+ 
+     public boolean func_180616_a(@Nullable PlayerEntity p_180616_1_, World p_180616_2_, BlockPos p_180616_3_, @Nullable BlockRayTraceResult p_180616_4_) {
+-        return a(p_180616_1_, p_180616_2_, p_180616_3_, p_180616_4_, null, null, null);
++        // Paper start - add enumHand
++        return a(p_180616_1_, p_180616_2_, p_180616_3_, p_180616_4_, null, null, null, null);
+     }
+ 
+-    public boolean a(PlayerEntity entityhuman, World world, BlockPos blockposition, @Nullable BlockRayTraceResult movingobjectpositionblock, Direction enumdirection, BlockPos clicked, ItemStack itemstack) {
++    public boolean a(PlayerEntity entityhuman, World world, BlockPos blockposition, @Nullable BlockRayTraceResult movingobjectpositionblock, Direction enumdirection, BlockPos clicked, ItemStack itemstack, Hand enumhand) {
++        // Paper end
+         // CraftBukkit end
+         if (!(this.field_77876_a instanceof FlowingFluid)) {
+             return false;
+@@ -141,7 +143,7 @@ public class BucketItem extends Item {
+ 
+             // CraftBukkit start
+             if (flag1 && entityhuman != null) {
+-                PlayerBucketEmptyEvent event = CraftEventFactory.callPlayerBucketEmptyEvent((ServerWorld) world, entityhuman, blockposition, clicked, enumdirection, itemstack);
++                PlayerBucketEmptyEvent event = CraftEventFactory.callPlayerBucketEmptyEvent((ServerWorld) world, entityhuman, blockposition, clicked, enumdirection, itemstack, enumhand); // Paper - add enumhand
+                 if (event.isCancelled()) {
+                     ((ServerPlayerEntity) entityhuman).field_71135_a.func_147359_a(new SChangeBlockPacket(world, blockposition)); // SPIGOT-4238: needed when looking through entity
+                     ((ServerPlayerEntity) entityhuman).getBukkitEntity().updateInventory(); // SPIGOT-4541
+@@ -150,7 +152,7 @@ public class BucketItem extends Item {
+             }
+             // CraftBukkit end
+             if (!flag1) {
+-                return movingobjectpositionblock != null && this.a(entityhuman, world, movingobjectpositionblock.func_216350_a().func_177972_a(movingobjectpositionblock.func_216354_b()), (BlockRayTraceResult) null, enumdirection, clicked, itemstack); // CraftBukkit
++                return movingobjectpositionblock != null && this.a(entityhuman, world, movingobjectpositionblock.func_216350_a().func_177972_a(movingobjectpositionblock.func_216354_b()), (BlockRayTraceResult) null, enumdirection, clicked, itemstack, enumhand); // CraftBukkit // Paper - add enumhand
+             } else if (world.func_230315_m_().func_236040_e_() && this.field_77876_a.func_207185_a((ITag) FluidTags.field_206959_a)) {
+                 int i = blockposition.func_177958_n();
+                 int j = blockposition.func_177956_o();
+diff --git a/src/main/java/net/minecraft/network/rcon/RConConsoleSource.java b/src/main/java/net/minecraft/network/rcon/RConConsoleSource.java
+index c0d53c256775194718c4cc0b1b43d907750dc287..3dfff628dacf2aca0d92ec02343a13224185573d 100644
+--- a/src/main/java/net/minecraft/network/rcon/RConConsoleSource.java
++++ b/src/main/java/net/minecraft/network/rcon/RConConsoleSource.java
+@@ -33,7 +33,7 @@ public class RConConsoleSource implements ICommandSource {
+     public CommandSource func_195540_f() {
+         ServerWorld worldserver = this.field_184171_b.func_241755_D_();
+ 
+-        return new CommandSource(this, Vector3d.func_237491_b_((Vector3i) worldserver.func_241135_u_()), Vector2f.field_189974_a, worldserver, 4, "Rcon", RConConsoleSource.field_232647_b_, this.field_184171_b, (Entity) null);
++        return new CommandSource(this, Vector3d.func_237491_b_((Vector3i) worldserver.getSpawn()), Vector2f.field_189974_a, worldserver, 4, "Rcon", RConConsoleSource.field_232647_b_, this.field_184171_b, (Entity) null);
+     }
+ 
+     // CraftBukkit start - Send a String
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index a6b769b44938a76cdb242727eb64bb3025a52067..7e88bdb6931defaff3cf3cc43b5e8b905806d14a 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -714,7 +714,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         // CraftBukkit end
+ 
+         MinecraftServer.field_147145_h.info("Preparing start region for dimension {}", worldserver.func_234923_W_().func_240901_a_());
+-        BlockPos blockposition = worldserver.func_241135_u_();
++        BlockPos blockposition = worldserver.getSpawn();
+ 
+         worldloadlistener.func_219509_a(new ChunkPos(blockposition));
+         ServerChunkProvider chunkproviderserver = worldserver.E();
+@@ -1878,7 +1878,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+     public CommandSource func_195573_aM() {
+         ServerWorld worldserver = this.func_241755_D_();
+ 
+-        return new CommandSource(this, worldserver == null ? Vector3d.field_186680_a : Vector3d.func_237491_b_((Vector3i) worldserver.func_241135_u_()), Vector2f.field_189974_a, worldserver, 4, "Server", new StringTextComponent("Server"), this, (Entity) null);
++        return new CommandSource(this, worldserver == null ? Vector3d.field_186680_a : Vector3d.func_237491_b_((Vector3i) worldserver.getSpawn()), Vector2f.field_189974_a, worldserver, 4, "Server", new StringTextComponent("Server"), this, (Entity) null);
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index c2a094a6f9135aa3abc4bb5a6c697a71fc3fe30b..d40e882cb75f280083d65c221db0cc87f5c9dbad 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -522,7 +522,7 @@ public class DedicatedServer extends MinecraftServer implements IServer {
+         } else if (this.func_82357_ak() <= 0) {
+             return false;
+         } else {
+-            BlockPos blockposition1 = p_175579_1_.func_241135_u_();
++            BlockPos blockposition1 = p_175579_1_.getSpawn();
+             int i = MathHelper.func_76130_a(p_175579_2_.func_177958_n() - blockposition1.func_177958_n());
+             int j = MathHelper.func_76130_a(p_175579_2_.func_177952_p() - blockposition1.func_177952_p());
+             int k = Math.max(i, j);
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index d6353deb098168b8a166daa4437f0aacd511e625..ae2e5b21f340d39f2dbbbf26d4c435b7630f59cc 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -793,7 +793,7 @@ public abstract class PlayerList {
+         entityplayer1.func_226284_e_(false);
+ 
+         // entityplayer1.playerConnection.a(entityplayer1.locX(), entityplayer1.locY(), entityplayer1.locZ(), entityplayer1.yaw, entityplayer1.pitch);
+-        entityplayer1.field_71135_a.func_147359_a(new SWorldSpawnChangedPacket(worldserver1.func_241135_u_()));
++        entityplayer1.field_71135_a.func_147359_a(new SWorldSpawnChangedPacket(worldserver1.getSpawn()));
+         entityplayer1.field_71135_a.func_147359_a(new SServerDifficultyPacket(worlddata.func_176130_y(), worlddata.func_176123_z()));
+         entityplayer1.field_71135_a.func_147359_a(new SSetExperiencePacket(entityplayer1.field_71106_cc, entityplayer1.field_71067_cb, entityplayer1.field_71068_ca));
+         this.func_72354_b(entityplayer1, worldserver1);
+@@ -1075,7 +1075,7 @@ public abstract class PlayerList {
+ 
+         p_72354_1_.field_71135_a.func_147359_a(new SWorldBorderPacket(worldborder, SWorldBorderPacket.Action.INITIALIZE));
+         p_72354_1_.field_71135_a.func_147359_a(new SUpdateTimePacket(p_72354_2_.func_82737_E(), p_72354_2_.func_72820_D(), p_72354_2_.func_82736_K().func_223586_b(GameRules.field_223607_j)));
+-        p_72354_1_.field_71135_a.func_147359_a(new SWorldSpawnChangedPacket(p_72354_2_.func_241135_u_()));
++        p_72354_1_.field_71135_a.func_147359_a(new SWorldSpawnChangedPacket(p_72354_2_.getSpawn()));
+         if (p_72354_2_.func_72896_J()) {
+             // CraftBukkit start - handle player weather
+             // entityplayer.playerConnection.sendPacket(new PacketPlayOutGameStateChange(PacketPlayOutGameStateChange.b, 0.0F));
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 019137eefb1f841d0eb6c9ac2c0c375feaef207b..a8729367566c3f203a4ea896b5f6f91a7ea29fa6 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -270,6 +270,17 @@ public abstract class World implements IWorld, AutoCloseable {
+     }
+     // Paper end
+ 
++    // Paper start - moved up from WorldServer
++    public BlockPos getSpawn() {
++        BlockPos blockposition = new BlockPos(this.field_72986_A.func_76079_c(), this.field_72986_A.func_76075_d(), this.field_72986_A.func_76074_e());
++
++        if (!this.func_175723_af().func_177746_a(blockposition)) {
++            blockposition = this.func_205770_a(Heightmap.Type.MOTION_BLOCKING, new BlockPos(this.func_175723_af().func_230316_a_(), 0.0D, this.func_175723_af().func_230317_b_()));
++        }
++
++        return blockposition;
++    }
++    // Paper end
+     @Override
+     public boolean func_201670_d() {
+         return this.field_72995_K;
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index a470458950fad951a3d5e98fc8473061de6c86ab..e6cbc6dac8bf0b59917afb63a8472066ab788eed 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1584,15 +1584,17 @@ public class ServerWorld extends World implements ISeedReader {
+         this.func_73046_m().func_184103_al().func_148540_a(new SWorldSpawnChangedPacket(p_241124_1_));
+     }
+ 
+-    public BlockPos func_241135_u_() {
+-        BlockPos blockposition = new BlockPos(this.field_72986_A.func_76079_c(), this.field_72986_A.func_76075_d(), this.field_72986_A.func_76074_e());
+-
+-        if (!this.func_175723_af().func_177746_a(blockposition)) {
+-            blockposition = this.func_205770_a(Heightmap.Type.MOTION_BLOCKING, new BlockPos(this.func_175723_af().func_230316_a_(), 0.0D, this.func_175723_af().func_230317_b_()));
+-        }
+-
+-        return blockposition;
+-    }
++    // Paper - moved up to World
++    //public BlockPosition getSpawn() {
++    //    BlockPosition blockposition = new BlockPosition(this.worldData.a(), this.worldData.b(), this.worldData.c());
++    //
++    //    if (!this.getWorldBorder().a(blockposition)) {
++    //        blockposition = this.getHighestBlockYAt(HeightMap.Type.MOTION_BLOCKING, new BlockPosition(this.getWorldBorder().getCenterX(), 0.0D, this.getWorldBorder().getCenterZ()));
++    //    }
++    //
++    //    return blockposition;
++    //}
++    // Paper end
+ 
+     public LongSet func_217469_z() {
+         ForcedChunksSaveData forcedchunk = (ForcedChunksSaveData) this.func_217481_x().func_215753_b(ForcedChunksSaveData::new, "chunks");
+diff --git a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+index 960b683abd2b796a2c3dbb9948ccd5950ffb4dd7..3c8a931e5f637e4b55d39481626ab8b0ab722536 100644
+--- a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+@@ -273,7 +273,7 @@ public final class WorldEntitySpawner {
+     private static boolean func_234978_a_(ServerWorld p_234978_0_, IChunk p_234978_1_, BlockPos.Mutable p_234978_2_, double p_234978_3_) {
+         if (p_234978_3_ <= 576.0D) {
+             return false;
+-        } else if (p_234978_0_.func_241135_u_().func_218137_a((IPosition) (new Vector3d((double) p_234978_2_.func_177958_n() + 0.5D, (double) p_234978_2_.func_177956_o(), (double) p_234978_2_.func_177952_p() + 0.5D)), 24.0D)) {
++        } else if (p_234978_0_.getSpawn().func_218137_a((IPosition) (new Vector3d((double) p_234978_2_.func_177958_n() + 0.5D, (double) p_234978_2_.func_177956_o(), (double) p_234978_2_.func_177952_p() + 0.5D)), 24.0D)) {
+             return false;
+         } else {
+             ChunkPos chunkcoordintpair = new ChunkPos(p_234978_2_);
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index 1e59ddd875e9e74221aed7c5bd00b59544df033d..157df53a22ebd978cb6e83067c67ec25313d4e8c 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -338,7 +338,7 @@ public class CraftWorld implements World {
+ 
+     @Override
+     public Location getSpawnLocation() {
+-        BlockPos spawn = world.func_241135_u_();
++        BlockPos spawn = world.getSpawn();
+         return new Location(this, spawn.func_177958_n(), spawn.func_177956_o(), spawn.func_177952_p());
+     }
+ 
+@@ -1915,7 +1915,7 @@ public class CraftWorld implements World {
+     public void setKeepSpawnInMemory(boolean keepLoaded) {
+         world.keepSpawnInMemory = keepLoaded;
+         // Grab the worlds spawn chunk
+-        BlockPos chunkcoordinates = this.world.func_241135_u_();
++        BlockPos chunkcoordinates = this.world.getSpawn();
+         if (keepLoaded) {
+             world.E().func_217228_a(TicketType.field_219488_a, new ChunkPos(chunkcoordinates), 11, Unit.INSTANCE);
+         } else {
+diff --git a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+index 62ea93597877e4c07f051f87b0f1c86b3af03aa1..f04568b8f60308d1590cb322707ca5bf6f92e087 100644
+--- a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
++++ b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+@@ -226,7 +226,7 @@ public class CraftEventFactory {
+     public static Entity entityDamage; // For use in EntityDamageByEntityEvent
+ 
+     // helper methods
+-    private static boolean canBuild(ServerWorld world, Player player, int x, int z) {
++    private static boolean canBuild(World world, Player player, int x, int z) {
+         int spawnSize = Bukkit.getServer().getSpawnRadius();
+ 
+         if (world.func_234923_W_() != World.field_234918_g_) return true;
+@@ -234,7 +234,7 @@ public class CraftEventFactory {
+         if (((CraftServer) Bukkit.getServer()).getHandle().func_152603_m().func_152690_d()) return true;
+         if (player.isOp()) return true;
+ 
+-        BlockPos chunkcoordinates = world.func_241135_u_();
++        BlockPos chunkcoordinates = world.getSpawn();
+ 
+         int distanceFromSpawn = Math.max(Math.abs(x - chunkcoordinates.func_177958_n()), Math.abs(z - chunkcoordinates.func_177952_p()));
+         return distanceFromSpawn > spawnSize;
+@@ -405,6 +405,20 @@ public class CraftEventFactory {
+     }
+ 
+     private static PlayerEvent getPlayerBucketEvent(boolean isFilling, ServerWorld world, PlayerEntity who, BlockPos changed, BlockPos clicked, Direction clickedFace, ItemStack itemstack, net.minecraft.item.Item item) {
++        // Paper start - add enumHand
++        return getPlayerBucketEvent(isFilling, world, who, changed, clicked, clickedFace, itemstack, item, null);
++    }
++
++    public static PlayerBucketEmptyEvent callPlayerBucketEmptyEvent(World world, PlayerEntity who, BlockPos changed, BlockPos clicked, Direction clickedFace, ItemStack itemstack, Hand enumHand) {
++        return (PlayerBucketEmptyEvent) getPlayerBucketEvent(false, world, who, changed, clicked, clickedFace, itemstack, Items.field_151133_ar, enumHand);
++    }
++
++    public static PlayerBucketFillEvent callPlayerBucketFillEvent(World world, PlayerEntity who, BlockPos changed, BlockPos clicked, Direction clickedFace, ItemStack itemInHand, net.minecraft.item.Item bucket, Hand enumHand) {
++        return (PlayerBucketFillEvent) getPlayerBucketEvent(true, world, who, clicked, changed, clickedFace, itemInHand, bucket, enumHand);
++    }
++
++    private static PlayerEvent getPlayerBucketEvent(boolean isFilling, World world, PlayerEntity who, BlockPos changed, BlockPos clicked, Direction clickedFace, ItemStack itemstack, net.minecraft.item.Item item, Hand enumHand) {
++        // Paper end
+         Player player = (Player) who.getBukkitEntity();
+         CraftItemStack itemInHand = CraftItemStack.asNewCraftStack(item);
+         Material bucket = CraftMagicNumbers.getMaterial(itemstack.func_77973_b());
+@@ -417,10 +431,10 @@ public class CraftEventFactory {
+ 
+         PlayerEvent event;
+         if (isFilling) {
+-            event = new PlayerBucketFillEvent(player, block, blockClicked, blockFace, bucket, itemInHand);
++            event = new PlayerBucketFillEvent(player, block, blockClicked, blockFace, bucket, itemInHand, enumHand == null ? null : enumHand == Hand.OFF_HAND ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND); // Paper - add enumHand
+             ((PlayerBucketFillEvent) event).setCancelled(!canBuild(world, player, changed.func_177958_n(), changed.func_177952_p()));
+         } else {
+-            event = new PlayerBucketEmptyEvent(player, block, blockClicked, blockFace, bucket, itemInHand);
++            event = new PlayerBucketEmptyEvent(player, block, blockClicked, blockFace, bucket, itemInHand, enumHand == null ? null : enumHand == Hand.OFF_HAND ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND); // Paper - add enumHand
+             ((PlayerBucketEmptyEvent) event).setCancelled(!canBuild(world, player, changed.func_177958_n(), changed.func_177952_p()));
+         }
+ 

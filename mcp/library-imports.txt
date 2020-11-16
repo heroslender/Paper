@@ -1,0 +1,2 @@
+authlib com/mojang/authlib/yggdrasil/YggdrasilGameProfileRepository.java
+datafixerupper com/mojang/datafixers/util/Either.java

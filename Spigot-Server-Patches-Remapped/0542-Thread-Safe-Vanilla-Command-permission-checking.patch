@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 11 Jul 2020 03:54:28 -0400
+Subject: [PATCH] Thread Safe Vanilla Command permission checking
+
+Datapacks check this on load and are built concurrently. This was breaking them badly due
+to race conditions.
+
+Plus, .canUse we want to be safe for async anyways.
+
+diff --git a/src/main/java/com/mojang/brigadier/tree/CommandNode.java b/src/main/java/com/mojang/brigadier/tree/CommandNode.java
+index 2850ee1092e25059c59a8d0d64f6c9901ae3d419..048fcadbeb11c94861c8ed4f66daeb00ca98cfb4 100644
+--- a/src/main/java/com/mojang/brigadier/tree/CommandNode.java
++++ b/src/main/java/com/mojang/brigadier/tree/CommandNode.java
+@@ -74,10 +74,10 @@ public abstract class CommandNode<S> implements Comparable<CommandNode<S>> {
+         // CraftBukkit start
+         if (source instanceof CommandSource) {
+             try {
+-                ((CommandSource) source).currentCommand = this;
++                ((CommandSource) source).currentCommand.set(this); // Paper
+                 return requirement.test(source);
+             } finally {
+-                ((CommandSource) source).currentCommand = null;
++                ((CommandSource) source).currentCommand.set(null); // Paper
+             }
+         }
+         // CraftBukkit end
+diff --git a/src/main/java/net/minecraft/command/CommandSource.java b/src/main/java/net/minecraft/command/CommandSource.java
+index 57d074eec15ec9c96fb91592d3012c83b4745399..56dac91d761dd9fb3a5e106ff4d4ed69041dd2ca 100644
+--- a/src/main/java/net/minecraft/command/CommandSource.java
++++ b/src/main/java/net/minecraft/command/CommandSource.java
+@@ -52,7 +52,7 @@ public class CommandSource implements ISuggestionProvider, com.destroystokyo.pap
+     private final ResultConsumer<CommandSource> field_197050_l;
+     private final EntityAnchorArgument.Type field_201011_m;
+     private final Vector2f field_201012_n;
+-    public CommandNode currentCommand; // CraftBukkit
++    public ThreadLocal<CommandNode> currentCommand = new ThreadLocal<>(); // CraftBukkit // Paper
+ 
+     public CommandSource(ICommandSource icommandlistener, Vector3d vec3d, Vector2f vec2f, ServerWorld worldserver, int i, String s, ITextComponent ichatbasecomponent, MinecraftServer minecraftserver, @Nullable Entity entity) {
+         this(icommandlistener, vec3d, vec2f, worldserver, i, s, ichatbasecomponent, minecraftserver, entity, false, (commandcontext, flag, j) -> {
+@@ -162,8 +162,11 @@ public class CommandSource implements ISuggestionProvider, com.destroystokyo.pap
+     @Override
+     public boolean func_197034_c(int p_197034_1_) {
+         // CraftBukkit start
++        // Paper start - fix concurrency issue
++        CommandNode currentCommand = this.currentCommand.get();
+         if (currentCommand != null) {
+             return hasPermission(p_197034_1_, org.bukkit.craftbukkit.command.VanillaCommandWrapper.getPermission(currentCommand));
++            // Paper end
+         }
+         // CraftBukkit end
+ 

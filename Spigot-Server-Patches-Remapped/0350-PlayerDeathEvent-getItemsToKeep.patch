@@ -1,0 +1,74 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 27 Mar 2019 23:01:33 -0400
+Subject: [PATCH] PlayerDeathEvent#getItemsToKeep
+
+Exposes a mutable array on items a player should keep on death
+
+Example Usage: https://gist.github.com/aikar/5bb202de6057a051a950ce1f29feb0b4
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 66f0eb3fd2e7fd1e66862df3e52d699b5b1749f5..e09c4f2246eaafce0203909d9c67bf74efbff0c0 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -678,6 +678,46 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+         });
+     }
+ 
++    // Paper start - process inventory
++    private static void processKeep(org.bukkit.event.entity.PlayerDeathEvent event, NonNullList<ItemStack> inv) {
++        List<org.bukkit.inventory.ItemStack> itemsToKeep = event.getItemsToKeep();
++        if (inv == null) {
++            // remainder of items left in toKeep - plugin added stuff on death that wasn't in the initial loot?
++            if (!itemsToKeep.isEmpty()) {
++                for (org.bukkit.inventory.ItemStack itemStack : itemsToKeep) {
++                    event.getEntity().getInventory().addItem(itemStack);
++                }
++            }
++
++            return;
++        }
++
++        for (int i = 0; i < inv.size(); ++i) {
++            ItemStack item = inv.get(i);
++            if (EnchantmentHelper.func_190939_c(item) || itemsToKeep.isEmpty() || item.func_190926_b()) {
++                inv.set(i, ItemStack.NULL_ITEM);
++                continue;
++            }
++
++            final org.bukkit.inventory.ItemStack bukkitStack = item.getBukkitStack();
++            boolean keep = false;
++            final Iterator<org.bukkit.inventory.ItemStack> iterator = itemsToKeep.iterator();
++            while (iterator.hasNext()) {
++                final org.bukkit.inventory.ItemStack itemStack = iterator.next();
++                if (bukkitStack.equals(itemStack)) {
++                    iterator.remove();
++                    keep = true;
++                    break;
++                }
++            }
++
++            if (!keep) {
++                inv.set(i, ItemStack.NULL_ITEM);
++            }
++        }
++    }
++    // Paper end
++
+     @Override
+     public void func_70645_a(DamageSource p_70645_1_) {
+         boolean flag = this.field_70170_p.func_82736_K().func_223586_b(GameRules.field_223609_l);
+@@ -767,7 +807,12 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+         this.func_226294_cV_();
+         // we clean the player's inventory after the EntityDeathEvent is called so plugins can get the exact state of the inventory.
+         if (!event.getKeepInventory()) {
+-            this.field_71071_by.func_174888_l();
++            // Paper start - replace logic
++            for (NonNullList<ItemStack> inv : this.field_71071_by.getComponents()) {
++                processKeep(event, inv);
++            }
++            processKeep(event, null);
++            // Paper end
+         }
+ 
+         this.func_175399_e(this); // Remove spectated target

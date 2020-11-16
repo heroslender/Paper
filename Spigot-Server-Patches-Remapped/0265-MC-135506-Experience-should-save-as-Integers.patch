@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 3 Aug 2018 00:04:54 -0400
+Subject: [PATCH] MC-135506: Experience should save as Integers
+
+
+diff --git a/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java b/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java
+index 606fb31238b759e5608e3d9a5bc9a130324093fc..494b183b9f99707e27d6f834aaaba64ed7d3aac6 100644
+--- a/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java
+@@ -222,7 +222,7 @@ public class ExperienceOrbEntity extends Entity {
+     public void func_213281_b(CompoundNBT p_213281_1_) {
+         p_213281_1_.func_74777_a("Health", (short) this.field_70529_d);
+         p_213281_1_.func_74777_a("Age", (short) this.field_70531_b);
+-        p_213281_1_.func_74777_a("Value", (short) this.field_70530_e);
++        p_213281_1_.func_74768_a("Value", this.field_70530_e); // Paper - save as Integer
+         this.savePaperNBT(p_213281_1_); // Paper
+     }
+ 
+@@ -230,7 +230,7 @@ public class ExperienceOrbEntity extends Entity {
+     public void func_70037_a(CompoundNBT p_70037_1_) {
+         this.field_70529_d = p_70037_1_.func_74765_d("Health");
+         this.field_70531_b = p_70037_1_.func_74765_d("Age");
+-        this.field_70530_e = p_70037_1_.func_74765_d("Value");
++        this.field_70530_e = p_70037_1_.func_74762_e("Value"); // Paper - load as Integer
+         this.loadPaperNBT(p_70037_1_); // Paper
+     }
+ 

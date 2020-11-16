@@ -1,0 +1,165 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 2 Apr 2020 02:37:57 -0400
+Subject: [PATCH] Optimize Collision to not load chunks
+
+The collision code takes an AABB and generates a cuboid of checks rather
+than a cylinder, so at high velocity this can generate a lot of chunk checks.
+
+Treat an unloaded chunk as a collision for entities, and also for players if
+the "prevent moving into unloaded chunks" setting is enabled.
+
+If that serting is not enabled, collisions will be ignored for players, since
+movement will load only the chunk the player enters anyways and avoids loading
+massive amounts of surrounding chunks due to large AABB lookups.
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index e5e5b78147a4977c94c0d41e922c6c30809b99af..222f50f6f8ed7a629c435fed0dc0f6c7401cbfe8 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -173,6 +173,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     private CraftEntity bukkitEntity;
+ 
+     ChunkManager.EntityTracker tracker; // Paper
++    boolean collisionLoadChunks = false; // Paper
+     Throwable addedToWorldStack; // Paper - entity debug
+     public CraftEntity getBukkitEntity() {
+         if (bukkitEntity == null) {
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index e52bc3ac089705f306af9fe500e24cf9832118dc..6c755b226693593cd00124bfd770a80858038c83 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -70,6 +70,7 @@ import net.minecraft.util.SoundCategory;
+ import net.minecraft.util.SoundEvents;
+ import net.minecraft.util.Util;
+ import net.minecraft.util.math.BlockPos;
++import net.minecraft.util.math.ChunkPos;
+ import net.minecraft.util.math.vector.Vector3d;
+ import net.minecraft.util.text.ChatType;
+ import net.minecraft.util.text.ITextComponent;
+@@ -83,6 +84,7 @@ import net.minecraft.world.biome.BiomeManager;
+ import net.minecraft.world.border.IBorderListener;
+ import net.minecraft.world.border.WorldBorder;
+ import net.minecraft.world.server.ServerWorld;
++import net.minecraft.world.server.TicketType;
+ import net.minecraft.world.storage.FolderName;
+ import net.minecraft.world.storage.IWorldInfo;
+ import net.minecraft.world.storage.PlayerData;
+@@ -789,6 +791,7 @@ public abstract class PlayerList {
+         entityplayer1.forceSetPositionRotation(location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
+         // CraftBukkit end
+ 
++        worldserver1.E().func_217228_a(TicketType.field_223185_g, new ChunkPos(location.getBlockX() >> 4, location.getBlockZ() >> 4), 1, entityplayer.func_145782_y()); // Paper
+         while (avoidSuffocation && !worldserver1.func_226669_j_(entityplayer1) && entityplayer1.func_226278_cu_() < 256.0D) {
+             entityplayer1.func_70107_b(entityplayer1.func_226277_ct_(), entityplayer1.func_226278_cu_() + 1.0D, entityplayer1.func_226281_cx_());
+         }
+diff --git a/src/main/java/net/minecraft/util/math/shapes/VoxelShapeSpliterator.java b/src/main/java/net/minecraft/util/math/shapes/VoxelShapeSpliterator.java
+index d32abddf7b49a3a096f30c628089e00f0cd3dea2..da35914845b32da72d34c742e72f5a632a4881cb 100644
+--- a/src/main/java/net/minecraft/util/math/shapes/VoxelShapeSpliterator.java
++++ b/src/main/java/net/minecraft/util/math/shapes/VoxelShapeSpliterator.java
+@@ -8,6 +8,8 @@ import javax.annotation.Nullable;
+ import net.minecraft.block.BlockState;
+ import net.minecraft.block.Blocks;
+ import net.minecraft.entity.Entity;
++import net.minecraft.entity.player.ServerPlayerEntity;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.util.math.AxisAlignedBB;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.CubeCoordinateIterator;
+@@ -15,17 +17,18 @@ import net.minecraft.util.math.MathHelper;
+ import net.minecraft.world.IBlockReader;
+ import net.minecraft.world.ICollisionReader;
+ import net.minecraft.world.border.WorldBorder;
++import net.minecraft.world.gen.WorldGenRegion;
+ 
+ public class VoxelShapeSpliterator extends AbstractSpliterator<VoxelShape> {
+ 
+     @Nullable
+-    private final Entity field_234868_a_;
++    private final Entity field_234868_a_; final Entity getEntity() { return this.field_234868_a_; } // Paper - OBFHELPER
+     private final AxisAlignedBB field_234869_b_;
+     private final ISelectionContext field_234870_c_;
+     private final CubeCoordinateIterator field_234871_d_;
+-    private final BlockPos.Mutable field_234872_e_;
++    private final BlockPos.Mutable field_234872_e_; final BlockPos.Mutable getMutablePos() { return this.field_234872_e_; } // Paper - OBFHELPER
+     private final VoxelShape field_234873_f_;
+-    private final ICollisionReader field_234874_g_;
++    private final ICollisionReader field_234874_g_; final ICollisionReader getCollisionAccess() { return this.field_234874_g_; } // Paper - OBFHELPER
+     private boolean field_234875_h_;
+     private final BiPredicate<BlockState, BlockPos> field_241458_i_;
+ 
+@@ -62,23 +65,37 @@ public class VoxelShapeSpliterator extends AbstractSpliterator<VoxelShape> {
+     boolean func_234878_a_(Consumer<? super VoxelShape> p_234878_1_) {
+         while (true) {
+             if (this.field_234871_d_.func_218301_a()) {
+-                int i = this.field_234871_d_.func_218304_b();
+-                int j = this.field_234871_d_.func_218302_c();
+-                int k = this.field_234871_d_.func_218303_d();
++                int i = this.field_234871_d_.func_218304_b(); final int x = i;
++                int j = this.field_234871_d_.func_218302_c(); final int y = j;
++                int k = this.field_234871_d_.func_218303_d(); final int z = k;
+                 int l = this.field_234871_d_.func_223473_e();
+ 
+                 if (l == 3) {
+                     continue;
+                 }
+ 
+-                IBlockReader iblockaccess = this.func_234876_a_(i, k);
+-
+-                if (iblockaccess == null) {
++                // Paper start - ensure we don't load chunks
++                Entity entity = this.getEntity();
++                BlockPos.Mutable blockposition_mutableblockposition = this.getMutablePos();
++                boolean far = entity != null && MCUtil.distanceSq(entity.func_226277_ct_(), y, entity.func_226281_cx_(), x, y, z) > 14;
++                blockposition_mutableblockposition.setValues(x, y, z);
++
++                boolean isRegionLimited = this.getCollisionAccess() instanceof WorldGenRegion;
++                BlockState iblockdata = isRegionLimited ? Blocks.field_201940_ji.func_176223_P() : ((!far && entity instanceof ServerPlayerEntity) || (entity != null && entity.collisionLoadChunks)
++                    ? this.getCollisionAccess().func_180495_p(blockposition_mutableblockposition)
++                    : this.getCollisionAccess().getTypeIfLoaded(blockposition_mutableblockposition)
++                );
++
++                if (iblockdata == null) {
++                    if (!(entity instanceof ServerPlayerEntity) || entity.field_70170_p.paperConfig.preventMovingIntoUnloadedChunks) {
++                        VoxelShape voxelshape3 = VoxelShapes.of(far ? entity.func_174813_aQ() : new AxisAlignedBB(new BlockPos(x, y, z)));
++                        p_234878_1_.accept(voxelshape3);
++                        return true;
++                    }
+                     continue;
+                 }
+-
+-                this.field_234872_e_.func_181079_c(i, j, k);
+-                BlockState iblockdata = iblockaccess.func_180495_p(this.field_234872_e_);
++                // Paper - moved up
++                // Paper end
+ 
+                 if (!this.field_241458_i_.test(iblockdata, this.field_234872_e_) || l == 1 && !iblockdata.func_215704_f() || l == 2 && !iblockdata.func_203425_a(Blocks.field_196603_bb)) {
+                     continue;
+diff --git a/src/main/java/net/minecraft/util/math/shapes/VoxelShapes.java b/src/main/java/net/minecraft/util/math/shapes/VoxelShapes.java
+index fb06cf9a3aa1ea02fc31cca779d2074a8809d89d..de9ecbe11d0717a8584fbc7083bfd180ebd3cb3e 100644
+--- a/src/main/java/net/minecraft/util/math/shapes/VoxelShapes.java
++++ b/src/main/java/net/minecraft/util/math/shapes/VoxelShapes.java
+@@ -249,7 +249,8 @@ public final class VoxelShapes {
+ 
+                             if (k2 < 3) {
+                                 blockposition_mutableblockposition.func_218295_a(enumaxiscycle1, i2, j2, l1);
+-                                BlockState iblockdata = p_216386_1_.func_180495_p(blockposition_mutableblockposition);
++                                BlockState iblockdata = p_216386_1_.getTypeIfLoaded(blockposition_mutableblockposition); // Paper
++                                if (iblockdata == null) return 0.0D; // Paper
+ 
+                                 if ((k2 != 1 || iblockdata.func_215704_f()) && (k2 != 2 || iblockdata.func_203425_a(Blocks.field_196603_bb))) {
+                                     p_216386_2_ = iblockdata.func_215685_b((IBlockReader) p_216386_1_, blockposition_mutableblockposition, p_216386_3_).func_212430_a(enumdirection_enumaxis2, p_216386_0_.func_72317_d((double) (-blockposition_mutableblockposition.func_177958_n()), (double) (-blockposition_mutableblockposition.func_177956_o()), (double) (-blockposition_mutableblockposition.func_177952_p())), p_216386_2_);
+diff --git a/src/main/java/net/minecraft/world/ICollisionReader.java b/src/main/java/net/minecraft/world/ICollisionReader.java
+index 18d7a490af5df39a36bb077b71aea5d22a7fb41c..bab5c4169ab20f8fdde529049f4244aea9a0be0b 100644
+--- a/src/main/java/net/minecraft/world/ICollisionReader.java
++++ b/src/main/java/net/minecraft/world/ICollisionReader.java
+@@ -55,7 +55,9 @@ public interface ICollisionReader extends IBlockReader {
+     }
+ 
+     default boolean func_234865_b_(@Nullable Entity p_234865_1_, AxisAlignedBB p_234865_2_, Predicate<Entity> p_234865_3_) {
++        try { if (p_234865_1_ != null) p_234865_1_.collisionLoadChunks = true; // Paper
+         return this.func_234867_d_(p_234865_1_, p_234865_2_, p_234865_3_).allMatch(VoxelShape::func_197766_b);
++        } finally { if (p_234865_1_ != null) p_234865_1_.collisionLoadChunks = false; } // Paper
+     }
+ 
+     Stream<VoxelShape> func_230318_c_(@Nullable Entity p_230318_1_, AxisAlignedBB p_230318_2_, Predicate<Entity> p_230318_3_);

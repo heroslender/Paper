@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 4 Jul 2018 02:13:59 -0400
+Subject: [PATCH] Store counts for each Entity/Block Entity Type
+
+Opens door for future patches to optimize performance
+
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index fe0fc686ea8ab3349bcb36853cedc17a59c77151..2dbad1f6170432c635a3e25a5519f9350b37c1d0 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -95,15 +95,19 @@ public class Chunk implements IChunk {
+     }
+ 
+     // Paper start
++    public final co.aikar.util.Counter<String> entityCounts = new co.aikar.util.Counter<>();
++    public final co.aikar.util.Counter<String> tileEntityCounts = new co.aikar.util.Counter<>();
+     private class TileEntityHashMap extends java.util.HashMap<BlockPos, TileEntity> {
+         @Override
+         public TileEntity put(BlockPos key, TileEntity value) {
+             TileEntity replaced = super.put(key, value);
+             if (replaced != null) {
+                 replaced.setCurrentChunk(null);
++                tileEntityCounts.decrement(replaced.getMinecraftKeyString());
+             }
+             if (value != null) {
+                 value.setCurrentChunk(Chunk.this);
++                tileEntityCounts.increment(value.getMinecraftKeyString());
+             }
+             return replaced;
+         }
+@@ -113,6 +117,7 @@ public class Chunk implements IChunk {
+             TileEntity removed = super.remove(key);
+             if (removed != null) {
+                 removed.setCurrentChunk(null);
++                tileEntityCounts.decrement(removed.getMinecraftKeyString());
+             }
+             return removed;
+         }
+@@ -123,7 +128,7 @@ public class Chunk implements IChunk {
+         this.field_76652_q = new ChunkSection[16];
+         this.field_201618_i = Maps.newHashMap();
+         this.field_76634_f = Maps.newEnumMap(Heightmap.Type.class);
+-        this.field_150816_i = new net.minecraft.world.chunk.Chunk.TileEntityHashMap(); // Paper
++        this.field_150816_i = new TileEntityHashMap(); // Paper
+         this.field_201619_q = Maps.newHashMap();
+         this.field_201620_r = Maps.newHashMap();
+         this.field_201622_t = new ShortList[16];
+@@ -528,6 +533,7 @@ public class Chunk implements IChunk {
+             k = this.field_76645_j.length - 1;
+         }
+ 
++        if (!p_76612_1_.field_70175_ag || p_76612_1_.getCurrentChunk() != this) entityCounts.increment(p_76612_1_.getMinecraftKeyString()); // Paper
+         p_76612_1_.field_70175_ag = true;
+         p_76612_1_.setCurrentChunk(this); // Paper
+         p_76612_1_.field_70176_ah = this.field_212816_F.field_77276_a;
+@@ -561,6 +567,7 @@ public class Chunk implements IChunk {
+         if (!this.field_76645_j[p_76608_2_].remove(p_76608_1_)) {
+             return;
+         }
++        entityCounts.decrement(p_76608_1_.getMinecraftKeyString());
+         // Paper end
+         this.entities.remove(p_76608_1_); // Paper
+     }

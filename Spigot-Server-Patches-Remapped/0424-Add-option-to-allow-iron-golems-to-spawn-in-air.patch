@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <blake.galbreath@gmail.com>
+Date: Sat, 13 Apr 2019 16:50:58 -0500
+Subject: [PATCH] Add option to allow iron golems to spawn in air
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 796c5a0b110009b479f5c9eef17e2605b564ce09..1b2256144f7f968667570e5a9838a77173d515c5 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -380,6 +380,11 @@ public class PaperWorldConfig {
+         scanForLegacyEnderDragon = getBoolean("game-mechanics.scan-for-legacy-ender-dragon", true);
+     }
+ 
++    public boolean ironGolemsCanSpawnInAir = false;
++    private void ironGolemsCanSpawnInAir() {
++        ironGolemsCanSpawnInAir = getBoolean("iron-golems-can-spawn-in-air", ironGolemsCanSpawnInAir);
++    }
++
+     public int bedSearchRadius = 1;
+     private void bedSearchRadius() {
+         bedSearchRadius = getInt("bed-search-radius", 1);
+diff --git a/src/main/java/net/minecraft/entity/passive/IronGolemEntity.java b/src/main/java/net/minecraft/entity/passive/IronGolemEntity.java
+index 28925d6f021d9fb52ec9adbdcc32ee4387fb3f47..3a26f48e3181cb8790bb89d9b675b9c808776319 100644
+--- a/src/main/java/net/minecraft/entity/passive/IronGolemEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/IronGolemEntity.java
+@@ -297,7 +297,7 @@ public class IronGolemEntity extends GolemEntity implements IAngerable {
+         BlockPos blockposition1 = blockposition.func_177977_b();
+         BlockState iblockdata = p_205019_1_.func_180495_p(blockposition1);
+ 
+-        if (!iblockdata.func_235719_a_((IBlockReader) p_205019_1_, blockposition1, (Entity) this)) {
++        if (!iblockdata.func_235719_a_((IBlockReader) p_205019_1_, blockposition1, (Entity) this) && !field_70170_p.paperConfig.ironGolemsCanSpawnInAir) { // Paper
+             return false;
+         } else {
+             for (int i = 1; i < 3; ++i) {

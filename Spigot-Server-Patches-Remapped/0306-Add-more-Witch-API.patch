@@ -1,0 +1,156 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 12 Oct 2018 14:10:46 -0500
+Subject: [PATCH] Add more Witch API
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/WitchEntity.java b/src/main/java/net/minecraft/entity/monster/WitchEntity.java
+index 6208309c5ec4df11cae5e8958c27061248a4c641..7e044a1b7636e864b17ce308cb5eb0b0e8291d20 100644
+--- a/src/main/java/net/minecraft/entity/monster/WitchEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/WitchEntity.java
+@@ -1,5 +1,11 @@
+ package net.minecraft.entity.monster;
+ 
++// Paper start
++import com.destroystokyo.paper.event.entity.WitchReadyPotionEvent;
++import org.bukkit.craftbukkit.inventory.CraftItemStack;
++import org.bukkit.entity.Witch;
++// Paper end
++
+ import java.util.Iterator;
+ import java.util.List;
+ import java.util.UUID;
+@@ -47,9 +53,9 @@ import net.minecraft.world.World;
+ public class WitchEntity extends AbstractRaiderEntity implements IRangedAttackMob {
+ 
+     private static final UUID field_110184_bp = UUID.fromString("5CD17E52-A79A-43D3-A529-90FDE04B181E");
+-    private static final AttributeModifier field_110185_bq = new AttributeModifier(WitchEntity.field_110184_bp, "Drinking speed penalty", -0.25D, AttributeModifier.Operation.ADDITION);
++    private static final AttributeModifier field_110185_bq = new AttributeModifier(WitchEntity.field_110184_bp, "Drinking speed penalty", -0.25D, AttributeModifier.Operation.ADDITION); private static final AttributeModifier DRINKING_SPEED = field_110185_bq; // Paper - OBFHELPER
+     private static final DataParameter<Boolean> field_184731_c = EntityDataManager.func_187226_a(WitchEntity.class, DataSerializers.field_187198_h);
+-    private int field_82200_e;
++    private int field_82200_e; public int getPotionUseTimeLeft() { return field_82200_e; } public void setPotionUseTimeLeft(int timeLeft) { field_82200_e = timeLeft; } // Paper - OBFHELPER
+     private NearestAttackableTargetExpiringGoal<AbstractRaiderEntity> field_213694_bC;
+     private ToggleableNearestAttackableTargetGoal<PlayerEntity> field_213695_bD;
+ 
+@@ -95,10 +101,12 @@ public class WitchEntity extends AbstractRaiderEntity implements IRangedAttackMo
+         return SoundEvents.field_187921_gu;
+     }
+ 
++    public void setDrinkingPotion(boolean drinkingPotion) { func_82197_f(drinkingPotion); } // Paper - OBFHELPER
+     public void func_82197_f(boolean p_82197_1_) {
+         this.func_184212_Q().func_187227_b(WitchEntity.field_184731_c, p_82197_1_);
+     }
+ 
++    public boolean isDrinkingPotion() { return func_184730_o(); } // Paper - OBFHELPER
+     public boolean func_184730_o() {
+         return (Boolean) this.func_184212_Q().func_187225_a(WitchEntity.field_184731_c);
+     }
+@@ -157,21 +165,22 @@ public class WitchEntity extends AbstractRaiderEntity implements IRangedAttackMo
+                 }
+ 
+                 if (potionregistry != null) {
+-                    // Paper start
+-                    ItemStack potion = PotionUtils.func_185188_a(new ItemStack(Items.field_151068_bn), potionregistry);
+-                    org.bukkit.inventory.ItemStack bukkitStack = com.destroystokyo.paper.event.entity.WitchReadyPotionEvent.process((org.bukkit.entity.Witch) this.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(potion));
+-                    this.func_184201_a(EquipmentSlotType.MAINHAND, org.bukkit.craftbukkit.inventory.CraftItemStack.asNMSCopy(bukkitStack));
+-                    // Paper end
+-                    this.field_82200_e = this.func_184614_ca().func_77988_m();
+-                    this.func_82197_f(true);
+-                    if (!this.func_174814_R()) {
+-                        this.field_70170_p.func_184148_a((PlayerEntity) null, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187922_gv, this.func_184176_by(), 1.0F, 0.8F + this.field_70146_Z.nextFloat() * 0.4F);
+-                    }
+-
+-                    ModifiableAttributeInstance attributemodifiable = this.func_110148_a(Attributes.field_233821_d_);
+-
+-                    attributemodifiable.func_111124_b(WitchEntity.field_110185_bq);
+-                    attributemodifiable.func_233767_b_(WitchEntity.field_110185_bq);
++                    //// Paper start
++                    //ItemStack potion = PotionUtil.a(new ItemStack(Items.POTION), potionregistry);
++                    //org.bukkit.inventory.ItemStack bukkitStack = com.destroystokyo.paper.event.entity.WitchReadyPotionEvent.process((org.bukkit.entity.Witch) this.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(potion));
++                    //this.setSlot(EnumItemSlot.MAINHAND, org.bukkit.craftbukkit.inventory.CraftItemStack.asNMSCopy(bukkitStack));
++                    //// Paper end
++                    //this.bx = this.getItemInMainHand().k();
++                    //this.v(true);
++                    //if (!this.isSilent()) {
++                    //    this.world.playSound((EntityHuman) null, this.locX(), this.locY(), this.locZ(), SoundEffects.ENTITY_WITCH_DRINK, this.getSoundCategory(), 1.0F, 0.8F + this.random.nextFloat() * 0.4F);
++                    //}
++                    //
++                    //AttributeModifiable attributemodifiable = this.getAttributeInstance(GenericAttributes.MOVEMENT_SPEED);
++                    //
++                    //attributemodifiable.removeModifier(EntityWitch.bv);
++                    //attributemodifiable.b(EntityWitch.bv);
++                    this.setDrinkingPotion(PotionUtils.addPotionToItemStack(new ItemStack(Items.field_151068_bn), potionregistry));
+                 }
+             }
+ 
+@@ -183,6 +192,20 @@ public class WitchEntity extends AbstractRaiderEntity implements IRangedAttackMo
+         super.func_70636_d();
+     }
+ 
++    // Paper start - moved to its own method
++    public void setDrinkingPotion(ItemStack potion) {
++        func_184201_a(EquipmentSlotType.MAINHAND, CraftItemStack.asNMSCopy(WitchReadyPotionEvent.process((Witch) getBukkitEntity(), CraftItemStack.asCraftMirror(potion))));
++        setPotionUseTimeLeft(func_184614_ca().getItemUseMaxDuration());
++        setDrinkingPotion(true);
++        if (!this.func_174814_R()) {
++            this.field_70170_p.func_184148_a((PlayerEntity) null, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187922_gv, this.func_184176_by(), 1.0F, 0.8F + this.field_70146_Z.nextFloat() * 0.4F);
++        }
++        ModifiableAttributeInstance attributemodifiable = this.func_110148_a(Attributes.field_233821_d_);
++        attributemodifiable.func_111124_b(WitchEntity.field_110185_bq);
++        attributemodifiable.func_233767_b_(WitchEntity.field_110185_bq);
++    }
++    // Paper end
++
+     @Override
+     public SoundEvent func_213654_dW() {
+         return SoundEvents.field_219725_nh;
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftWitch.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftWitch.java
+index 3fed7d0df3aa4b0d739b3a124947d3df6ea6c814..5d44de7c5eb8619373721781d87f799cfc863288 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftWitch.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftWitch.java
+@@ -1,12 +1,18 @@
+ package org.bukkit.craftbukkit.entity;
+ 
+-import com.destroystokyo.paper.entity.CraftRangedEntity; // Paper
+-import net.minecraft.entity.monster.WitchEntity;
+ import org.bukkit.craftbukkit.CraftServer;
+ import org.bukkit.entity.EntityType;
+ import org.bukkit.entity.Witch;
++// Paper start
++import com.destroystokyo.paper.entity.CraftRangedEntity;
++import com.google.common.base.Preconditions;
++import net.minecraft.entity.monster.WitchEntity;
++import org.bukkit.Material;
++import org.bukkit.craftbukkit.inventory.CraftItemStack;
++import org.bukkit.inventory.ItemStack;
++// Paper end
+ 
+-public class CraftWitch extends CraftRaider implements Witch, CraftRangedEntity<WitchEntity> { // Paper
++public class CraftWitch extends CraftRaider implements Witch, CraftRangedEntity<WitchEntity> {
+     public CraftWitch(CraftServer server, WitchEntity entity) {
+         super(server, entity);
+     }
+@@ -25,4 +31,23 @@ public class CraftWitch extends CraftRaider implements Witch, CraftRangedEntity<
+     public EntityType getType() {
+         return EntityType.WITCH;
+     }
++
++    // Paper start
++    public boolean isDrinkingPotion() {
++        return getHandle().isDrinkingPotion();
++    }
++
++    public int getPotionUseTimeLeft() {
++        return getHandle().getPotionUseTimeLeft();
++    }
++
++    public ItemStack getDrinkingPotion() {
++        return CraftItemStack.asCraftMirror(getHandle().func_184614_ca());
++    }
++
++    public void setDrinkingPotion(ItemStack potion) {
++        Preconditions.checkArgument(potion == null || potion.getType().isEmpty() || potion.getType() == Material.POTION, "must be potion, air, or null");
++        getHandle().setDrinkingPotion(CraftItemStack.asNMSCopy(potion));
++    }
++    // Paper end
+ }

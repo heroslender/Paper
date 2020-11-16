@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 20 Dec 2016 15:26:27 -0500
+Subject: [PATCH] Configurable Cartographer Treasure Maps
+
+Allow configuring for cartographers to return the same map location
+
+Also allow turning off treasure maps all together as they can eat up Map ID's
+which are limited in quantity.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index e43aee3757b6765d898b50ebfff1a28071638558..255b4081314162cbe344b008158c6f4584795fb8 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -307,4 +307,14 @@ public class PaperWorldConfig {
+             Bukkit.getLogger().warning("Spawn Egg and Armor Stand NBT filtering disabled, this is a potential security risk");
+         }
+     }
++
++    public boolean enableTreasureMaps = true;
++    public boolean treasureMapsAlreadyDiscovered = false;
++    private void treasureMapsAlreadyDiscovered() {
++        enableTreasureMaps = getBoolean("enable-treasure-maps", true);
++        treasureMapsAlreadyDiscovered = getBoolean("treasure-maps-return-already-discovered", false);
++        if (treasureMapsAlreadyDiscovered) {
++            log("Treasure Maps will return already discovered locations");
++        }
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/merchant/villager/VillagerTrades.java b/src/main/java/net/minecraft/entity/merchant/villager/VillagerTrades.java
+index ff1cfd65e75c59fdd466f49c1a772352b80c9b90..046a2e0d250ac94637f45513f07708b8ce6e53ba 100644
+--- a/src/main/java/net/minecraft/entity/merchant/villager/VillagerTrades.java
++++ b/src/main/java/net/minecraft/entity/merchant/villager/VillagerTrades.java
+@@ -126,7 +126,8 @@ public class VillagerTrades {
+                 return null;
+             } else {
+                 ServerWorld worldserver = (ServerWorld) p_221182_1_.field_70170_p;
+-                BlockPos blockposition = worldserver.func_241117_a_(this.field_221228_b, p_221182_1_.func_233580_cy_(), 100, true);
++                if (!worldserver.paperConfig.enableTreasureMaps) return null; // Paper
++                BlockPos blockposition = worldserver.func_241117_a_(this.field_221228_b, p_221182_1_.func_233580_cy_(), 100, !worldserver.paperConfig.treasureMapsAlreadyDiscovered); // Paper
+ 
+                 if (blockposition != null) {
+                     ItemStack itemstack = FilledMapItem.func_195952_a(worldserver, blockposition.func_177958_n(), blockposition.func_177952_p(), (byte) 2, true, true);
+diff --git a/src/main/java/net/minecraft/loot/functions/ExplorationMap.java b/src/main/java/net/minecraft/loot/functions/ExplorationMap.java
+index 44a51bb830c0d85974cddc21432cc10f628788e5..38864f9b2ab65ff77f8a4c65e795fc00eb1ec16f 100644
+--- a/src/main/java/net/minecraft/loot/functions/ExplorationMap.java
++++ b/src/main/java/net/minecraft/loot/functions/ExplorationMap.java
+@@ -65,6 +65,15 @@ public class ExplorationMap extends LootFunction {
+ 
+             if (blockposition != null) {
+                 ServerWorld worldserver = p_215859_2_.func_202879_g();
++                // Paper start
++                if (!worldserver.paperConfig.enableTreasureMaps) {
++                    /*
++                     * NOTE: I fear users will just get a plain map as their "treasure"
++                     * This is preferable to disrespecting the config.
++                     */
++                    return p_215859_1_;
++                }
++                // Paper end
+                 BlockPos blockposition1 = worldserver.func_241117_a_(this.field_204318_b, blockposition, this.field_204321_e, this.field_212428_f);
+ 
+                 if (blockposition1 != null) {

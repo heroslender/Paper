@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 3 Apr 2016 17:48:50 -0400
+Subject: [PATCH] Fix Cancelling BlockPlaceEvent triggering physics
+
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 32d850ca093419fda1b5821091259ec6b681426b..e37bab25e9ef68f0d59e0e1ffc7582ebf6b44492 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -554,6 +554,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     public void func_225319_b(BlockPos p_225319_1_, BlockState p_225319_2_, BlockState p_225319_3_) {}
+ 
+     public void func_195593_d(BlockPos p_195593_1_, Block p_195593_2_) {
++        if (captureBlockStates) { return; } // Paper - Cancel all physics during placement
+         this.func_190524_a(p_195593_1_.func_177976_e(), p_195593_2_, p_195593_1_);
+         this.func_190524_a(p_195593_1_.func_177974_f(), p_195593_2_, p_195593_1_);
+         this.func_190524_a(p_195593_1_.func_177977_b(), p_195593_2_, p_195593_1_);

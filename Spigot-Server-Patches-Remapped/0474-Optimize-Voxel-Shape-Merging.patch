@@ -1,0 +1,133 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 3 May 2020 22:35:09 -0400
+Subject: [PATCH] Optimize Voxel Shape Merging
+
+This method shows up as super hot in profiler, and also a high "self" time.
+
+Upon analyzing, it appears most usages of this method fall down to the final
+else statement of the nasty ternary.
+
+Upon even further analyzation, it appears then the majority of those have a
+consistent list 1.... One with Infinity head and Tails.
+
+First optimization is to detect these infinite states and immediately return that
+VoxelShapeMergerList so we can avoid testing the rest for most cases.
+
+Break the method into 2 to help the JVM promote inlining of this fast path.
+
+Then it was also noticed that VoxelShapeMergerList constructor is also a hotspot
+with a high self time...
+
+Well, knowing that in most cases our list 1 is actualy the same value, it allows
+us to know that with an infinite list1, the result on the merger is essentially
+list2 as the final values.
+
+This let us analyze the 2 potential states (Infinite with 2 sources or 4 sources)
+and compute a deterministic result for the MergerList values.
+
+Additionally, this lets us avoid even allocating new objects for this too, further
+reducing memory usage.
+
+diff --git a/src/main/java/net/minecraft/util/math/shapes/IndirectMerger.java b/src/main/java/net/minecraft/util/math/shapes/IndirectMerger.java
+index dceb1789e1b3dd45030c88e2cc6da7ffc2e3758d..dbc1da7ccba1ea4ca4fa565b02040e85cbaa0051 100644
+--- a/src/main/java/net/minecraft/util/math/shapes/IndirectMerger.java
++++ b/src/main/java/net/minecraft/util/math/shapes/IndirectMerger.java
+@@ -6,10 +6,16 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
+ 
+ public final class IndirectMerger implements IDoubleListMerger {
+ 
+-    private final DoubleArrayList field_197856_a;
++    private final DoubleList field_197856_a; // Paper
+     private final IntArrayList field_197857_b;
+     private final IntArrayList field_197858_c;
+ 
++    // Paper start
++    private static final IntArrayList INFINITE_B_1 = new IntArrayList(new int[]{1, 1});
++    private static final IntArrayList INFINITE_B_0 = new IntArrayList(new int[]{0, 0});
++    private static final IntArrayList INFINITE_C = new IntArrayList(new int[]{0, 1});
++    // Paper end
++
+     protected IndirectMerger(DoubleList p_i47685_1_, DoubleList p_i47685_2_, boolean p_i47685_3_, boolean p_i47685_4_) {
+         int i = 0;
+         int j = 0;
+@@ -18,6 +24,22 @@ public final class IndirectMerger implements IDoubleListMerger {
+         int l = p_i47685_2_.size();
+         int i1 = k + l;
+ 
++        // Paper start - optimize common path of infinity doublelist
++        int size = p_i47685_1_.size();
++        double tail = p_i47685_1_.getDouble(size - 1);
++        double head = p_i47685_1_.getDouble(0);
++        if (head == Double.NEGATIVE_INFINITY && tail == Double.POSITIVE_INFINITY && !p_i47685_3_ && !p_i47685_4_ && (size == 2 || size == 4)) {
++            this.field_197856_a = p_i47685_2_;
++            if (size == 2) {
++                this.field_197857_b = INFINITE_B_0;
++            } else {
++                this.field_197857_b = INFINITE_B_1;
++            }
++            this.field_197858_c = INFINITE_C;
++            return;
++        }
++        // Paper end
++
+         this.field_197856_a = new DoubleArrayList(i1);
+         this.field_197857_b = new IntArrayList(i1);
+         this.field_197858_c = new IntArrayList(i1);
+diff --git a/src/main/java/net/minecraft/util/math/shapes/VoxelShapes.java b/src/main/java/net/minecraft/util/math/shapes/VoxelShapes.java
+index de9ecbe11d0717a8584fbc7083bfd180ebd3cb3e..4aff71693da0f9b33169ba750e5115a801ebd1a1 100644
+--- a/src/main/java/net/minecraft/util/math/shapes/VoxelShapes.java
++++ b/src/main/java/net/minecraft/util/math/shapes/VoxelShapes.java
+@@ -329,19 +329,46 @@ public final class VoxelShapes {
+     }
+ 
+     @VisibleForTesting
+-    protected static IDoubleListMerger func_199410_a(int p_199410_0_, DoubleList p_199410_1_, DoubleList p_199410_2_, boolean p_199410_3_, boolean p_199410_4_) {
+-        int j = p_199410_1_.size() - 1;
+-        int k = p_199410_2_.size() - 1;
++    private static IDoubleListMerger func_199410_a(int p_199410_0_, DoubleList p_199410_1_, DoubleList p_199410_2_, boolean p_199410_3_, boolean p_199410_4_) { // Paper - private
++        // Paper start - fast track the most common scenario
++        // doublelist is usually a DoubleArrayList with Infinite head/tails that falls to the final else clause
++        // This is actually the most common path, so jump to it straight away
++        if (p_199410_1_.getDouble(0) == Double.NEGATIVE_INFINITY && p_199410_1_.getDouble(p_199410_1_.size() - 1) == Double.POSITIVE_INFINITY) {
++            return new IndirectMerger(p_199410_1_, p_199410_2_, p_199410_3_, p_199410_4_);
++        }
++        // Split out rest to hopefully inline the above
++        return lessCommonMerge(p_199410_0_, p_199410_1_, p_199410_2_, p_199410_3_, p_199410_4_);
++    }
++
++    private static IDoubleListMerger lessCommonMerge(int i, DoubleList doublelist, DoubleList doublelist1, boolean flag, boolean flag1) {
++        int j = doublelist.size() - 1;
++        int k = doublelist1.size() - 1;
++        // Paper note - Rewrite below as optimized order if instead of nasty ternary
+ 
+-        if (p_199410_1_ instanceof DoubleRangeList && p_199410_2_ instanceof DoubleRangeList) {
++        if (doublelist instanceof DoubleRangeList && doublelist1 instanceof DoubleRangeList) {
+             long l = func_197877_a(j, k);
+ 
+-            if ((long) p_199410_0_ * l <= 256L) {
++            if ((long) i * l <= 256L) {
+                 return new DoubleCubeMergingList(j, k);
+             }
+         }
+ 
+-        return (IDoubleListMerger) (p_199410_1_.getDouble(j) < p_199410_2_.getDouble(0) - 1.0E-7D ? new NonOverlappingMerger(p_199410_1_, p_199410_2_, false) : (p_199410_2_.getDouble(k) < p_199410_1_.getDouble(0) - 1.0E-7D ? new NonOverlappingMerger(p_199410_2_, p_199410_1_, true) : (j == k && Objects.equals(p_199410_1_, p_199410_2_) ? (p_199410_1_ instanceof SimpleDoubleMerger ? (IDoubleListMerger) p_199410_1_ : (p_199410_2_ instanceof SimpleDoubleMerger ? (IDoubleListMerger) p_199410_2_ : new SimpleDoubleMerger(p_199410_1_))) : new IndirectMerger(p_199410_1_, p_199410_2_, p_199410_3_, p_199410_4_))));
++        // Identical happens more often than Disjoint
++        if (j == k && Objects.equals(doublelist, doublelist1)) {
++            if (doublelist instanceof SimpleDoubleMerger) {
++                return (IDoubleListMerger) doublelist;
++            } else if (doublelist1 instanceof SimpleDoubleMerger) {
++                return (IDoubleListMerger) doublelist1;
++            }
++            return new SimpleDoubleMerger(doublelist);
++        } else if (doublelist.getDouble(j) < doublelist1.getDouble(0) - 1.0E-07) {
++            return new NonOverlappingMerger(doublelist, doublelist1, false);
++        } else if (doublelist1.getDouble(k) < doublelist.getDouble(0) - 1.0E-07) {
++            return new NonOverlappingMerger(doublelist1, doublelist, true);
++        } else {
++            return new IndirectMerger(doublelist, doublelist1, flag, flag1);
++        }
++        // Paper end
+     }
+ 
+     public interface ILineConsumer {

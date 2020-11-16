@@ -1,0 +1,112 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Tue, 1 Mar 2016 13:24:16 -0600
+Subject: [PATCH] Allow nerfed mobs to jump and take water damage
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 7d9976ce6bf86e6fdfd0c7770104cee0db363a6d..6d6a68cb1b952da8308ac9ce5b54694bc9ba0e30 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -92,4 +92,9 @@ public class PaperWorldConfig {
+         fishingMaxTicks = getInt("fishing-time-range.MaximumTicks", 600);
+         log("Fishing time ranges are between " + fishingMinTicks +" and " + fishingMaxTicks + " ticks");
+     }
++
++    public boolean nerfedMobsShouldJump;
++    private void nerfedMobsShouldJump() {
++        nerfedMobsShouldJump = getBoolean("spawner-nerfed-mobs-should-jump", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 3ac41899cccd35d620c050a8fe241241b6316bcf..c9bf48d85fb5e6c76306d35a092c5209a9556b50 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -1113,6 +1113,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         return this.func_70090_H() || this.func_209511_p();
+     }
+ 
++    public final boolean isInWaterOrRainOrBubble() { return func_203008_ap(); } // Paper - OBFHELPER
+     public boolean func_203008_ap() {
+         return this.func_70090_H() || this.func_209511_p() || this.func_209512_q();
+     }
+diff --git a/src/main/java/net/minecraft/entity/MobEntity.java b/src/main/java/net/minecraft/entity/MobEntity.java
+index 127a676a30731e7ae6e2baee40da8e4d1d16b154..fd20d5be62ae753b53b2572e91ccb20651a8e00a 100644
+--- a/src/main/java/net/minecraft/entity/MobEntity.java
++++ b/src/main/java/net/minecraft/entity/MobEntity.java
+@@ -22,10 +22,13 @@ import net.minecraft.entity.ai.controller.LookController;
+ import net.minecraft.entity.ai.controller.MovementController;
+ import net.minecraft.entity.ai.goal.Goal;
+ import net.minecraft.entity.ai.goal.GoalSelector;
++import net.minecraft.entity.ai.goal.SwimGoal;
+ import net.minecraft.entity.item.BoatEntity;
+ import net.minecraft.entity.item.HangingEntity;
+ import net.minecraft.entity.item.ItemEntity;
+ import net.minecraft.entity.item.LeashKnotEntity;
++import net.minecraft.entity.monster.BlazeEntity;
++import net.minecraft.entity.monster.EndermanEntity;
+ import net.minecraft.entity.monster.IMob;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.entity.player.ServerPlayerEntity;
+@@ -98,6 +101,7 @@ public abstract class MobEntity extends LivingEntity {
+     private final BodyController field_70762_j;
+     protected PathNavigator field_70699_by;
+     public GoalSelector field_70714_bg;
++    @Nullable public SwimGoal goalFloat; // Paper
+     public GoalSelector field_70715_bh;
+     private LivingEntity field_70696_bz;
+     private final EntitySenses field_70723_bA;
+@@ -784,7 +788,17 @@ public abstract class MobEntity extends LivingEntity {
+     @Override
+     protected final void func_70626_be() {
+         ++this.field_70708_bq;
+-        if (!this.aware) return; // CraftBukkit
++        if (!this.aware) { // Paper start - Allow nerfed mobs to jump, float and take water damage
++            if (goalFloat != null) {
++                if (goalFloat.validConditions()) goalFloat.update();
++                this.func_70683_ar().jumpIfSet();
++            }
++            if ((this instanceof BlazeEntity || this instanceof EndermanEntity) && isInWaterOrRainOrBubble()) {
++                func_70097_a(DamageSource.field_76369_e, 1.0F);
++            }
++            return;
++        }
++        // Paper end
+         this.field_70170_p.func_217381_Z().func_76320_a("sensing");
+         this.field_70723_bA.func_75523_a();
+         this.field_70170_p.func_217381_Z().func_76319_b();
+diff --git a/src/main/java/net/minecraft/entity/ai/controller/JumpController.java b/src/main/java/net/minecraft/entity/ai/controller/JumpController.java
+index ac9295a7bef484851137e25c6658b2e86a7b9319..60666e64475e753ebc0c7ea2fdae4e5654f6d2c0 100644
+--- a/src/main/java/net/minecraft/entity/ai/controller/JumpController.java
++++ b/src/main/java/net/minecraft/entity/ai/controller/JumpController.java
+@@ -15,6 +15,7 @@ public class JumpController {
+         this.field_75662_b = true;
+     }
+ 
++    public final void jumpIfSet() { this.func_75661_b(); } // Paper - OBFHELPER
+     public void func_75661_b() {
+         this.field_75663_a.func_70637_d(this.field_75662_b);
+         this.field_75662_b = false;
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/SwimGoal.java b/src/main/java/net/minecraft/entity/ai/goal/SwimGoal.java
+index ad91b69c7e76648f8404c85fa259c2ca3970a901..0a8910f8d6ec580c9f81d43c90e67bd566c9ca5a 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/SwimGoal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/SwimGoal.java
+@@ -11,15 +11,18 @@ public class SwimGoal extends Goal {
+ 
+     public SwimGoal(MobEntity entityinsentient) {
+         this.field_75373_a = entityinsentient;
++        if (entityinsentient.func_130014_f_().paperConfig.nerfedMobsShouldJump) entityinsentient.goalFloat = this; // Paper
+         this.func_220684_a(EnumSet.of(Goal.Flag.JUMP));
+         entityinsentient.func_70661_as().func_212239_d(true);
+     }
+ 
++    public final boolean validConditions() { return this.func_75250_a(); } // Paper - OBFHELPER
+     @Override
+     public boolean func_75250_a() {
+         return this.field_75373_a.func_70090_H() && this.field_75373_a.func_233571_b_((ITag) FluidTags.field_206959_a) > this.field_75373_a.func_233579_cu_() || this.field_75373_a.func_180799_ab();
+     }
+ 
++    public void update() { this.func_75246_d(); } // Paper - OBFHELPER
+     @Override
+     public void func_75246_d() {
+         if (this.field_75373_a.func_70681_au().nextFloat() < 0.8F) {

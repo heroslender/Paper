@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 5 Jan 2020 17:24:34 -0600
+Subject: [PATCH] Prevent bees loading chunks checking hive position
+
+
+diff --git a/src/main/java/net/minecraft/entity/passive/BeeEntity.java b/src/main/java/net/minecraft/entity/passive/BeeEntity.java
+index d04a8207d93a0374519cf998ae63ca5a62b074e0..84bfb04b964d5ba98a343accc7c733b53d691061 100644
+--- a/src/main/java/net/minecraft/entity/passive/BeeEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/BeeEntity.java
+@@ -442,6 +442,7 @@ public class BeeEntity extends AnimalEntity implements IAngerable, IFlyingAnimal
+         if (!this.func_226409_eA_()) {
+             return false;
+         } else {
++            if (field_70170_p.getChunkIfLoadedImmediately(field_226369_bI_.func_177958_n() >> 4, field_226369_bI_.func_177952_p() >> 4) == null) return true; // Paper - just assume the hive is still there, no need to load the chunk(s)
+             TileEntity tileentity = this.field_70170_p.func_175625_s(this.field_226369_bI_);
+ 
+             return tileentity != null && tileentity.func_200662_C() == TileEntityType.field_226985_G_;

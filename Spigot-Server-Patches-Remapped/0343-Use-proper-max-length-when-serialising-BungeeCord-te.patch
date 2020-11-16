@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kashike <kashike@vq.lc>
+Date: Wed, 20 Mar 2019 21:19:29 -0700
+Subject: [PATCH] Use proper max length when serialising BungeeCord text
+ component
+
+
+diff --git a/src/main/java/net/minecraft/network/play/server/SChatPacket.java b/src/main/java/net/minecraft/network/play/server/SChatPacket.java
+index 701c8e5e28f0c5959025a6aa90043f5c3ad12f3d..01cb735bdc27455dbd820e21f82da6e1c5ae30dc 100644
+--- a/src/main/java/net/minecraft/network/play/server/SChatPacket.java
++++ b/src/main/java/net/minecraft/network/play/server/SChatPacket.java
+@@ -9,7 +9,7 @@ import net.minecraft.util.text.ChatType;
+ import net.minecraft.util.text.ITextComponent;
+ 
+ public class SChatPacket implements IPacket<IClientPlayNetHandler> {
+-
++    private static final int MAX_LENGTH = Short.MAX_VALUE * 8 + 8; // Paper
+     private ITextComponent field_148919_a;
+     public net.md_5.bungee.api.chat.BaseComponent[] components; // Spigot
+     private ChatType field_179842_b;
+@@ -37,9 +37,9 @@ public class SChatPacket implements IPacket<IClientPlayNetHandler> {
+             //packetdataserializer.a(net.md_5.bungee.chat.ComponentSerializer.toString(components)); // Paper - comment, replaced with below
+             // Paper start - don't nest if we don't need to so that we can preserve formatting
+             if (this.components.length == 1) {
+-                p_148840_1_.func_180714_a(net.md_5.bungee.chat.ComponentSerializer.toString(this.components[0]));
++                p_148840_1_.func_211400_a(net.md_5.bungee.chat.ComponentSerializer.toString(this.components[0]), MAX_LENGTH); // Paper - use proper max length
+             } else {
+-                p_148840_1_.func_180714_a(net.md_5.bungee.chat.ComponentSerializer.toString(this.components));
++                p_148840_1_.func_211400_a(net.md_5.bungee.chat.ComponentSerializer.toString(this.components), MAX_LENGTH); // Paper - use proper max length
+             }
+             // Paper end
+         } else {

@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jedediah Smith <jedediah@silencegreys.com>
+Date: Sat, 2 Apr 2016 20:37:03 -0400
+Subject: [PATCH] Fix reducedDebugInfo not initialized on client
+
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index c74bf7731b9caea4201661dec53554a7533d941a..a19e0e7a04854c6189d0f04ddc164b7919ffeac8 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -239,6 +239,7 @@ public abstract class PlayerList {
+         playerconnection.func_147359_a(new SHeldItemChangePacket(p_72355_2_.field_71071_by.field_70461_c));
+         playerconnection.func_147359_a(new SUpdateRecipesPacket(this.field_72400_f.func_199529_aN().func_199510_b()));
+         playerconnection.func_147359_a(new STagsListPacket(this.field_72400_f.func_199731_aO()));
++        playerconnection.func_147359_a(new SEntityStatusPacket(p_72355_2_, (byte) (worldserver1.func_82736_K().func_223586_b(GameRules.field_223612_o) ? 22 : 23))); // Paper - fix this rule not being initialized on the client
+         this.func_187243_f(p_72355_2_);
+         p_72355_2_.func_147099_x().func_150877_d();
+         p_72355_2_.func_192037_E().func_192826_c(p_72355_2_);

@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 19 Jul 2018 01:08:05 -0400
+Subject: [PATCH] Re-add vanilla entity warnings for duplicates
+
+These are a critical sign that somethin went wrong, and you've lost some data....
+
+We should kind of know about these things you know.
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 8af970130f678dc5ad414a3281392056e4fe5917..09e70b1249c3d80a04ba945cff875212d368225f 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1058,7 +1058,8 @@ public class ServerWorld extends World implements ISeedReader {
+         if (entity1 == null) {
+             return false;
+         } else {
+-            // WorldServer.LOGGER.warn("Keeping entity {} that already exists with UUID {}", EntityTypes.getName(entity1.getEntityType()), entity.getUniqueID().toString()); // CraftBukkit
++            ServerWorld.field_147491_a.error("Keeping entity {} that already exists with UUID {}", EntityType.func_200718_a(entity1.func_200600_R()), p_217478_1_.func_110124_au().toString()); // CraftBukkit // paper
++            ServerWorld.field_147491_a.error("Deleting duplicate entity {}", p_217478_1_); // CraftBukkit // paper
+             return true;
+         }
+     }

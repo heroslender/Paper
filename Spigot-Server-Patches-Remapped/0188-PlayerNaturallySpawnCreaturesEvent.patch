@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 14 Jan 2018 17:36:02 -0500
+Subject: [PATCH] PlayerNaturallySpawnCreaturesEvent
+
+This event can be used for when you want to exclude a certain player
+from triggering monster spawns on a server.
+
+Also a highly more effecient way to blanket block spawns in a world
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index b328a67dfd61cc954751cc1c55f29fcc819d7a51..4b3bfb0c10c738b9cb51f1aabfb205e9f255ac28 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -1,5 +1,6 @@
+ package net.minecraft.entity.player;
+ 
++import com.destroystokyo.paper.event.entity.PlayerNaturallySpawnCreaturesEvent;
+ import com.google.common.collect.Lists;
+ import com.mojang.authlib.GameProfile;
+ import com.mojang.datafixers.util.Either;
+@@ -214,6 +215,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public boolean sentListPacket = false;
+     public Integer clientViewDistance;
+     // CraftBukkit end
++    public PlayerNaturallySpawnCreaturesEvent playerNaturallySpawnedEvent; // Paper
+ 
+     public final com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> cachedSingleHashSet; // Paper
+ 
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 7cef0833b98ed93470c6d5fd58cf98c8dbcbe9dd..6964fac0204ac60d17313075769794a55cd574b7 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -962,12 +962,23 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         chunkRange = (chunkRange > field_219255_i.spigotConfig.viewDistance) ? (byte) field_219255_i.spigotConfig.viewDistance : chunkRange;
+         chunkRange = (chunkRange > 8) ? 8 : chunkRange;
+ 
+-        double blockRange = (reducedRange) ? Math.pow(chunkRange << 4, 2) : 16384.0D;
++        final int finalChunkRange = chunkRange; // Paper for lambda below
++        //double blockRange = (reducedRange) ? Math.pow(chunkRange << 4, 2) : 16384.0D; // Paper - use from event
+         // Spigot end
+         long i = chunkcoordintpair.func_201841_a();
+ 
+         return !this.field_219267_u.func_223494_d(i) ? true : this.field_219271_y.func_219444_a(i).noneMatch((entityplayer) -> {
+-            return !entityplayer.func_175149_v() && func_219217_a(chunkcoordintpair, (Entity) entityplayer) < blockRange; // Spigot
++            // Paper start -
++            com.destroystokyo.paper.event.entity.PlayerNaturallySpawnCreaturesEvent event;
++            double blockRange = 16384.0D;
++            if (reducedRange) {
++                event = entityplayer.playerNaturallySpawnedEvent;
++                if (event == null || event.isCancelled()) return false;
++                blockRange = (double) ((event.getSpawnRadius() << 4) * (event.getSpawnRadius() << 4));
++            }
++
++            return (!entityplayer.func_175149_v() && func_219217_a(chunkcoordintpair, (Entity) entityplayer) < blockRange); // Spigot
++            // Paper end
+         });
+     }
+ 
+diff --git a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+index 33ddc736bd6dc563105a4f1e7fdeab5b1ec74e53..6281970930dcf63e338c2d2d3fa7fdfb2def027c 100644
+--- a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
++++ b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+@@ -617,6 +617,15 @@ public class ServerChunkProvider extends AbstractChunkProvider {
+             this.field_73251_h.func_217381_Z().func_76319_b();
+             //List<PlayerChunk> list = Lists.newArrayList(this.playerChunkMap.f()); // Paper
+             //Collections.shuffle(list); // Paper
++            //Paper start - call player naturally spawn event
++            int chunkRange = field_73251_h.spigotConfig.mobSpawnRange;
++            chunkRange = (chunkRange > field_73251_h.spigotConfig.viewDistance) ? (byte) field_73251_h.spigotConfig.viewDistance : chunkRange;
++            chunkRange = Math.min(chunkRange, 8);
++            for (ServerPlayerEntity entityPlayer : this.field_73251_h.func_217369_A()) {
++                entityPlayer.playerNaturallySpawnedEvent = new com.destroystokyo.paper.event.entity.PlayerNaturallySpawnCreaturesEvent(entityPlayer.getBukkitEntity(), (byte) chunkRange);
++                entityPlayer.playerNaturallySpawnedEvent.callEvent();
++            };
++            // Paper end
+             this.field_217237_a.func_223491_f().forEach((playerchunk) -> { // Paper - no... just no...
+                 Optional<Chunk> optional = ((Either) playerchunk.func_219296_a().getNow(ChunkHolder.field_219308_c)).left();
+ 

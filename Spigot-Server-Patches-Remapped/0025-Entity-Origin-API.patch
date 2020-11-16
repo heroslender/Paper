@@ -1,0 +1,135 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Byteflux <byte@byteflux.net>
+Date: Tue, 1 Mar 2016 23:45:08 -0600
+Subject: [PATCH] Entity Origin API
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 32e36cd8a33eab57bd9b1baf919e958a8e26a208..d03c9749d4b4d20c9578307ac24cd848260ebb6c 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -256,6 +256,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     public org.bukkit.projectiles.ProjectileSource projectileSource; // For projectiles only
+     public boolean forceExplosionKnockback; // SPIGOT-949
+     public Timing tickTimer = MinecraftTimings.getEntityTimings(this); // Paper
++    public org.bukkit.Location origin; // Paper
+     // Spigot start
+     public final org.spigotmc.ActivationRange.ActivationType activationType = org.spigotmc.ActivationRange.initializeEntityActivationType(this);
+     public final boolean defaultActivationState;
+@@ -1630,6 +1631,11 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+                 this.bukkitEntity.storeBukkitValues(p_189511_1_);
+             }
+             // CraftBukkit end
++            // Paper start - Save the entity's origin location
++            if (this.origin != null) {
++                p_189511_1_.func_218657_a("Paper.Origin", this.createList(origin.getX(), origin.getY(), origin.getZ()));
++            }
++            // Paper end
+             return p_189511_1_;
+         } catch (Throwable throwable) {
+             CrashReport crashreport = CrashReport.func_85055_a(throwable, "Saving entity NBT");
+@@ -1746,6 +1752,13 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             this.getBukkitEntity().readBukkitValues(p_70020_1_);
+             // CraftBukkit end
+ 
++            // Paper start - Restore the entity's origin location
++            ListNBT originTag = p_70020_1_.func_150295_c("Paper.Origin", 6);
++            if (!originTag.isEmpty()) {
++                origin = new org.bukkit.Location(field_70170_p.getWorld(), originTag.getDoubleAt(0), originTag.getDoubleAt(1), originTag.getDoubleAt(2));
++            }
++            // Paper end
++
+         } catch (Throwable throwable) {
+             CrashReport crashreport = CrashReport.func_85055_a(throwable, "Loading entity NBT");
+             CrashReportCategory crashreportsystemdetails = crashreport.func_85058_a("Entity being loaded");
+@@ -1807,6 +1820,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+ 
+     protected abstract void func_213281_b(CompoundNBT p_213281_1_);
+ 
++    protected final ListNBT createList(double... adouble) { return func_70087_a(adouble); } // Paper - OBFHELPER
+     protected ListNBT func_70087_a(double... p_70087_1_) {
+         ListNBT nbttaglist = new ListNBT();
+         double[] adouble1 = p_70087_1_;
+diff --git a/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java b/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java
+index dba934fe8479f24e27e11fb5222ef41c3dbdf03e..727e362676adf0ed76768513cd0dec88dcec965d 100644
+--- a/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java
++++ b/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java
+@@ -292,6 +292,14 @@ public class FallingBlockEntity extends Entity {
+             this.field_175132_d = Blocks.field_150354_m.func_176223_P();
+         }
+ 
++        // Paper start - Try and load origin location from the old NBT tags for backwards compatibility
++        if (p_70037_1_.func_74764_b("SourceLoc_x")) {
++            int srcX = p_70037_1_.func_74762_e("SourceLoc_x");
++            int srcY = p_70037_1_.func_74762_e("SourceLoc_y");
++            int srcZ = p_70037_1_.func_74762_e("SourceLoc_z");
++            origin = new org.bukkit.Location(field_70170_p.getWorld(), srcX, srcY, srcZ);
++        }
++        // Paper end
+     }
+ 
+     public void func_145806_a(boolean p_145806_1_) {
+diff --git a/src/main/java/net/minecraft/entity/item/TNTEntity.java b/src/main/java/net/minecraft/entity/item/TNTEntity.java
+index 208dd58b4908456ac8afbfab7a0b89133206e768..3b906646347aac6c0a42d49e699013fe3fb5210f 100644
+--- a/src/main/java/net/minecraft/entity/item/TNTEntity.java
++++ b/src/main/java/net/minecraft/entity/item/TNTEntity.java
+@@ -119,6 +119,14 @@ public class TNTEntity extends Entity {
+     @Override
+     protected void func_70037_a(CompoundNBT p_70037_1_) {
+         this.func_184534_a(p_70037_1_.func_74765_d("Fuse"));
++        // Paper start - Try and load origin location from the old NBT tags for backwards compatibility
++        if (p_70037_1_.func_74764_b("SourceLoc_x")) {
++            int srcX = p_70037_1_.func_74762_e("SourceLoc_x");
++            int srcY = p_70037_1_.func_74762_e("SourceLoc_y");
++            int srcZ = p_70037_1_.func_74762_e("SourceLoc_z");
++            origin = new org.bukkit.Location(field_70170_p.getWorld(), srcX, srcY, srcZ);
++        }
++        // Paper end
+     }
+ 
+     @Nullable
+diff --git a/src/main/java/net/minecraft/nbt/ListNBT.java b/src/main/java/net/minecraft/nbt/ListNBT.java
+index 5dec6fe782e10e7f90f0ce712ce1bddc94e2cffc..ce1468ca8087443179bafeb45750b4c26f05afc1 100644
+--- a/src/main/java/net/minecraft/nbt/ListNBT.java
++++ b/src/main/java/net/minecraft/nbt/ListNBT.java
+@@ -190,6 +190,7 @@ public class ListNBT extends CollectionNBT<INBT> {
+         return new int[0];
+     }
+ 
++    public final double getDoubleAt(int i) { return this.func_150309_d(i); } // Paper - OBFHELPER
+     public double func_150309_d(int p_150309_1_) {
+         if (p_150309_1_ >= 0 && p_150309_1_ < this.field_74747_a.size()) {
+             INBT nbtbase = (INBT) this.field_74747_a.get(p_150309_1_);
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 17f37ff2566a0b51dbf5cc34bf52bdd1a5c44de1..943726296a3fbc3834366f4b557d7ea9346f5d36 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1189,6 +1189,11 @@ public class ServerWorld extends World implements ISeedReader {
+                 this.field_217495_I.add(((MobEntity) p_217465_1_).func_70661_as());
+             }
+             p_217465_1_.valid = true; // CraftBukkit
++            // Paper start - Set origin location when the entity is being added to the world
++            if (p_217465_1_.origin == null) {
++                p_217465_1_.origin = p_217465_1_.getBukkitEntity().getLocation();
++            }
++            // Paper end
+         }
+ 
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+index 3c474625e5a986228eedf41f06171739e3f8950e..48574c51fab67a788ea1e23058256f7f556dcacf 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+@@ -1016,4 +1016,12 @@ public abstract class CraftEntity implements org.bukkit.entity.Entity {
+         return spigot;
+     }
+     // Spigot end
++
++    // Paper start
++    @Override
++    public Location getOrigin() {
++        Location origin = getHandle().origin;
++        return origin == null ? null : origin.clone();
++    }
++    // Paper end
+ }

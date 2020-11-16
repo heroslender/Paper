@@ -1,0 +1,109 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Techcable <Techcable@outlook.com>
+Date: Fri, 16 Dec 2016 21:25:39 -0600
+Subject: [PATCH] Add ProjectileCollideEvent
+
+
+diff --git a/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java b/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java
+index 6e265aa013d82f128467bb19ca20057ad88cacda..0f52472c6c60032e3cd257dd1293a8db0178c5d1 100644
+--- a/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java
+@@ -197,6 +197,17 @@ public abstract class AbstractArrowEntity extends ProjectileEntity {
+                     }
+                 }
+ 
++                // Paper start - Call ProjectileCollideEvent
++                // TODO: flag - noclip - call cancelled?
++                if (object instanceof EntityRayTraceResult) {
++                    com.destroystokyo.paper.event.entity.ProjectileCollideEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callProjectileCollideEvent(this, (EntityRayTraceResult)object);
++                    if (event.isCancelled()) {
++                        object = null;
++                        movingobjectpositionentity = null;
++                    }
++                }
++                // Paper end
++
+                 if (object != null && !flag) {
+                     this.func_70227_a((RayTraceResult) object);
+                     this.field_70160_al = true;
+diff --git a/src/main/java/net/minecraft/entity/projectile/DamagingProjectileEntity.java b/src/main/java/net/minecraft/entity/projectile/DamagingProjectileEntity.java
+index 249d97abe81a96578da4bacc0d79f9aabef6a447..f5871b0d5925dc9217c61a6cd144df728b212c31 100644
+--- a/src/main/java/net/minecraft/entity/projectile/DamagingProjectileEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/DamagingProjectileEntity.java
+@@ -10,6 +10,7 @@ import net.minecraft.network.play.server.SSpawnObjectPacket;
+ import net.minecraft.particles.IParticleData;
+ import net.minecraft.particles.ParticleTypes;
+ import net.minecraft.util.DamageSource;
++import net.minecraft.util.math.EntityRayTraceResult;
+ import net.minecraft.util.math.MathHelper;
+ import net.minecraft.util.math.RayTraceContext;
+ import net.minecraft.util.math.RayTraceResult;
+@@ -72,7 +73,16 @@ public abstract class DamagingProjectileEntity extends ProjectileEntity {
+ 
+             RayTraceResult movingobjectposition = ProjectileHelper.func_234618_a_(this, this::func_230298_a_, RayTraceContext.BlockMode.COLLIDER);
+ 
+-            if (movingobjectposition.func_216346_c() != RayTraceResult.Type.MISS) {
++            // Paper start - Call ProjectileCollideEvent
++            if (movingobjectposition instanceof EntityRayTraceResult) {
++                com.destroystokyo.paper.event.entity.ProjectileCollideEvent event = CraftEventFactory.callProjectileCollideEvent(this, (EntityRayTraceResult)movingobjectposition);
++                if (event.isCancelled()) {
++                    movingobjectposition = null;
++                }
++            }
++            // Paper end
++
++            if (movingobjectposition != null && movingobjectposition.func_216346_c() != RayTraceResult.Type.MISS) { // Paper - add null check in case cancelled
+                 this.func_70227_a(movingobjectposition);
+ 
+                 // CraftBukkit start - Fire ProjectileHitEvent
+diff --git a/src/main/java/net/minecraft/entity/projectile/ThrowableEntity.java b/src/main/java/net/minecraft/entity/projectile/ThrowableEntity.java
+index 762a5067d7e15a18c000a47c6332739736eca83b..6042d02c6fbdf8c78107ea3f52a8cb4a5435dc6c 100644
+--- a/src/main/java/net/minecraft/entity/projectile/ThrowableEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/ThrowableEntity.java
+@@ -12,6 +12,7 @@ import net.minecraft.tileentity.EndGatewayTileEntity;
+ import net.minecraft.tileentity.TileEntity;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.BlockRayTraceResult;
++import net.minecraft.util.math.EntityRayTraceResult;
+ import net.minecraft.util.math.RayTraceContext;
+ import net.minecraft.util.math.RayTraceResult;
+ import net.minecraft.util.math.vector.Vector3d;
+@@ -58,7 +59,17 @@ public abstract class ThrowableEntity extends ProjectileEntity {
+         }
+ 
+         if (movingobjectposition.func_216346_c() != RayTraceResult.Type.MISS && !flag) {
++            // Paper start - Call ProjectileCollideEvent
++            if (movingobjectposition instanceof EntityRayTraceResult) {
++                com.destroystokyo.paper.event.entity.ProjectileCollideEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callProjectileCollideEvent(this, (EntityRayTraceResult)movingobjectposition);
++                if (event.isCancelled()) {
++                    movingobjectposition = null;
++                }
++            }
++            if (movingobjectposition != null) {
++            // Paper end
+             this.func_70227_a(movingobjectposition);
++            } // Paper
+         }
+ 
+         Vector3d vec3d = this.func_213322_ci();
+diff --git a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+index ee51d1cecef1ae307df429041e3543b5f10746ff..f457e5a1d59d369e63556d2ad89667e02a82ab7e 100644
+--- a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
++++ b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+@@ -1182,6 +1182,16 @@ public class CraftEventFactory {
+         return CraftItemStack.asNMSCopy(bitem);
+     }
+ 
++    // Paper start
++    public static com.destroystokyo.paper.event.entity.ProjectileCollideEvent callProjectileCollideEvent(Entity entity, EntityRayTraceResult position) {
++        Projectile projectile = (Projectile) entity.getBukkitEntity();
++        org.bukkit.entity.Entity collided = position.func_216348_a().getBukkitEntity();
++        com.destroystokyo.paper.event.entity.ProjectileCollideEvent event = new com.destroystokyo.paper.event.entity.ProjectileCollideEvent(projectile, collided);
++        Bukkit.getPluginManager().callEvent(event);
++        return event;
++    }
++    // Paper end
++
+     public static ProjectileLaunchEvent callProjectileLaunchEvent(Entity entity) {
+         Projectile bukkitEntity = (Projectile) entity.getBukkitEntity();
+         ProjectileLaunchEvent event = new ProjectileLaunchEvent(bukkitEntity);

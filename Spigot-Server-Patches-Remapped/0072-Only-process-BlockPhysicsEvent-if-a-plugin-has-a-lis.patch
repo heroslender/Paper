@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 28 Mar 2016 19:55:45 -0400
+Subject: [PATCH] Only process BlockPhysicsEvent if a plugin has a listener
+
+Saves on some object allocation and processing when no plugin listens to this
+
+diff --git a/src/main/java/net/minecraft/block/BushBlock.java b/src/main/java/net/minecraft/block/BushBlock.java
+index 856608445bd2fd3f75db3633cec5c3ab33dbf1ed..95bee9d2c6054004557ba4b9b077bf70f7beb83c 100644
+--- a/src/main/java/net/minecraft/block/BushBlock.java
++++ b/src/main/java/net/minecraft/block/BushBlock.java
+@@ -6,6 +6,7 @@ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.world.IBlockReader;
+ import net.minecraft.world.IWorld;
+ import net.minecraft.world.IWorldReader;
++import net.minecraft.world.server.ServerWorld;
+ 
+ public class BushBlock extends Block {
+ 
+@@ -21,7 +22,7 @@ public class BushBlock extends Block {
+     public BlockState func_196271_a(BlockState p_196271_1_, Direction p_196271_2_, BlockState p_196271_3_, IWorld p_196271_4_, BlockPos p_196271_5_, BlockPos p_196271_6_) {
+         // CraftBukkit start
+         if (!p_196271_1_.func_196955_c(p_196271_4_, p_196271_5_)) {
+-            if (!org.bukkit.craftbukkit.event.CraftEventFactory.callBlockPhysicsEvent(p_196271_4_, p_196271_5_).isCancelled()) {
++            if (!(p_196271_4_ instanceof ServerWorld && ((ServerWorld) p_196271_4_).hasPhysicsEvent) || !org.bukkit.craftbukkit.event.CraftEventFactory.callBlockPhysicsEvent(p_196271_4_, p_196271_5_).isCancelled()) { // Paper
+                 return Blocks.field_150350_a.func_176223_P();
+             }
+         }
+diff --git a/src/main/java/net/minecraft/block/DoublePlantBlock.java b/src/main/java/net/minecraft/block/DoublePlantBlock.java
+index c76867e443656a594507600ce41c6cddc82f4833..6193bc287e824c4b0083c81090a6c60dc62b3691 100644
+--- a/src/main/java/net/minecraft/block/DoublePlantBlock.java
++++ b/src/main/java/net/minecraft/block/DoublePlantBlock.java
+@@ -15,6 +15,7 @@ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.world.IWorld;
+ import net.minecraft.world.IWorldReader;
+ import net.minecraft.world.World;
++import net.minecraft.world.server.ServerWorld;
+ 
+ public class DoublePlantBlock extends BushBlock {
+ 
+@@ -81,7 +82,7 @@ public class DoublePlantBlock extends BushBlock {
+ 
+     protected static void func_241471_b_(World p_241471_0_, BlockPos p_241471_1_, BlockState p_241471_2_, PlayerEntity p_241471_3_) {
+         // CraftBukkit start
+-        if (org.bukkit.craftbukkit.event.CraftEventFactory.callBlockPhysicsEvent(p_241471_0_, p_241471_1_).isCancelled()) {
++        if (((ServerWorld)p_241471_0_).hasPhysicsEvent && org.bukkit.craftbukkit.event.CraftEventFactory.callBlockPhysicsEvent(p_241471_0_, p_241471_1_).isCancelled()) { // Paper
+             return;
+         }
+         // CraftBukkit end
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 6b68bb2d659b00dc96bd762f3680032e15fac3bb..c16336b1c5070208eff8977bd3ea9bdb11389c0c 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -1280,6 +1280,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+ 
+         while (iterator.hasNext()) {
+             ServerWorld worldserver = (ServerWorld) iterator.next();
++            worldserver.hasPhysicsEvent =  org.bukkit.event.block.BlockPhysicsEvent.getHandlerList().getRegisteredListeners().length > 0; // Paper
+ 
+             this.field_71304_b.func_194340_a(() -> {
+                 return worldserver + " " + worldserver.func_234923_W_().func_240901_a_();
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index ee62104cbeba0636b13c0822cf36a92646ff51e9..32d850ca093419fda1b5821091259ec6b681426b 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -494,7 +494,7 @@ public abstract class World implements IWorld, AutoCloseable {
+                 // CraftBukkit start
+                 iblockdata1.func_241483_b_(this, blockposition, k, j - 1); // Don't call an event for the old block to limit event spam
+                 CraftWorld world = ((ServerWorld) this).getWorld();
+-                if (world != null) {
++                if (world != null && ((ServerWorld)this).hasPhysicsEvent) { // Paper
+                     BlockPhysicsEvent event = new BlockPhysicsEvent(world.getBlockAt(blockposition.func_177958_n(), blockposition.func_177956_o(), blockposition.func_177952_p()), CraftBlockData.fromData(iblockdata));
+                     this.getServer().getPluginManager().callEvent(event);
+ 
+@@ -596,7 +596,7 @@ public abstract class World implements IWorld, AutoCloseable {
+             try {
+                 // CraftBukkit start
+                 CraftWorld world = ((ServerWorld) this).getWorld();
+-                if (world != null) {
++                if (world != null && ((ServerWorld)this).hasPhysicsEvent) { // Paper
+                     BlockPhysicsEvent event = new BlockPhysicsEvent(world.getBlockAt(p_190524_1_.func_177958_n(), p_190524_1_.func_177956_o(), p_190524_1_.func_177952_p()), CraftBlockData.fromData(iblockdata), world.getBlockAt(p_190524_3_.func_177958_n(), p_190524_3_.func_177956_o(), p_190524_3_.func_177952_p()));
+                     this.getServer().getPluginManager().callEvent(event);
+ 
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 54556779d4bb94a672ac1e529c85c7de421bb946..a80c2e24a5b50d8268b41b14894e27383be90a5c 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -184,6 +184,7 @@ public class ServerWorld extends World implements ISeedReader {
+     private int tickPosition;
+     public final SaveFormat.LevelSave convertable;
+     public final UUID uuid;
++    boolean hasPhysicsEvent = true; // Paper
+ 
+     @Override public Chunk getChunkIfLoaded(int x, int z) { // Paper - this was added in world too but keeping here for NMS ABI
+         return this.field_241102_C_.func_217205_a(x, z, false);

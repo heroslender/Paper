@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Phoenix616 <mail@moep.tv>
+Date: Wed, 10 Jun 2020 23:55:15 +0100
+Subject: [PATCH] Inventory getHolder method without block snapshot
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/inventory/CraftInventory.java b/src/main/java/org/bukkit/craftbukkit/inventory/CraftInventory.java
+index 6e81320b8499ac7b0ed9cc85d2efa5b83a43f1e3..584d79d3b8b7f5cfec2a754f71fc17bacebba5d6 100644
+--- a/src/main/java/org/bukkit/craftbukkit/inventory/CraftInventory.java
++++ b/src/main/java/org/bukkit/craftbukkit/inventory/CraftInventory.java
+@@ -521,6 +521,13 @@ public class CraftInventory implements Inventory {
+         return inventory.getOwner();
+     }
+ 
++    // Paper start - getHolder without snapshot
++    @Override
++    public InventoryHolder getHolder(boolean useSnapshot) {
++        return inventory instanceof net.minecraft.tileentity.TileEntity ? ((net.minecraft.tileentity.TileEntity) inventory).getOwner(useSnapshot) : getHolder();
++    }
++    // Paper end
++
+     @Override
+     public int getMaxStackSize() {
+         return inventory.func_70297_j_();
+diff --git a/src/main/java/org/bukkit/craftbukkit/inventory/CraftInventoryDoubleChest.java b/src/main/java/org/bukkit/craftbukkit/inventory/CraftInventoryDoubleChest.java
+index 7cff63b7e2f9b8106cc9db4ef01c6d518f700229..42d874bbe3ebae3291226af394ebcfe91f570068 100644
+--- a/src/main/java/org/bukkit/craftbukkit/inventory/CraftInventoryDoubleChest.java
++++ b/src/main/java/org/bukkit/craftbukkit/inventory/CraftInventoryDoubleChest.java
+@@ -64,6 +64,13 @@ public class CraftInventoryDoubleChest extends CraftInventory implements DoubleC
+         return new DoubleChest(this);
+     }
+ 
++    // Paper start - getHolder without snapshot
++    @Override
++    public DoubleChest getHolder(boolean useSnapshot) {
++        return getHolder();
++    }
++    // Paper end
++
+     @Override
+     public Location getLocation() {
+         return getLeftSide().getLocation().add(getRightSide().getLocation()).multiply(0.5);

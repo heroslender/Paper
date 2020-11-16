@@ -1,0 +1,189 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 4 Jul 2018 15:22:06 -0400
+Subject: [PATCH] Configurable Bed Search Radius
+
+Allows you to increase how far to check for a safe place to respawn
+a player near their bed, allowing a better chance to respawn the
+player at their bed should it of became obstructed.
+
+Defaults to vanilla 1.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 6352051ab937d4d365e823a7112e76dc3ec34225..d6a3d882e375ac5a2b6ec8920532db615f4fe4ef 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -372,4 +372,15 @@ public class PaperWorldConfig {
+     private void scanForLegacyEnderDragon() {
+         scanForLegacyEnderDragon = getBoolean("game-mechanics.scan-for-legacy-ender-dragon", true);
+     }
++
++    public int bedSearchRadius = 1;
++    private void bedSearchRadius() {
++        bedSearchRadius = getInt("bed-search-radius", 1);
++        if (bedSearchRadius < 1) {
++            bedSearchRadius = 1;
++        }
++        if (bedSearchRadius > 1) {
++            log("Bed Search Radius: " + bedSearchRadius);
++        }
++    }
+ }
+diff --git a/src/main/java/net/minecraft/block/BedBlock.java b/src/main/java/net/minecraft/block/BedBlock.java
+index 8edc52eca927358fa47cc248447a51112c2380a7..e6c19180395f4e7586404210a1d7242f2f607a5a 100644
+--- a/src/main/java/net/minecraft/block/BedBlock.java
++++ b/src/main/java/net/minecraft/block/BedBlock.java
+@@ -235,6 +235,8 @@ public class BedBlock extends HorizontalBlock implements ITileEntityProvider {
+ 
+     public static Optional<Vector3d> func_220172_a(EntityType<?> p_220172_0_, IWorldReader p_220172_1_, BlockPos p_220172_2_, int p_220172_3_) {
+         Direction enumdirection = (Direction) p_220172_1_.func_180495_p(p_220172_2_).func_177229_b(BedBlock.field_185512_D);
++        // Paper start - configurable bed search radius
++        if (p_220172_0_ == EntityType.field_200729_aH) return findSafePosition(p_220172_0_, (World) p_220172_1_, enumdirection, p_220172_2_);
+         int j = p_220172_2_.func_177958_n();
+         int k = p_220172_2_.func_177956_o();
+         int l = p_220172_2_.func_177952_p();
+@@ -264,36 +266,133 @@ public class BedBlock extends HorizontalBlock implements ITileEntityProvider {
+         return Optional.empty();
+     }
+ 
+-    public static Optional<Vector3d> func_220175_a(EntityType<?> p_220175_0_, IWorldReader p_220175_1_, BlockPos p_220175_2_) {
+-        VoxelShape voxelshape = p_220175_1_.func_180495_p(p_220175_2_).func_196952_d(p_220175_1_, p_220175_2_);
++    private static Optional<Vector3d> findSafePosition(EntityType<?> entitytypes, World world, Direction updirection, BlockPos blockposition){
++        int radius = world.paperConfig.bedSearchRadius;
++        double angle = Math.PI / 2;
++        int tmpX = (int)(updirection.func_82601_c() * Math.cos(angle) - updirection.func_82599_e() * Math.sin(angle));
++        int tmpZ = (int)(updirection.func_82601_c() * Math.sin(angle) + updirection.func_82599_e() * Math.cos(angle));
++
++        Direction rightDirection = Direction.func_218383_a(tmpX, 0, tmpZ);
++        Direction downDirection = updirection.func_176734_d();
++        Direction leftDirection = rightDirection.func_176734_d();
++
++        Direction[] corePositionOutDirection = new Direction[6];
++        corePositionOutDirection[0] = updirection;
++        corePositionOutDirection[1] = leftDirection;
++        corePositionOutDirection[2] = leftDirection;
++        corePositionOutDirection[3] = downDirection;
++        corePositionOutDirection[4] = rightDirection;
++        corePositionOutDirection[5] = rightDirection;
++
++        BlockPos[] corePosition = new BlockPos[6];
++        corePosition[0] = blockposition.add(updirection.func_82601_c(), 0, updirection.func_82599_e());
++        corePosition[1] = blockposition.add(leftDirection.func_82601_c(), 0, leftDirection.func_82599_e());
++        corePosition[2] = corePosition[1].add(downDirection.func_82601_c(), 0, downDirection.func_82599_e());
++        corePosition[3] = blockposition.add(2 * downDirection.func_82601_c(), 0, 2 * downDirection.func_82599_e());
++        corePosition[5] = blockposition.add(rightDirection.func_82601_c(), 0, rightDirection.func_82599_e());
++        corePosition[4] = corePosition[5].add(downDirection.func_82601_c(), 0, downDirection.func_82599_e());
++
++        BlockPos[] tmpPosition = new BlockPos[8];
++        Direction[] tmpPositionDirection = new Direction[8];
++        tmpPositionDirection[0] = rightDirection;
++        tmpPositionDirection[1] = leftDirection;
++        tmpPositionDirection[2] = updirection;
++        tmpPositionDirection[3] = downDirection;
++        tmpPositionDirection[4] = leftDirection;
++        tmpPositionDirection[5] = rightDirection;
++        tmpPositionDirection[6] = downDirection;
++        tmpPositionDirection[7] = updirection;
++
++        BlockPos pos;
++        Optional<Vector3d> vector;
++        for (int r = 1; r <= radius; r++) {
++            int h = 0;
++            while (h <= 1) {
++                int numIterated = 0;
++                for (int index = (int)(Math.random() * corePosition.length); numIterated < corePosition.length; index = (index+1) % corePosition.length) {
++                    numIterated++;
++
++                    pos = corePosition[index].add(0, h, 0);
++                    vector = isSafeRespawn(entitytypes, world, pos, 0);
++                    if (vector.isPresent()) {
++                        return vector;
++                    }
++                }
++                tmpPosition[0] = corePosition[0].add(0, h, 0);
++                tmpPosition[1] = corePosition[0].add(0, h, 0);
++                tmpPosition[2] = corePosition[1].add(0, h, 0);
++                tmpPosition[3] = corePosition[2].add(0, h, 0);
++                tmpPosition[4] = corePosition[3].add(0, h, 0);
++                tmpPosition[5] = corePosition[3].add(0, h, 0);
++                tmpPosition[6] = corePosition[4].add(0, h, 0);
++                tmpPosition[7] = corePosition[5].add(0, h, 0);
++                for (int rr = 1; rr <= r; rr++){
++                    numIterated = 0;
++                    for (int index = (int)(Math.random() * tmpPosition.length); numIterated < tmpPosition.length; index = (index+1) % tmpPosition.length) {
++                        numIterated++;
++                        tmpPosition[index] = tmpPosition[index].add(tmpPositionDirection[index].func_82601_c(), 0, tmpPositionDirection[index].func_82599_e());
++                        pos = tmpPosition[index];
++
++                        vector = isSafeRespawn(entitytypes, world, pos, 0);
++                        if (vector.isPresent()) {
++                            return vector;
++                        }
++                    }
++                }
++                switch (h) {
++                    case 0:
++                        h = -1;
++                        break;
++                    case -1:
++                        h = -2;
++                        break;
++                    case -2:
++                        h = Integer.MAX_VALUE;
++                        break;
++                }
++            }
++            for (int index = 0; index < corePosition.length; index++) {
++                Direction tmp = corePositionOutDirection[index];
++                corePosition[index] = corePosition[index].add(tmp.func_82601_c(), 0, tmp.func_82599_e());
++            }
++        }
++        return Optional.empty();
++    }
++    // Paper end
++
++    // Paper start -- add maxBelow param
++    public static Optional<Vector3d> func_220175_a(EntityType<?> p_220175_0_, IWorldReader p_220175_1_, BlockPos p_220175_2_)  { return isSafeRespawn(p_220175_0_, p_220175_1_, p_220175_2_, 2); }
++    public static Optional<Vector3d> isSafeRespawn(EntityType<?> entitytypes, IWorldReader iworldreader, BlockPos blockposition, int maxBelow) {
++    // Paper end
++        VoxelShape voxelshape = iworldreader.func_180495_p(blockposition).func_196952_d(iworldreader, blockposition);
+ 
+         if (voxelshape.func_197758_c(Direction.Axis.Y) > 0.4375D) {
+             return Optional.empty();
+         } else {
+-            BlockPos.Mutable blockposition_mutableblockposition = p_220175_2_.func_239590_i_();
++            BlockPos.Mutable blockposition_mutableblockposition = blockposition.func_239590_i_();
+ 
+-            while (blockposition_mutableblockposition.func_177956_o() >= 0 && p_220175_2_.func_177956_o() - blockposition_mutableblockposition.func_177956_o() <= 2 && p_220175_1_.func_180495_p(blockposition_mutableblockposition).func_196952_d(p_220175_1_, blockposition_mutableblockposition).func_197766_b()) {
++            while (blockposition_mutableblockposition.func_177956_o() >= 0 && blockposition.func_177956_o() - blockposition_mutableblockposition.func_177956_o() <= maxBelow && iworldreader.func_180495_p(blockposition_mutableblockposition).func_196952_d(iworldreader, blockposition_mutableblockposition).func_197766_b()) { // Paper -- configurable max distance to search below
+                 blockposition_mutableblockposition.func_189536_c(Direction.DOWN);
+             }
+ 
+-            VoxelShape voxelshape1 = p_220175_1_.func_180495_p(blockposition_mutableblockposition).func_196952_d(p_220175_1_, blockposition_mutableblockposition);
++            VoxelShape voxelshape1 = iworldreader.func_180495_p(blockposition_mutableblockposition).func_196952_d(iworldreader, blockposition_mutableblockposition);
+ 
+             if (voxelshape1.func_197766_b()) {
+                 return Optional.empty();
+             } else {
+                 double d0 = (double) blockposition_mutableblockposition.func_177956_o() + voxelshape1.func_197758_c(Direction.Axis.Y) + 2.0E-7D;
+ 
+-                if ((double) p_220175_2_.func_177956_o() - d0 > 2.0D) {
++                if ((double) blockposition.func_177956_o() - d0 > 2.0D) {
+                     return Optional.empty();
+                 } else {
+                     Vector3d vec3d = new Vector3d((double) blockposition_mutableblockposition.func_177958_n() + 0.5D, d0, (double) blockposition_mutableblockposition.func_177952_p() + 0.5D);
+-                    AxisAlignedBB axisalignedbb = p_220175_0_.func_220328_a(vec3d.field_72450_a, vec3d.field_72448_b, vec3d.field_72449_c);
++                    AxisAlignedBB axisalignedbb = entitytypes.func_220328_a(vec3d.field_72450_a, vec3d.field_72448_b, vec3d.field_72449_c);
+ 
+-                    if (p_220175_1_.func_226664_a_(axisalignedbb)) {
+-                        Stream<BlockState> stream = p_220175_1_.func_234853_a_(axisalignedbb.func_72321_a(0.0D, -0.20000000298023224D, 0.0D)); // CraftBukkit - decompile error
++                    if (iworldreader.func_226664_a_(axisalignedbb)) {
++                        Stream<BlockState> stream = iworldreader.func_234853_a_(axisalignedbb.func_72321_a(0.0D, -0.20000000298023224D, 0.0D)); // CraftBukkit - decompile error
+ 
+-                        p_220175_0_.getClass();
+-                        if (stream.noneMatch(p_220175_0_::func_233597_a_)) {
++                        entitytypes.getClass();
++                        if (stream.noneMatch(entitytypes::func_233597_a_)) {
+                             return Optional.of(vec3d);
+                         }
+                     }

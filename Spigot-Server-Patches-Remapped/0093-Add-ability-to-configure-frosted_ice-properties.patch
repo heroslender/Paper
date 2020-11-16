@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kashike <kashike@vq.lc>
+Date: Thu, 21 Apr 2016 23:51:55 -0700
+Subject: [PATCH] Add ability to configure frosted_ice properties
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 538e6751f3bda77ba32256158d2a6a25025b360c..fd3793c55b8021b9fc61ce6be585a8c9b477aba2 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -252,4 +252,14 @@ public class PaperWorldConfig {
+     private void useVanillaScoreboardColoring() {
+         useVanillaScoreboardColoring = getBoolean("use-vanilla-world-scoreboard-name-coloring", false);
+     }
++
++    public boolean frostedIceEnabled = true;
++    public int frostedIceDelayMin = 20;
++    public int frostedIceDelayMax = 40;
++    private void frostedIce() {
++        this.frostedIceEnabled = this.getBoolean("frosted-ice.enabled", this.frostedIceEnabled);
++        this.frostedIceDelayMin = this.getInt("frosted-ice.delay.min", this.frostedIceDelayMin);
++        this.frostedIceDelayMax = this.getInt("frosted-ice.delay.max", this.frostedIceDelayMax);
++        log("Frosted Ice: " + (this.frostedIceEnabled ? "enabled" : "disabled") + " / delay: min=" + this.frostedIceDelayMin + ", max=" + this.frostedIceDelayMax);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/block/FrostedIceBlock.java b/src/main/java/net/minecraft/block/FrostedIceBlock.java
+index e4494f71da356aeacf8ea540ca622ff0e7a1efba..cd46d0f5127126901829d26f36bcb70bb41ebd8d 100644
+--- a/src/main/java/net/minecraft/block/FrostedIceBlock.java
++++ b/src/main/java/net/minecraft/block/FrostedIceBlock.java
+@@ -28,6 +28,7 @@ public class FrostedIceBlock extends IceBlock {
+ 
+     @Override
+     public void func_225534_a_(BlockState p_225534_1_, ServerWorld p_225534_2_, BlockPos p_225534_3_, Random p_225534_4_) {
++        if (!p_225534_2_.paperConfig.frostedIceEnabled) return; // Paper - add ability to disable frosted ice
+         if ((p_225534_4_.nextInt(3) == 0 || this.func_196456_a(p_225534_2_, p_225534_3_, 4)) && p_225534_2_.func_201696_r(p_225534_3_) > 11 - (Integer) p_225534_1_.func_177229_b(FrostedIceBlock.field_185682_a) - p_225534_1_.func_200016_a((IBlockReader) p_225534_2_, p_225534_3_) && this.func_196455_e(p_225534_1_, (World) p_225534_2_, p_225534_3_)) {
+             BlockPos.Mutable blockposition_mutableblockposition = new BlockPos.Mutable();
+             Direction[] aenumdirection = Direction.values();
+@@ -40,12 +41,12 @@ public class FrostedIceBlock extends IceBlock {
+                 BlockState iblockdata1 = p_225534_2_.func_180495_p(blockposition_mutableblockposition);
+ 
+                 if (iblockdata1.func_203425_a((Block) this) && !this.func_196455_e(iblockdata1, (World) p_225534_2_, blockposition_mutableblockposition)) {
+-                    p_225534_2_.G().func_205360_a(blockposition_mutableblockposition, this, MathHelper.func_76136_a(p_225534_4_, 20, 40));
++                    p_225534_2_.G().func_205360_a(blockposition_mutableblockposition, this, MathHelper.func_76136_a(p_225534_4_, p_225534_2_.paperConfig.frostedIceDelayMin, p_225534_2_.paperConfig.frostedIceDelayMax)); // Paper - use configurable min/max delay
+                 }
+             }
+ 
+         } else {
+-            p_225534_2_.G().func_205360_a(p_225534_3_, this, MathHelper.func_76136_a(p_225534_4_, 20, 40));
++            p_225534_2_.G().func_205360_a(p_225534_3_, this, MathHelper.func_76136_a(p_225534_4_, p_225534_2_.paperConfig.frostedIceDelayMin, p_225534_2_.paperConfig.frostedIceDelayMax)); // Paper - use configurable min/max delay
+         }
+     }
+ 

@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Nesaak <52047222+Nesaak@users.noreply.github.com>
+Date: Sat, 23 May 2020 10:31:11 -0400
+Subject: [PATCH] Expose Arrow getItemStack
+
+
+diff --git a/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java b/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java
+index 0f52472c6c60032e3cd257dd1293a8db0178c5d1..f0cc5fadfb1e154ce12d822815586666fb8f0266 100644
+--- a/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java
+@@ -557,6 +557,7 @@ public abstract class AbstractArrowEntity extends ProjectileEntity {
+         }
+     }
+ 
++    public final ItemStack getOriginalItemStack() { return func_184550_j(); }  // Paper - OBFHELPER - exists purely due to overrides all as protected and dont want to change them all
+     protected abstract ItemStack func_184550_j();
+ 
+     @Override
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftArrow.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftArrow.java
+index 1fd7009c907f69b4f3aa67bad255b28826bf5afc..e2677174f7b55083cc5c51bc7cddcf2616347d55 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftArrow.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftArrow.java
+@@ -102,6 +102,13 @@ public class CraftArrow extends AbstractProjectile implements AbstractArrow {
+         getHandle().field_70251_a = AbstractArrowEntity.PickupStatus.func_188795_a(status.ordinal());
+     }
+ 
++    // Paper start
++    @Override
++    public org.bukkit.craftbukkit.inventory.CraftItemStack getItemStack() {
++        return org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(getHandle().getOriginalItemStack());
++    }
++    //Paper end
++
+     @Override
+     public void setTicksLived(int value) {
+         super.setTicksLived(value);

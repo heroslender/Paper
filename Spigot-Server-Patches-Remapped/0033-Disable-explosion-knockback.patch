@@ -1,0 +1,87 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sudzzy <originmc@outlook.com>
+Date: Wed, 2 Mar 2016 14:48:03 -0600
+Subject: [PATCH] Disable explosion knockback
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index f038d3f7dc7d1034a3ee9f2384a85642f224836e..25e0717186366af580e512eedfd403b8efc64a75 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -156,4 +156,9 @@ public class PaperWorldConfig {
+         optimizeExplosions = getBoolean("optimize-explosions", false);
+         log("Optimize explosions: " + optimizeExplosions);
+     }
++
++    public boolean disableExplosionKnockback;
++    private void disableExplosionKnockback(){
++        disableExplosionKnockback = getBoolean("disable-explosion-knockback", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index d10a3f794ad8d94cca1ed6cf30a0ead481124f7a..db64f76aa5fd7a1d88136dedb6142524bec2cc82 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -1276,6 +1276,7 @@ public abstract class LivingEntity extends Entity {
+                 }
+             }
+ 
++            boolean knockbackCancelled = field_70170_p.paperConfig.disableExplosionKnockback && p_70097_1_.func_94541_c() && this instanceof PlayerEntity; // Paper - Disable explosion knockback
+             if (flag1) {
+                 if (flag) {
+                     this.field_70170_p.func_72960_a(this, (byte) 29);
+@@ -1294,6 +1295,7 @@ public abstract class LivingEntity extends Entity {
+                         b0 = 2;
+                     }
+ 
++                    if (!knockbackCancelled) // Paper - Disable explosion knockback
+                     this.field_70170_p.func_72960_a(this, b0);
+                 }
+ 
+@@ -1317,6 +1319,7 @@ public abstract class LivingEntity extends Entity {
+                 }
+             }
+ 
++            if (knockbackCancelled) this.field_70170_p.func_72960_a(this, (byte) 2); // Paper - Disable explosion knockback
+             if (this.func_233643_dh_()) {
+                 if (!this.func_190628_d(p_70097_1_)) {
+                     SoundEvent soundeffect = this.func_184615_bR();
+diff --git a/src/main/java/net/minecraft/world/Explosion.java b/src/main/java/net/minecraft/world/Explosion.java
+index 3f5c8d0bb3df8634283ff38a97062d4ce1fe6bca..9b6095133fcf35effca61b56668157256e33cb99 100644
+--- a/src/main/java/net/minecraft/world/Explosion.java
++++ b/src/main/java/net/minecraft/world/Explosion.java
+@@ -216,14 +216,14 @@ public class Explosion {
+                         double d14 = d13;
+ 
+                         if (entity instanceof LivingEntity) {
+-                            d14 = ProtectionEnchantment.func_92092_a((LivingEntity) entity, d13);
++                            d14 = entity instanceof PlayerEntity && field_77287_j.paperConfig.disableExplosionKnockback ? 0 : ProtectionEnchantment.func_92092_a((LivingEntity) entity, d13); // Paper - Disable explosion knockback
+                         }
+ 
+                         entity.func_213317_d(entity.func_213322_ci().func_72441_c(d8 * d14, d9 * d14, d10 * d14));
+                         if (entity instanceof PlayerEntity) {
+                             PlayerEntity entityhuman = (PlayerEntity) entity;
+ 
+-                            if (!entityhuman.func_175149_v() && (!entityhuman.func_184812_l_() || !entityhuman.field_71075_bZ.field_75100_b)) {
++                            if (!entityhuman.func_175149_v() && (!entityhuman.func_184812_l_() || !entityhuman.field_71075_bZ.field_75100_b) && !field_77287_j.paperConfig.disableExplosionKnockback) { // Paper - Disable explosion knockback
+                                 this.field_77288_k.put(entityhuman, new Vector3d(d8 * d13, d9 * d13, d10 * d13));
+                             }
+                         }
+@@ -424,7 +424,7 @@ public class Explosion {
+         if (!this.field_77287_j.paperConfig.optimizeExplosions) {
+             return func_222259_a(vec3d, entity);
+         }
+-        net.minecraft.world.Explosion.CacheKey key = new net.minecraft.world.Explosion.CacheKey(this, entity.func_174813_aQ());
++        CacheKey key = new CacheKey(this, entity.func_174813_aQ());
+         Float blockDensity = this.field_77287_j.explosionDensityCache.get(key);
+         if (blockDensity == null) {
+             blockDensity = func_222259_a(vec3d, entity);
+@@ -458,7 +458,7 @@ public class Explosion {
+             if (this == o) return true;
+             if (o == null || getClass() != o.getClass()) return false;
+ 
+-            net.minecraft.world.Explosion.CacheKey cacheKey = (net.minecraft.world.Explosion.CacheKey) o;
++            CacheKey cacheKey = (CacheKey) o;
+ 
+             if (Double.compare(cacheKey.posX, posX) != 0) return false;
+             if (Double.compare(cacheKey.posY, posY) != 0) return false;

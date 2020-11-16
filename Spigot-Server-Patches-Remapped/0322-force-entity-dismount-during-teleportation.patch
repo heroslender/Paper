@@ -1,0 +1,147 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Thu, 15 Nov 2018 13:38:37 +0000
+Subject: [PATCH] force entity dismount during teleportation
+
+Entities must be dismounted before teleportation in order to avoid
+multiple issues in the server with regards to teleportation, shamefully,
+too many plugins rely on the events firing, which means that not firing
+these events caues more issues than it solves;
+
+In order to counteract this, Entity dismount/exit vehicle events have
+been modified to supress cancellation (and has a method to allow plugins
+to check if this has been set), noting that cancellation will be silently
+surpressed given that plugins are not expecting this event to not be cancellable.
+
+This is a far from ideal scenario, however: given the current state of this
+event and other alternatives causing issues elsewhere, I believe that
+this is going to be the best soultion all around.
+
+Improvements/suggestions welcome!
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 07f06437ada01b388fdffb8e50bccf301ae2cd77..bcb78158c4f8160424566f333b7e8826fe223cd2 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -2038,12 +2038,15 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+ 
+     }
+ 
+-    public void func_233575_bb_() {
++    // Paper start
++    public void func_233575_bb_() { stopRiding(false); }
++    public void stopRiding(boolean suppressCancellation) {
++    // Paper end
+         if (this.field_184239_as != null) {
+             Entity entity = this.field_184239_as;
+ 
+             this.field_184239_as = null;
+-            if (!entity.removePassenger(this)) this.field_184239_as = entity; // CraftBukkit
++            if (!entity.removePassenger(this, suppressCancellation)) this.field_184239_as = entity; // CraftBukkit // Paper
+         }
+ 
+     }
+@@ -2098,7 +2101,10 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         return true; // CraftBukkit
+     }
+ 
+-    protected boolean removePassenger(Entity entity) { // CraftBukkit
++    // Paper start
++    protected boolean removePassenger(Entity entity) { return removePassenger(entity, false);}
++    protected boolean removePassenger(Entity entity, boolean suppressCancellation) { // CraftBukkit
++        // Paper end
+         if (entity.func_184187_bx() == this) {
+             throw new IllegalStateException("Use x.stopRiding(y), not y.removePassenger(x)");
+         } else {
+@@ -2108,7 +2114,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             if (getBukkitEntity() instanceof Vehicle && entity.getBukkitEntity() instanceof LivingEntity) {
+                 VehicleExitEvent event = new VehicleExitEvent(
+                         (Vehicle) getBukkitEntity(),
+-                        (LivingEntity) entity.getBukkitEntity()
++                        (LivingEntity) entity.getBukkitEntity(), !suppressCancellation // Paper
+                 );
+                 // Suppress during worldgen
+                 if (this.valid) {
+@@ -2122,7 +2128,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             }
+             // CraftBukkit end
+             // Spigot start
+-            org.spigotmc.event.entity.EntityDismountEvent event = new org.spigotmc.event.entity.EntityDismountEvent(entity.getBukkitEntity(), this.getBukkitEntity());
++            org.spigotmc.event.entity.EntityDismountEvent event = new org.spigotmc.event.entity.EntityDismountEvent(entity.getBukkitEntity(), this.getBukkitEntity(), !suppressCancellation); // Paper
+             // Suppress during worldgen
+             if (this.valid) {
+                 Bukkit.getPluginManager().callEvent(event);
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index c31936718d73f496631a91930a88e376b42540ee..c1f54c9aaced8e4f61f15ca455cfeb2d6c69a4ab 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -2982,11 +2982,13 @@ public abstract class LivingEntity extends Entity {
+         return ((Byte) this.field_70180_af.func_187225_a(LivingEntity.field_184621_as) & 4) != 0;
+     }
+ 
+-    @Override
+-    public void func_184210_p() {
++    // Paper start
++    @Override public void func_184210_p() { stopRiding(false); }
++    @Override public void stopRiding(boolean suppressCancellation) {
++        // Paper end
+         Entity entity = this.func_184187_bx();
+ 
+-        super.func_184210_p();
++        super.stopRiding(suppressCancellation); // Paper - suppress
+         if (entity != null && entity != this.func_184187_bx() && !this.field_70170_p.field_72995_K) {
+             this.func_233628_a_(entity);
+         }
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index ea259502f8264e9800a4207cf8695b17bbdb9387..37bc5f6d0370a7321574c868e7bf5c7941d98c88 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -1036,9 +1036,11 @@ public abstract class PlayerEntity extends LivingEntity {
+         return -0.35D;
+     }
+ 
+-    @Override
+-    public void func_233575_bb_() {
+-        super.func_233575_bb_();
++    // Paper start
++    @Override public void func_233575_bb_() { stopRiding(false); }
++    @Override public void stopRiding(boolean suppressCancellation) {
++        // Paper end
++        super.stopRiding(suppressCancellation); // Paper - suppress
+         this.field_184245_j = 0;
+     }
+ 
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index a72433102fa1e95482355fcd97adbce5b2f11ac5..1eec86abb8483697e4139e1bba39ff04cd751a78 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -1253,11 +1253,13 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+         }
+     }
+ 
+-    @Override
+-    public void func_184210_p() {
++    // Paper start
++    @Override public void func_184210_p() { stopRiding(false); }
++    @Override public void stopRiding(boolean suppressCancellation) {
++        // paper end
+         Entity entity = this.func_184187_bx();
+ 
+-        super.func_184210_p();
++        super.stopRiding(suppressCancellation); // Paper
+         Entity entity1 = this.func_184187_bx();
+ 
+         if (entity1 != entity && this.field_71135_a != null) {
+diff --git a/src/main/java/net/minecraft/network/NettyPacketEncoder.java b/src/main/java/net/minecraft/network/NettyPacketEncoder.java
+index b17b48341a525f3dbad2de10f92d07ffcf49d4df..d6949f2150a3857a51a0afd9f8753110cc0743e8 100644
+--- a/src/main/java/net/minecraft/network/NettyPacketEncoder.java
++++ b/src/main/java/net/minecraft/network/NettyPacketEncoder.java
+@@ -53,7 +53,7 @@ public class NettyPacketEncoder extends MessageToByteEncoder<IPacket<?>> {
+                 // Paper start
+                 int packetLength = bytebuf.readableBytes();
+                 if (packetLength > MAX_PACKET_SIZE) {
+-                    throw new net.minecraft.network.NettyPacketEncoder.PacketTooLargeException(packet, packetLength);
++                    throw new PacketTooLargeException(packet, packetLength);
+                 }
+                 // Paper end
+             }

@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Tue, 1 Mar 2016 13:02:51 -0600
+Subject: [PATCH] Configurable cactus and reed natural growth heights
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index a738657394bcccd859ef260a801736d44b234469..098bd3fba867c0e4c6c58748aa6e2e632737a948 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -64,4 +64,13 @@ public class PaperWorldConfig {
+         config.addDefault("world-settings.default." + path, def);
+         return config.getString("world-settings." + worldName + "." + path, config.getString("world-settings.default." + path));
+     }
++
++    public int cactusMaxHeight;
++    public int reedMaxHeight;
++    private void blockGrowthHeight() {
++        cactusMaxHeight = getInt("max-growth-height.cactus", 3);
++        reedMaxHeight = getInt("max-growth-height.reeds", 3);
++        log("Max height for cactus growth " + cactusMaxHeight + ". Max height for reed growth " + reedMaxHeight);
++
++    }
+ }
+diff --git a/src/main/java/net/minecraft/block/CactusBlock.java b/src/main/java/net/minecraft/block/CactusBlock.java
+index e783a954a9430ef6da46774d36f4df5bddb4748d..56bb92f549c3eddb1babfa0073f41f6528aca059 100644
+--- a/src/main/java/net/minecraft/block/CactusBlock.java
++++ b/src/main/java/net/minecraft/block/CactusBlock.java
+@@ -52,7 +52,7 @@ public class CactusBlock extends Block {
+                 ;
+             }
+ 
+-            if (i < 3) {
++            if (i < p_225542_2_.paperConfig.cactusMaxHeight) { // Paper - Configurable growth height
+                 int j = (Integer) p_225542_1_.func_177229_b(CactusBlock.field_176587_a);
+ 
+                 if (j >= (byte) range(3, ((100.0F / p_225542_2_.spigotConfig.cactusModifier) * 15) + 0.5F, 15)) { // Spigot
+diff --git a/src/main/java/net/minecraft/block/SugarCaneBlock.java b/src/main/java/net/minecraft/block/SugarCaneBlock.java
+index 95a3aabb2285c5c65c0793f5d552d42123c4ea60..af874d2ef954adca6696853b5cb88234b63091ae 100644
+--- a/src/main/java/net/minecraft/block/SugarCaneBlock.java
++++ b/src/main/java/net/minecraft/block/SugarCaneBlock.java
+@@ -49,7 +49,7 @@ public class SugarCaneBlock extends Block {
+                 ;
+             }
+ 
+-            if (i < 3) {
++                if (i < p_225542_2_.paperConfig.reedMaxHeight) { // Paper - Configurable growth height
+                 int j = (Integer) p_225542_1_.func_177229_b(SugarCaneBlock.field_176355_a);
+ 
+                 if (j >= (byte) range(3, ((100.0F / p_225542_2_.spigotConfig.caneModifier) * 15) + 0.5F, 15)) { // Spigot

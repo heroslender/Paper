@@ -1,0 +1,320 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Mon, 27 Apr 2020 04:05:38 -0700
+Subject: [PATCH] Stop copy-on-write operations for updating light data
+
+Causes huge memory allocations + gc issues
+
+diff --git a/src/main/java/net/minecraft/world/lighting/BlockLightStorage.java b/src/main/java/net/minecraft/world/lighting/BlockLightStorage.java
+index 94279e10f727175474082681e9ab43ff76987af1..dbde6fc7f3eff2ac11b26fddc46cd9a0af337ed4 100644
+--- a/src/main/java/net/minecraft/world/lighting/BlockLightStorage.java
++++ b/src/main/java/net/minecraft/world/lighting/BlockLightStorage.java
+@@ -10,7 +10,7 @@ import net.minecraft.world.chunk.NibbleArray;
+ public class BlockLightStorage extends SectionLightStorage<BlockLightStorage.StorageMap> {
+ 
+     protected BlockLightStorage(IChunkLightProvider ilightaccess) {
+-        super(LightType.BLOCK, ilightaccess, new BlockLightStorage.StorageMap(new Long2ObjectOpenHashMap()));
++        super(LightType.BLOCK, ilightaccess, new BlockLightStorage.StorageMap(new com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<>(), false)); // Paper - avoid copying light data
+     }
+ 
+     @Override
+@@ -23,13 +23,13 @@ public class BlockLightStorage extends SectionLightStorage<BlockLightStorage.Sto
+ 
+     public static final class StorageMap extends LightDataMap<BlockLightStorage.StorageMap> {
+ 
+-        public StorageMap(Long2ObjectOpenHashMap<NibbleArray> p_i50064_1_) {
+-            super(p_i50064_1_);
++        public StorageMap(com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<NibbleArray> long2objectopenhashmap, boolean isVisible) { // Paper - avoid copying light data
++            super(long2objectopenhashmap, isVisible); // Paper - avoid copying light data
+         }
+ 
+         @Override
+         public BlockLightStorage.StorageMap func_212858_b_() {
+-            return new BlockLightStorage.StorageMap(this.field_215645_a.clone());
++            return new StorageMap(this.data, true); // Paper - avoid copying light data
+         }
+     }
+ }
+diff --git a/src/main/java/net/minecraft/world/lighting/LightDataMap.java b/src/main/java/net/minecraft/world/lighting/LightDataMap.java
+index 4ffd29be387eae9d36faae3b9d8f3224ab70e707..2a919ce9876736ef55922134bcaf75260dc507fe 100644
+--- a/src/main/java/net/minecraft/world/lighting/LightDataMap.java
++++ b/src/main/java/net/minecraft/world/lighting/LightDataMap.java
+@@ -9,10 +9,23 @@ public abstract class LightDataMap<M extends LightDataMap<M>> {
+     private final long[] field_215646_b = new long[2];
+     private final NibbleArray[] field_215647_c = new NibbleArray[2];
+     private boolean field_215648_d;
+-    protected final Long2ObjectOpenHashMap<NibbleArray> field_215645_a;
+-
+-    protected LightDataMap(Long2ObjectOpenHashMap<NibbleArray> p_i51299_1_) {
+-        this.field_215645_a = p_i51299_1_;
++    protected final com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<NibbleArray> data; // Paper - avoid copying light data
++    protected final boolean isVisible; // Paper - avoid copying light data
++    java.util.function.Function<Long, NibbleArray> lookup; // Paper - faster branchless lookup
++
++    // Paper start - avoid copying light data
++    protected LightDataMap(com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<NibbleArray> data, boolean isVisible) {
++        if (isVisible) {
++            data.performUpdatesLockMap();
++        }
++        this.data = data;
++        this.isVisible = isVisible;
++        if (isVisible) {
++            lookup = data::getVisibleAsync;
++        } else {
++            lookup = data::getUpdating;
++        }
++        // Paper end - avoid copying light data
+         this.func_215643_c();
+         this.field_215648_d = true;
+     }
+@@ -20,16 +33,17 @@ public abstract class LightDataMap<M extends LightDataMap<M>> {
+     public abstract M func_212858_b_();
+ 
+     public void func_215641_a(long p_215641_1_) {
+-        this.field_215645_a.put(p_215641_1_, ((NibbleArray) this.field_215645_a.get(p_215641_1_)).func_215654_b());
++        if (this.isVisible) { throw new IllegalStateException("writing to visible data"); } // Paper - avoid copying light data
++        this.data.queueUpdate(p_215641_1_, ((NibbleArray) this.data.getUpdating(p_215641_1_)).func_215654_b()); // Paper - avoid copying light data
+         this.func_215643_c();
+     }
+ 
+     public boolean func_215642_b(long p_215642_1_) {
+-        return this.field_215645_a.containsKey(p_215642_1_);
++        return lookup.apply(p_215642_1_) != null; // Paper - avoid copying light data
+     }
+ 
+     @Nullable
+-    public NibbleArray func_215638_c(long p_215638_1_) {
++    public final NibbleArray func_215638_c(long p_215638_1_) { // Paper - final
+         if (this.field_215648_d) {
+             for (int j = 0; j < 2; ++j) {
+                 if (p_215638_1_ == this.field_215646_b[j]) {
+@@ -38,7 +52,7 @@ public abstract class LightDataMap<M extends LightDataMap<M>> {
+             }
+         }
+ 
+-        NibbleArray nibblearray = (NibbleArray) this.field_215645_a.get(p_215638_1_);
++        NibbleArray nibblearray = lookup.apply(p_215638_1_); // Paper - avoid copying light data
+ 
+         if (nibblearray == null) {
+             return null;
+@@ -59,11 +73,13 @@ public abstract class LightDataMap<M extends LightDataMap<M>> {
+ 
+     @Nullable
+     public NibbleArray func_223130_d(long p_223130_1_) {
+-        return (NibbleArray) this.field_215645_a.remove(p_223130_1_);
++        if (this.isVisible) { throw new IllegalStateException("writing to visible data"); } // Paper - avoid copying light data
++        return (NibbleArray) this.data.queueRemove(p_223130_1_); // Paper - avoid copying light data
+     }
+ 
+     public void func_215640_a(long p_215640_1_, NibbleArray p_215640_2_) {
+-        this.field_215645_a.put(p_215640_1_, p_215640_2_);
++        if (this.isVisible) { throw new IllegalStateException("writing to visible data"); } // Paper - avoid copying light data
++        this.data.queueUpdate(p_215640_1_, p_215640_2_); // Paper - avoid copying light data
+     }
+ 
+     public void func_215643_c() {
+@@ -71,7 +87,6 @@ public abstract class LightDataMap<M extends LightDataMap<M>> {
+             this.field_215646_b[i] = Long.MAX_VALUE;
+             this.field_215647_c[i] = null;
+         }
+-
+     }
+ 
+     public void func_215644_d() {
+diff --git a/src/main/java/net/minecraft/world/lighting/SectionLightStorage.java b/src/main/java/net/minecraft/world/lighting/SectionLightStorage.java
+index 140c4b48f1890ffc3356315991a54eca78edfae1..c70912de4bbc65ea15d4695f4e3b948ffe06465d 100644
+--- a/src/main/java/net/minecraft/world/lighting/SectionLightStorage.java
++++ b/src/main/java/net/minecraft/world/lighting/SectionLightStorage.java
+@@ -26,8 +26,8 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+     protected final LongSet field_215535_b = new LongOpenHashSet();
+     protected final LongSet field_215536_c = new LongOpenHashSet();
+     protected final LongSet field_215537_d = new LongOpenHashSet();
+-    protected volatile M field_215538_e;
+-    protected final M field_215539_f;
++    protected volatile M e_visible; protected final Object visibleUpdateLock = new Object(); // Paper - diff on change, should be "visible" - force compile fail on usage change
++    protected final M field_215539_f; // Paper - diff on change, should be "updating"
+     protected final LongSet field_215540_g = new LongOpenHashSet();
+     protected final LongSet field_215541_h = new LongOpenHashSet();
+     protected final Long2ObjectMap<NibbleArray> field_215542_i = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap());
+@@ -41,8 +41,8 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+         this.field_215545_l = enumskyblock;
+         this.field_215546_m = ilightaccess;
+         this.field_215539_f = m0;
+-        this.field_215538_e = m0.func_212858_b_();
+-        this.field_215538_e.func_215644_d();
++        this.e_visible = m0.func_212858_b_(); // Paper - avoid copying light data
++        this.e_visible.func_215644_d(); // Paper - avoid copying light data
+     }
+ 
+     protected boolean func_215518_g(long p_215518_1_) {
+@@ -51,7 +51,15 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+ 
+     @Nullable
+     protected NibbleArray func_215520_a(long p_215520_1_, boolean p_215520_2_) {
+-        return this.func_215531_a(p_215520_2_ ? this.field_215539_f : this.field_215538_e, p_215520_1_);
++        // Paper start - avoid copying light data
++        if (p_215520_2_) {
++            return this.func_215531_a(this.field_215539_f, p_215520_1_);
++        } else {
++            synchronized (this.visibleUpdateLock) {
++                return this.func_215531_a(this.e_visible, p_215520_1_);
++            }
++        }
++        // Paper end - avoid copying light data
+     }
+ 
+     @Nullable
+@@ -364,10 +372,12 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+ 
+     protected void func_215533_d() {
+         if (!this.field_215540_g.isEmpty()) {
++            synchronized (this.visibleUpdateLock) { // Paper - avoid copying light data
+             M m0 = this.field_215539_f.func_212858_b_();
+ 
+             m0.func_215644_d();
+-            this.field_215538_e = m0;
++            this.e_visible = m0; // Paper - avoid copying light data
++            } // Paper - avoid copying light data
+             this.field_215540_g.clear();
+         }
+ 
+diff --git a/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java b/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java
+index d537eae2ca957079258c4e997b7a0a6bafbabb39..83bde408e22a6cd02072b3f88d1b4481f8743187 100644
+--- a/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java
++++ b/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java
+@@ -23,15 +23,16 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+     private volatile boolean field_215553_p;
+ 
+     protected SkyLightStorage(IChunkLightProvider ilightaccess) {
+-        super(LightType.SKY, ilightaccess, new SkyLightStorage.StorageMap(new Long2ObjectOpenHashMap(), new Long2IntOpenHashMap(), Integer.MAX_VALUE));
++        super(LightType.SKY, ilightaccess, new SkyLightStorage.StorageMap(new com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<>(), new com.destroystokyo.paper.util.map.QueuedChangesMapLong2Int(), Integer.MAX_VALUE, false)); // Paper - avoid copying light data
+     }
+ 
+     @Override
+     protected int func_215525_d(long p_215525_1_) {
+         long j = SectionPos.func_218162_e(p_215525_1_);
+         int k = SectionPos.func_218144_c(j);
+-        SkyLightStorage.StorageMap lightenginestoragesky_a = (SkyLightStorage.StorageMap) this.field_215538_e;
+-        int l = lightenginestoragesky_a.field_215653_c.get(SectionPos.func_218169_f(j));
++        synchronized (this.visibleUpdateLock) { // Paper - avoid copying light data
++        SkyLightStorage.StorageMap lightenginestoragesky_a = (SkyLightStorage.StorageMap) this.e_visible; // Paper - avoid copying light data - must be after lock acquire
++        int l = lightenginestoragesky_a.otherData.getVisibleAsync(SectionPos.func_218169_f(j)); // Paper - avoid copying light data
+ 
+         if (l != lightenginestoragesky_a.field_215652_b && k < l) {
+             NibbleArray nibblearray = this.func_215531_a(lightenginestoragesky_a, j); // Paper - decompile fix
+@@ -52,6 +53,7 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+         } else {
+             return 15;
+         }
++        } // Paper - avoid copying light data
+     }
+ 
+     @Override
+@@ -60,14 +62,14 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+ 
+         if (((SkyLightStorage.StorageMap) this.field_215539_f).field_215652_b > j) {
+             ((SkyLightStorage.StorageMap) this.field_215539_f).field_215652_b = j;
+-            ((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.defaultReturnValue(((SkyLightStorage.StorageMap) this.field_215539_f).field_215652_b);
++            ((SkyLightStorage.StorageMap) this.field_215539_f).otherData.queueDefaultReturnValue(((SkyLightStorage.StorageMap) this.field_215539_f).field_215652_b); // Paper - avoid copying light data
+         }
+ 
+         long k = SectionPos.func_218169_f(p_215524_1_);
+-        int l = ((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.get(k);
++        int l = ((SkyLightStorage.StorageMap) this.field_215539_f).otherData.getUpdating(k); // Paper - avoid copying light data
+ 
+         if (l < j + 1) {
+-            ((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.put(k, j + 1);
++            ((SkyLightStorage.StorageMap) this.field_215539_f).otherData.queueUpdate(k, j + 1); // Paper - avoid copying light data
+             if (this.field_215558_o.contains(k)) {
+                 this.func_223404_q(p_215524_1_);
+                 if (l > ((SkyLightStorage.StorageMap) this.field_215539_f).field_215652_b) {
+@@ -107,7 +109,7 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+ 
+         int k = SectionPos.func_218144_c(p_215523_1_);
+ 
+-        if (((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.get(j) == k + 1) {
++        if (((SkyLightStorage.StorageMap) this.field_215539_f).otherData.getUpdating(j) == k + 1) { // Paper - avoid copying light data
+             long l;
+ 
+             for (l = p_215523_1_; !this.func_215518_g(l) && this.func_215550_a(k); l = SectionPos.func_218172_a(l, Direction.DOWN)) {
+@@ -115,12 +117,12 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+             }
+ 
+             if (this.func_215518_g(l)) {
+-                ((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.put(j, k + 1);
++                ((SkyLightStorage.StorageMap) this.field_215539_f).otherData.queueUpdate(j, k + 1); // Paper - avoid copying light data
+                 if (flag) {
+                     this.func_223404_q(l);
+                 }
+             } else {
+-                ((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.remove(j);
++                ((SkyLightStorage.StorageMap) this.field_215539_f).otherData.queueRemove(j); // Paper - avoid copying light data
+             }
+         }
+ 
+@@ -134,7 +136,7 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+     protected void func_215526_b(long p_215526_1_, boolean p_215526_2_) {
+         this.func_215532_c();
+         if (p_215526_2_ && this.field_215558_o.add(p_215526_1_)) {
+-            int j = ((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.get(p_215526_1_);
++            int j = ((SkyLightStorage.StorageMap) this.field_215539_f).otherData.getUpdating(p_215526_1_); // Paper - avoid copying light data
+ 
+             if (j != ((SkyLightStorage.StorageMap) this.field_215539_f).field_215652_b) {
+                 long k = SectionPos.func_218166_b(SectionPos.func_218173_b(p_215526_1_), j - 1, SectionPos.func_218153_d(p_215526_1_));
+@@ -161,7 +163,7 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+             return nibblearray;
+         } else {
+             long j = SectionPos.func_218172_a(p_215530_1_, Direction.UP);
+-            int k = ((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.get(SectionPos.func_218169_f(p_215530_1_));
++            int k = ((SkyLightStorage.StorageMap) this.field_215539_f).otherData.getUpdating(SectionPos.func_218169_f(p_215530_1_)); // Paper - avoid copying light data
+ 
+             if (k != ((SkyLightStorage.StorageMap) this.field_215539_f).field_215652_b && SectionPos.func_218144_c(j) < k) {
+                 NibbleArray nibblearray1;
+@@ -304,7 +306,7 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+             if (!this.field_215558_o.contains(l)) {
+                 return false;
+             } else {
+-                int i1 = ((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.get(l);
++                int i1 = ((SkyLightStorage.StorageMap) this.field_215539_f).otherData.getUpdating(l); // Paper - avoid copying light data
+ 
+                 return SectionPos.func_218142_c(i1) == j + 16;
+             }
+@@ -313,7 +315,7 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+ 
+     protected boolean func_215549_m(long p_215549_1_) {
+         long j = SectionPos.func_218169_f(p_215549_1_);
+-        int k = ((SkyLightStorage.StorageMap) this.field_215539_f).field_215653_c.get(j);
++        int k = ((SkyLightStorage.StorageMap) this.field_215539_f).otherData.getUpdating(j); // Paper - avoid copying light data
+ 
+         return k == ((SkyLightStorage.StorageMap) this.field_215539_f).field_215652_b || SectionPos.func_218144_c(p_215549_1_) >= k;
+     }
+@@ -327,18 +329,21 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+     public static final class StorageMap extends LightDataMap<SkyLightStorage.StorageMap> {
+ 
+         private int field_215652_b;
+-        private final Long2IntOpenHashMap field_215653_c;
+-
+-        public StorageMap(Long2ObjectOpenHashMap<NibbleArray> p_i50496_1_, Long2IntOpenHashMap p_i50496_2_, int p_i50496_3_) {
+-            super(p_i50496_1_);
+-            this.field_215653_c = p_i50496_2_;
+-            p_i50496_2_.defaultReturnValue(p_i50496_3_);
+-            this.field_215652_b = p_i50496_3_;
++        private final com.destroystokyo.paper.util.map.QueuedChangesMapLong2Int otherData; // Paper - avoid copying light data
++
++        // Paper start - avoid copying light data
++        public StorageMap(com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<NibbleArray> data, com.destroystokyo.paper.util.map.QueuedChangesMapLong2Int otherData, int i, boolean isVisible) {
++            super(data, isVisible);
++            this.otherData = otherData;
++            otherData.queueDefaultReturnValue(i);
++            // Paper end - avoid copying light data
++            this.field_215652_b = i;
+         }
+ 
+         @Override
+         public SkyLightStorage.StorageMap func_212858_b_() {
+-            return new SkyLightStorage.StorageMap(this.field_215645_a.clone(), this.field_215653_c.clone(), this.field_215652_b);
++            this.otherData.performUpdatesLockMap(); // Paper - avoid copying light data
++            return new SkyLightStorage.StorageMap(this.data, this.otherData, this.field_215652_b, true); // Paper - avoid copying light data
+         }
+     }
+ }

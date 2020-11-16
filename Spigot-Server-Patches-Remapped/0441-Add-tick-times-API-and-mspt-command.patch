@@ -1,0 +1,169 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 5 Apr 2020 22:23:14 -0500
+Subject: [PATCH] Add tick times API and /mspt command
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/MSPTCommand.java b/src/main/java/com/destroystokyo/paper/MSPTCommand.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..d0211d4f39f9d6af1d751ac66342b42cc6d7ba6d
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/MSPTCommand.java
+@@ -0,0 +1,64 @@
++package com.destroystokyo.paper;
++
++import net.minecraft.server.MinecraftServer;
++import org.bukkit.ChatColor;
++import org.bukkit.Location;
++import org.bukkit.command.Command;
++import org.bukkit.command.CommandSender;
++
++import java.text.DecimalFormat;
++import java.util.ArrayList;
++import java.util.Arrays;
++import java.util.Collections;
++import java.util.List;
++
++public class MSPTCommand extends Command {
++    private static final DecimalFormat DF = new DecimalFormat("########0.0");
++
++    public MSPTCommand(String name) {
++        super(name);
++        this.description = "View server tick times";
++        this.usageMessage = "/mspt";
++        this.setPermission("bukkit.command.mspt");
++    }
++
++    @Override
++    public List<String> tabComplete(CommandSender sender, String alias, String[] args, Location location) throws IllegalArgumentException {
++        return Collections.emptyList();
++    }
++
++    @Override
++    public boolean execute(CommandSender sender, String commandLabel, String[] args) {
++        if (!testPermission(sender)) return true;
++
++        MinecraftServer server = MinecraftServer.getServer();
++
++        List<String> times = new ArrayList<>();
++        times.addAll(eval(server.tickTimes5s.getTimes()));
++        times.addAll(eval(server.tickTimes10s.getTimes()));
++        times.addAll(eval(server.tickTimes60s.getTimes()));
++
++        sender.sendMessage("§6Server tick times §e(§7avg§e/§7min§e/§7max§e)§6 from last 5s§7,§6 10s§7,§6 1m§e:");
++        sender.sendMessage(String.format("§6◴ %s§7/%s§7/%s§e, %s§7/%s§7/%s§e, %s§7/%s§7/%s", times.toArray()));
++        return true;
++    }
++
++    private static List<String> eval(long[] times) {
++        long min = Integer.MAX_VALUE;
++        long max = 0L;
++        long total = 0L;
++        for (long value : times) {
++            if (value > 0L && value < min) min = value;
++            if (value > max) max = value;
++            total += value;
++        }
++        double avgD = ((double) total / (double) times.length) * 1.0E-6D;
++        double minD = ((double) min) * 1.0E-6D;
++        double maxD = ((double) max) * 1.0E-6D;
++        return Arrays.asList(getColor(avgD), getColor(minD), getColor(maxD));
++    }
++
++    private static String getColor(double avg) {
++        return ChatColor.COLOR_CHAR + (avg >= 50 ? "c" : avg >= 40 ? "e" : "a") + DF.format(avg);
++    }
++}
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index 7b37f46b29699603629e5e635be89f725f163f00..093605fe8e079d9ec973702c55ea6caddf0369f1 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -69,6 +69,7 @@ public class PaperConfig {
+ 
+         commands = new HashMap<String, Command>();
+         commands.put("paper", new PaperCommand("paper"));
++        commands.put("mspt", new MSPTCommand("mspt"));
+ 
+         version = getInt("config-version", 20);
+         set("config-version", 20);
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index deb6f8c360d5d47ff988ac33a2479c50136bc389..5cc17a7539a9ee851689ac485f481dfd5fd8492a 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -213,6 +213,11 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+     private int field_71280_D;
+     private int field_143008_E;
+     public final long[] field_71311_j; public long[] getTickTimes() { return field_71311_j; } // Paper - OBFHELPER
++    // Paper start
++    public final TickTimes tickTimes5s = new TickTimes(100);
++    public final TickTimes tickTimes10s = new TickTimes(200);
++    public final TickTimes tickTimes60s = new TickTimes(1200);
++    // Paper end
+     @Nullable
+     private KeyPair field_71292_I;
+     @Nullable
+@@ -1321,6 +1326,12 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         this.field_211152_ao = this.field_211152_ao * 0.8F + (float) l / 1000000.0F * 0.19999999F;
+         long i1 = Util.func_211178_c();
+ 
++        // Paper start
++        tickTimes5s.add(this.field_71315_w, l);
++        tickTimes10s.add(this.field_71315_w, l);
++        tickTimes60s.add(this.field_71315_w, l);
++        // Paper end
++
+         this.field_213215_ap.func_181747_a(i1 - i);
+         this.field_71304_b.func_76319_b();
+         org.spigotmc.WatchdogThread.tick(); // Spigot
+@@ -2276,4 +2287,30 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+     public IServerConfiguration func_240793_aU_() {
+         return this.field_240768_i_;
+     }
++
++    // Paper start
++    public static class TickTimes {
++        private final long[] times;
++
++        public TickTimes(int length) {
++            times = new long[length];
++        }
++
++        void add(int index, long time) {
++            times[index % times.length] = time;
++        }
++
++        public long[] getTimes() {
++            return times.clone();
++        }
++
++        public double getAverage() {
++            long total = 0L;
++            for (long value : times) {
++                total += value;
++            }
++            return ((double) total / (double) times.length) * 1.0E-6D;
++        }
++    }
++    // Paper end
+ }
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 3700f03ec2705d45602ec9ba9b90337fda13488b..ff2a8f04d5130a81b5a02d0f6d481418f36ff85e 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -2137,6 +2137,16 @@ public final class CraftServer implements Server {
+                 net.minecraft.server.MinecraftServer.getServer().tps15.getAverage()
+         };
+     }
++
++    @Override
++    public long[] getTickTimes() {
++        return getServer().tickTimes5s.getTimes();
++    }
++
++    @Override
++    public double getAverageTickTime() {
++        return getServer().tickTimes5s.getAverage();
++    }
+     // Paper end
+ 
+     private final Spigot spigot = new Spigot()

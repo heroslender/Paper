@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 18 Jun 2018 22:19:36 -0400
+Subject: [PATCH] Fire EntityShootBowEvent for Illusioner
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/IllusionerEntity.java b/src/main/java/net/minecraft/entity/monster/IllusionerEntity.java
+index 9422de6587446cfa3ed6feb8496e896cd7ed238d..1d468d4b69b18e3604daeae72a173cc934276ba1 100644
+--- a/src/main/java/net/minecraft/entity/monster/IllusionerEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/IllusionerEntity.java
+@@ -171,8 +171,18 @@ public class IllusionerEntity extends SpellcastingIllagerEntity implements IRang
+         double d3 = (double) MathHelper.func_76133_a(d0 * d0 + d2 * d2);
+ 
+         entityarrow.func_70186_c(d0, d1 + d3 * 0.20000000298023224D, d2, 1.6F, (float) (14 - this.field_70170_p.func_175659_aa().func_151525_a() * 4));
++        // Paper start
++        org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(this, this.func_184614_ca(), this.func_184592_cb(), entityarrow,0.8F);
++        if (event.isCancelled()) {
++            event.getProjectile().remove();
++            return;
++        }
++
++        if (event.getProjectile() == entityarrow.getBukkitEntity()) {
++            this.field_70170_p.func_217376_c(entityarrow);
++        }
+         this.func_184185_a(SoundEvents.field_187866_fi, 1.0F, 1.0F / (this.func_70681_au().nextFloat() * 0.4F + 0.8F));
+-        this.field_70170_p.func_217376_c(entityarrow);
++        // Paper end
+     }
+ 
+     class BlindnessSpellGoal extends SpellcastingIllagerEntity.UseSpellGoal {

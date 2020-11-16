@@ -1,0 +1,78 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 16 Nov 2018 23:08:50 -0500
+Subject: [PATCH] Book Size Limits
+
+Puts some limits on the size of books.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index 478856f190a8d0177dee39dab4692fc54f9c8ed4..01d48da8b2f89ad3a615ad10c044c5f0a08ee4ed 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -334,4 +334,11 @@ public class PaperConfig {
+             velocitySecretKey = secret.getBytes(StandardCharsets.UTF_8);
+         }
+     }
++
++    public static int maxBookPageSize = 2560;
++    public static double maxBookTotalSizeMultiplier = 0.98D;
++    private static void maxBookSize() {
++        maxBookPageSize = getInt("settings.book-size.page-max", maxBookPageSize);
++        maxBookTotalSizeMultiplier = getDouble("settings.book-size.total-multiplier", maxBookTotalSizeMultiplier);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 066a2c99db6a0f728258df9a1a247263a90480e3..927beb26bd735abc6ac13185dd2463fe23887394 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -156,6 +156,7 @@ import net.minecraft.world.GameType;
+ import net.minecraft.world.IWorldReader;
+ import net.minecraft.world.World;
+ import net.minecraft.world.server.ServerWorld;
++import org.apache.commons.lang3.StringEscapeUtils;
+ import org.apache.commons.lang3.StringUtils;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+@@ -956,6 +957,42 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+     @Override
+     public void func_210156_a(CEditBookPacket p_210156_1_) {
++        // Paper start
++        ItemStack testStack = p_210156_1_.func_210346_a();
++        if (!server.isPrimaryThread() && !testStack.func_190926_b() && testStack.func_77978_p() != null) {
++            ListNBT pageList = testStack.func_77978_p().func_150295_c("pages", 8);
++            long byteTotal = 0;
++            int maxBookPageSize = com.destroystokyo.paper.PaperConfig.maxBookPageSize;
++            double multiplier = Math.max(0.3D, Math.min(1D, com.destroystokyo.paper.PaperConfig.maxBookTotalSizeMultiplier));
++            long byteAllowed = maxBookPageSize;
++            for (int i = 0; i < pageList.size(); ++i) {
++                String testString = pageList.func_150307_f(i);
++                int byteLength = testString.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
++                byteTotal += byteLength;
++                int length = testString.length();
++                int multibytes = 0;
++                if (byteLength != length) {
++                    for (char c : testString.toCharArray()) {
++                        if (c > 127) {
++                            multibytes++;
++                        }
++                    }
++                }
++                byteAllowed += (maxBookPageSize * Math.min(1, Math.max(0.1D, (double) length / 255D))) * multiplier;
++
++                if (multibytes > 1) {
++                    // penalize MB
++                    byteAllowed -= multibytes;
++                }
++            }
++
++            if (byteTotal > byteAllowed) {
++                ServerPlayNetHandler.field_147370_c.warn(this.field_147369_b.func_195047_I_() + " tried to send too large of a book. Book Size: " + byteTotal + " - Allowed:  "+ byteAllowed + " - Pages: " + pageList.size());
++                field_147367_d.scheduleOnMain(() -> this.disconnect("Book too large!"));
++                return;
++            }
++        }
++        // Paper end
+         PacketThreadUtil.func_218796_a(p_210156_1_, this, this.field_147369_b.func_71121_q());
+         // CraftBukkit start
+         if (this.lastBookTick + 20 > MinecraftServer.currentTick) {

@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hugo Manrique <hugmanrique@gmail.com>
+Date: Mon, 16 Jul 2018 12:42:20 +0200
+Subject: [PATCH] Avoid item merge if stack size above max stack size
+
+
+diff --git a/src/main/java/net/minecraft/entity/item/ItemEntity.java b/src/main/java/net/minecraft/entity/item/ItemEntity.java
+index 745af58f0db7be048eaf5c24366efb28833322fe..22eecf2af58c8c1e73e83064099d394660c9794f 100644
+--- a/src/main/java/net/minecraft/entity/item/ItemEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ItemEntity.java
+@@ -203,6 +203,10 @@ public class ItemEntity extends Entity {
+ 
+     private void func_85054_d() {
+         if (this.func_213857_z()) {
++            // Paper start - avoid item merge if stack size above max stack size
++            ItemStack stack = func_92059_d();
++            if (stack.func_190916_E() >= stack.func_77976_d()) return;
++            // Paper end
+             // Spigot start
+             double radius = field_70170_p.spigotConfig.itemMerge;
+             List<ItemEntity> list = this.field_70170_p.func_175647_a(ItemEntity.class, this.func_174813_aQ().func_72314_b(radius, radius, radius), (entityitem) -> {

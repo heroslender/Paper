@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Tue, 21 May 2019 02:34:04 +0100
+Subject: [PATCH] improve CraftWorld#isChunkLoaded
+
+getChunkAt will request the chunk using vanillas chunk loading system,
+which while we're not going to load the chunk, does involve the server
+waiting for the execution queue to get to our request; We can just query
+the chunk status and get a response now, vs having to wait
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index af9c7bfe403d621d682228f670de144e5b4e5162..69e00a5b2c86332111f6e23c17188bd79da54c9c 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -402,13 +402,13 @@ public class CraftWorld implements World {
+ 
+     @Override
+     public boolean isChunkLoaded(int x, int z) {
+-        return world.E().isChunkLoaded(x, z);
++        return world.E().getChunkAtIfLoadedImmediately(x, z) != null; // Paper
+     }
+ 
+     @Override
+     public boolean isChunkGenerated(int x, int z) {
+         try {
+-            return isChunkLoaded(x, z) || world.E().field_217237_a.func_227078_e_(new ChunkPos(x, z)) != null;
++            return world.E().getChunkAtIfCachedImmediately(x, z) != null || world.E().field_217237_a.func_227078_e_(new ChunkPos(x, z)) != null; // Paper (TODO check if the first part can be removed)
+         } catch (IOException ex) {
+             throw new RuntimeException(ex);
+         }

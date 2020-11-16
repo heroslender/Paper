@@ -1,0 +1,73 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 8 Feb 2020 23:26:11 -0600
+Subject: [PATCH] Entity Jump API
+
+
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 4d0c90e96d7c4c573fa2a8922db3be2d0752cfec..45056e7c8bfe6fb0e8fceada7822a1f37f57ad9e 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -2845,8 +2845,10 @@ public abstract class LivingEntity extends Entity {
+             } else if (this.func_180799_ab() && (!this.field_70122_E || d7 > d8)) {
+                 this.func_180466_bG((ITag) FluidTags.field_206960_b);
+             } else if ((this.field_70122_E || flag && d7 <= d8) && this.field_70773_bE == 0) {
++                if (new com.destroystokyo.paper.event.entity.EntityJumpEvent(getBukkitLivingEntity()).callEvent()) { // Paper
+                 this.func_70664_aZ();
+                 this.field_70773_bE = 10;
++                } else { this.func_70637_d(false); } // Paper - setJumping(false) stops a potential loop
+             }
+         } else {
+             this.field_70773_bE = 0;
+diff --git a/src/main/java/net/minecraft/entity/passive/PandaEntity.java b/src/main/java/net/minecraft/entity/passive/PandaEntity.java
+index 6e428436d4db24ca7138b140e95e8c9b2868db6d..2f7a5ea1c9abc0556d122e1432a28f1bcc547048 100644
+--- a/src/main/java/net/minecraft/entity/passive/PandaEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/PandaEntity.java
+@@ -487,7 +487,9 @@ public class PandaEntity extends AnimalEntity {
+             PandaEntity entitypanda = (PandaEntity) iterator.next();
+ 
+             if (!entitypanda.func_70631_g_() && entitypanda.field_70122_E && !entitypanda.func_70090_H() && entitypanda.func_213537_eq()) {
++                if (new com.destroystokyo.paper.event.entity.EntityJumpEvent(getBukkitLivingEntity()).callEvent()) { // Paper
+                 entitypanda.func_70664_aZ();
++                } else { this.func_70637_d(false); } // Paper - setJumping(false) stops a potential loop
+             }
+         }
+ 
+diff --git a/src/main/java/net/minecraft/util/BitArray.java b/src/main/java/net/minecraft/util/BitArray.java
+index acec2c94628a8d24d75eef1243de60962b8e4e0e..887079176e5f0c3aa24ba295fcc0fb7f16fcb459 100644
+--- a/src/main/java/net/minecraft/util/BitArray.java
++++ b/src/main/java/net/minecraft/util/BitArray.java
+@@ -113,7 +113,7 @@ public class BitArray {
+     }
+ 
+     // Paper start
+-    public final void forEach(net.minecraft.util.BitArray.DataBitConsumer consumer) {
++    public final void forEach(DataBitConsumer consumer) {
+         int i = 0;
+         long[] along = this.field_188145_a;
+         int j = along.length;
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+index 9feff1cac3f2cb40b3f95d01d75c307a6e65957e..d2985c2f4c995156f831b0f392d64c3ee2538387 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+@@ -734,5 +734,20 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+     public boolean isHandRaised() {
+         return getHandle().func_184587_cr();
+     }
++
++    @Override
++    public boolean isJumping() {
++        return getHandle().field_70703_bu;
++    }
++
++    @Override
++    public void setJumping(boolean jumping) {
++        getHandle().func_70637_d(jumping);
++        if (jumping && getHandle() instanceof MobEntity) {
++            // this is needed to actually make a mob jump
++            ((MobEntity) getHandle()).func_70683_ar().func_75660_a();
++        }
++    }
++
+     // Paper end
+ }

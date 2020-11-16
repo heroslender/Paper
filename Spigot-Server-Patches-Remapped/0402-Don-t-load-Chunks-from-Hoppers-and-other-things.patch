@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 3 Nov 2016 20:28:12 -0400
+Subject: [PATCH] Don't load Chunks from Hoppers and other things
+
+Hoppers call this to I guess "get the primary side" of a double sided chest.
+
+If the double sided chest crosses chunk lines, it causes the chunk to load.
+This will end up causing sync chunk loads, which will unload with Chunk GC,
+only to be reloaded again the next tick.
+
+This of course is undesirable, so just return the loaded side as "primary"
+and treat it as a single chest if the other sides are unloaded
+
+diff --git a/src/main/java/net/minecraft/tileentity/TileEntityMerger.java b/src/main/java/net/minecraft/tileentity/TileEntityMerger.java
+index ed622dd6310149d4211fcbbb966a0f81c544c706..9bcc051b934ba442ec90b8beb735c93aa54b7a46 100644
+--- a/src/main/java/net/minecraft/tileentity/TileEntityMerger.java
++++ b/src/main/java/net/minecraft/tileentity/TileEntityMerger.java
+@@ -27,7 +27,12 @@ public class TileEntityMerger {
+                 return new TileEntityMerger.ICallbackWrapper.Single<>(s0);
+             } else {
+                 BlockPos blockposition1 = p_226924_6_.func_177972_a((Direction) p_226924_2_.apply(p_226924_4_));
+-                BlockState iblockdata1 = p_226924_5_.func_180495_p(blockposition1);
++                // Paper start
++                BlockState iblockdata1 = p_226924_5_.getTypeIfLoaded(blockposition1);
++                if (iblockdata1 == null) {
++                    return new TileEntityMerger.ICallbackWrapper.Single<>(s0);
++                }
++                // Paper end
+ 
+                 if (iblockdata1.func_203425_a(p_226924_4_.func_177230_c())) {
+                     TileEntityMerger.Type doubleblockfinder_blocktype1 = (TileEntityMerger.Type) p_226924_1_.apply(iblockdata1);

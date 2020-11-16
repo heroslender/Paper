@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kickash32 <kickash32@gmail.com>
+Date: Wed, 21 Aug 2019 23:57:32 +0500
+Subject: [PATCH] only add passanger entities once from spawners
+
+
+diff --git a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+index f03ab16320571a1aa14909b32be6142938e3eb23..e6bc32b68ca53c5a20efc1907049eccc9360409f 100644
+--- a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+@@ -218,7 +218,7 @@ public abstract class AbstractSpawner {
+     }
+ 
+     private void func_221409_a(Entity p_221409_1_) {
+-        if (this.func_98271_a().addEntity(p_221409_1_, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER)) { // CraftBukkit
++        if (p_221409_1_.valid || this.func_98271_a().addEntity(p_221409_1_, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER)) { // CraftBukkit // Paper
+             Iterator iterator = p_221409_1_.func_184188_bt().iterator();
+ 
+             while (iterator.hasNext()) {

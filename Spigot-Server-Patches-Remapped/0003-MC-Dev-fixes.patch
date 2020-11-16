@@ -1,0 +1,905 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 30 Mar 2016 19:36:20 -0400
+Subject: [PATCH] MC Dev fixes
+
+
+diff --git a/src/main/java/net/minecraft/entity/merchant/villager/VillagerTrades.java b/src/main/java/net/minecraft/entity/merchant/villager/VillagerTrades.java
+index 51986676c7b6bfcbbe2cd8d4a645562142f74e52..ff1cfd65e75c59fdd466f49c1a772352b80c9b90 100644
+--- a/src/main/java/net/minecraft/entity/merchant/villager/VillagerTrades.java
++++ b/src/main/java/net/minecraft/entity/merchant/villager/VillagerTrades.java
+@@ -49,12 +49,12 @@ import net.minecraft.world.storage.MapDecoration;
+ 
+ public class VillagerTrades {
+ 
+-    public static final Map<VillagerProfession, Int2ObjectMap<VillagerTrades.ITrade[]>> field_221239_a = (Map) Util.func_200696_a((Object) Maps.newHashMap(), (hashmap) -> {
++    public static final Map<VillagerProfession, Int2ObjectMap<VillagerTrades.ITrade[]>> field_221239_a = Util.func_200696_a(Maps.newHashMap(), (hashmap) -> { // Paper - decompile fix
+         hashmap.put(VillagerProfession.field_221156_f, func_221238_a(ImmutableMap.of(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151015_O, 20, 16, 2), new VillagerTrades.EmeraldForItemsTrade(Items.field_151174_bG, 26, 16, 2), new VillagerTrades.EmeraldForItemsTrade(Items.field_151172_bF, 22, 16, 2), new VillagerTrades.EmeraldForItemsTrade(Items.field_185164_cV, 15, 16, 2), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151025_P, 1, 6, 16, 1)}, 2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Blocks.field_150423_aK, 6, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151158_bO, 1, 4, 5), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151034_e, 1, 4, 16, 5)}, 3, new VillagerTrades.ITrade[]{new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151106_aX, 3, 18, 10), new VillagerTrades.EmeraldForItemsTrade(Blocks.field_150440_ba, 4, 12, 20)}, 4, new VillagerTrades.ITrade[]{new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_150414_aQ, 1, 1, 12, 15), new VillagerTrades.SuspiciousStewForEmeraldTrade(Effects.field_76439_r, 100, 15), new VillagerTrades.SuspiciousStewForEmeraldTrade(Effects.field_76430_j, 160, 15), new VillagerTrades.SuspiciousStewForEmeraldTrade(Effects.field_76437_t, 140, 15), new VillagerTrades.SuspiciousStewForEmeraldTrade(Effects.field_76440_q, 120, 15), new VillagerTrades.SuspiciousStewForEmeraldTrade(Effects.field_76436_u, 280, 15), new VillagerTrades.SuspiciousStewForEmeraldTrade(Effects.field_76443_y, 7, 15)}, 5, new VillagerTrades.ITrade[]{new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151150_bK, 3, 3, 30), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151060_bw, 4, 3, 30)})));
+-        hashmap.put(VillagerProfession.field_221157_g, func_221238_a(ImmutableMap.of(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151007_F, 20, 16, 2), new VillagerTrades.EmeraldForItemsTrade(Items.field_151044_h, 10, 16, 2), new VillagerTrades.ItemsForEmeraldsAndItemsTrade(Items.field_196086_aW, 6, Items.field_196102_ba, 6, 16, 1), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_203797_aN, 3, 1, 16, 1)}, 2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196086_aW, 15, 16, 10), new VillagerTrades.ItemsForEmeraldsAndItemsTrade(Items.field_196087_aX, 6, Items.field_196104_bb, 6, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_222113_pS, 2, 1, 5)}, 3, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196087_aX, 13, 16, 20), new VillagerTrades.EnchantedItemForEmeraldsTrade(Items.field_151112_aM, 3, 3, 10, 0.2F)}, 4, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196088_aY, 6, 12, 30)}, 5, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196089_aZ, 4, 12, 30), new VillagerTrades.EmeraldForVillageTypeItemTrade(1, 12, 30, ImmutableMap.builder().put(IVillagerType.field_221175_c, Items.field_151124_az).put(IVillagerType.field_221179_g, Items.field_185150_aH).put(IVillagerType.field_221177_e, Items.field_185150_aH).put(IVillagerType.field_221173_a, Items.field_185152_aJ).put(IVillagerType.field_221174_b, Items.field_185152_aJ).put(IVillagerType.field_221176_d, Items.field_185153_aK).put(IVillagerType.field_221178_f, Items.field_185154_aL).build())})));
++        hashmap.put(VillagerProfession.field_221157_g, func_221238_a(ImmutableMap.of(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151007_F, 20, 16, 2), new VillagerTrades.EmeraldForItemsTrade(Items.field_151044_h, 10, 16, 2), new VillagerTrades.ItemsForEmeraldsAndItemsTrade(Items.field_196086_aW, 6, Items.field_196102_ba, 6, 16, 1), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_203797_aN, 3, 1, 16, 1)}, 2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196086_aW, 15, 16, 10), new VillagerTrades.ItemsForEmeraldsAndItemsTrade(Items.field_196087_aX, 6, Items.field_196104_bb, 6, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_222113_pS, 2, 1, 5)}, 3, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196087_aX, 13, 16, 20), new VillagerTrades.EnchantedItemForEmeraldsTrade(Items.field_151112_aM, 3, 3, 10, 0.2F)}, 4, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196088_aY, 6, 12, 30)}, 5, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196089_aZ, 4, 12, 30), new VillagerTrades.EmeraldForVillageTypeItemTrade(1, 12, 30, ImmutableMap.<IVillagerType, Item>builder().put(IVillagerType.field_221175_c, Items.field_151124_az).put(IVillagerType.field_221179_g, Items.field_185150_aH).put(IVillagerType.field_221177_e, Items.field_185150_aH).put(IVillagerType.field_221173_a, Items.field_185152_aJ).put(IVillagerType.field_221174_b, Items.field_185152_aJ).put(IVillagerType.field_221176_d, Items.field_185153_aK).put(IVillagerType.field_221178_f, Items.field_185154_aL).build())}))); // <VillagerType, Item>
+         hashmap.put(VillagerProfession.field_221163_m, func_221238_a(ImmutableMap.of(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Blocks.field_196556_aL, 18, 16, 2), new VillagerTrades.EmeraldForItemsTrade(Blocks.field_196568_aX, 18, 16, 2), new VillagerTrades.EmeraldForItemsTrade(Blocks.field_196602_ba, 18, 16, 2), new VillagerTrades.EmeraldForItemsTrade(Blocks.field_196563_aS, 18, 16, 2), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151097_aZ, 2, 1, 1)}, 2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_222069_lA, 12, 16, 10), new VillagerTrades.EmeraldForItemsTrade(Items.field_196120_bj, 12, 16, 10), new VillagerTrades.EmeraldForItemsTrade(Items.field_222086_lz, 12, 16, 10), new VillagerTrades.EmeraldForItemsTrade(Items.field_196112_bf, 12, 16, 10), new VillagerTrades.EmeraldForItemsTrade(Items.field_196116_bh, 12, 16, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196556_aL, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196557_aM, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196558_aN, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196559_aO, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196560_aP, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196561_aQ, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196562_aR, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196563_aS, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196564_aT, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196565_aU, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196566_aV, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196567_aW, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196568_aX, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196569_aY, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196570_aZ, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196602_ba, 1, 1, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196724_fH, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196725_fI, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196727_fJ, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196729_fK, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196731_fL, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196733_fM, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196735_fN, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196737_fO, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196739_fP, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196741_fQ, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196743_fR, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196745_fS, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196747_fT, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196749_fU, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196751_fV, 1, 4, 16, 5), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196753_fW, 1, 4, 16, 5)}, 3, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_222081_ls, 12, 16, 20), new VillagerTrades.EmeraldForItemsTrade(Items.field_196122_bk, 12, 16, 20), new VillagerTrades.EmeraldForItemsTrade(Items.field_196108_bd, 12, 16, 20), new VillagerTrades.EmeraldForItemsTrade(Items.field_222078_li, 12, 16, 20), new VillagerTrades.EmeraldForItemsTrade(Items.field_196118_bi, 12, 16, 20), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196587_am, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196592_aq, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196550_aA, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196551_aB, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196599_ax, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196600_ay, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196597_av, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196595_at, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196601_az, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196590_ap, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196596_au, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196593_ar, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196589_ao, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196588_an, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196594_as, 3, 1, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_196598_aw, 3, 1, 12, 10)}, 4, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_222085_ly, 12, 16, 30), new VillagerTrades.EmeraldForItemsTrade(Items.field_196126_bm, 12, 16, 30), new VillagerTrades.EmeraldForItemsTrade(Items.field_222083_lx, 12, 16, 30), new VillagerTrades.EmeraldForItemsTrade(Items.field_222079_lj, 12, 16, 30), new VillagerTrades.EmeraldForItemsTrade(Items.field_196110_be, 12, 16, 30), new VillagerTrades.EmeraldForItemsTrade(Items.field_196124_bl, 12, 16, 30), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196191_eg, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196202_er, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196194_ej, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196205_eu, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196197_em, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196204_et, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196196_el, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196198_en, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196206_ev, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196201_eq, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196193_ei, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196200_ep, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196203_es, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196195_ek, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196192_eh, 3, 1, 12, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196199_eo, 3, 1, 12, 15)}, 5, new VillagerTrades.ITrade[]{new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151159_an, 2, 3, 30)})));
+         hashmap.put(VillagerProfession.field_221158_h, func_221238_a(ImmutableMap.of(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151055_y, 32, 16, 2), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151032_g, 1, 16, 1), new VillagerTrades.ItemsForEmeraldsAndItemsTrade(Blocks.field_150351_n, 10, Items.field_151145_ak, 10, 12, 1)}, 2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151145_ak, 26, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151031_f, 2, 1, 5)}, 3, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151007_F, 14, 16, 20), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_222114_py, 3, 1, 10)}, 4, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151008_G, 24, 16, 30), new VillagerTrades.EnchantedItemForEmeraldsTrade(Items.field_151031_f, 2, 3, 15)}, 5, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_221737_dE, 8, 12, 30), new VillagerTrades.EnchantedItemForEmeraldsTrade(Items.field_222114_py, 3, 3, 15), new VillagerTrades.ItemWithPotionForEmeraldsAndItemsTrade(Items.field_151032_g, 5, Items.field_185167_i, 5, 2, 12, 30)})));
+-        hashmap.put(VillagerProfession.field_221160_j, func_221238_a(ImmutableMap.builder().put(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151121_aF, 24, 16, 2), new VillagerTrades.EnchantedBookForEmeraldsTrade(1), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_150342_X, 9, 1, 12, 1)}).put(2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151122_aG, 4, 12, 10), new VillagerTrades.EnchantedBookForEmeraldsTrade(5), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_222111_pQ, 1, 1, 5)}).put(3, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196136_br, 5, 12, 20), new VillagerTrades.EnchantedBookForEmeraldsTrade(10), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_221650_am, 1, 4, 10)}).put(4, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151099_bA, 2, 12, 30), new VillagerTrades.EnchantedBookForEmeraldsTrade(15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151113_aN, 5, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151111_aL, 4, 1, 15)}).put(5, new VillagerTrades.ITrade[]{new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151057_cb, 20, 1, 30)}).build()));
++        hashmap.put(VillagerProfession.field_221160_j, func_221238_a(ImmutableMap.<Integer, ITrade[]>builder().put(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151121_aF, 24, 16, 2), new VillagerTrades.EnchantedBookForEmeraldsTrade(1), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_150342_X, 9, 1, 12, 1)}).put(2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151122_aG, 4, 12, 10), new VillagerTrades.EnchantedBookForEmeraldsTrade(5), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_222111_pQ, 1, 1, 5)}).put(3, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_196136_br, 5, 12, 20), new VillagerTrades.EnchantedBookForEmeraldsTrade(10), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_221650_am, 1, 4, 10)}).put(4, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151099_bA, 2, 12, 30), new VillagerTrades.EnchantedBookForEmeraldsTrade(15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151113_aN, 5, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151111_aL, 4, 1, 15)}).put(5, new VillagerTrades.ITrade[]{new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151057_cb, 20, 1, 30)}).build())); // Integer, IMerchantRecipeOption[]
+         hashmap.put(VillagerProfession.field_221154_d, func_221238_a(ImmutableMap.of(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151121_aF, 24, 16, 2), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151148_bJ, 7, 1, 1)}, 2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_221792_df, 11, 16, 10), new VillagerTrades.EmeraldForMapTrade(13, Structure.field_236376_l_, MapDecoration.Type.MONUMENT, 12, 5)}, 3, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151111_aL, 1, 12, 20), new VillagerTrades.EmeraldForMapTrade(14, Structure.field_236368_d_, MapDecoration.Type.MANSION, 12, 10)}, 4, new VillagerTrades.ITrade[]{new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151160_bD, 7, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196191_eg, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196202_er, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196194_ej, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196205_eu, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196197_em, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196204_et, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196196_el, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196198_en, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196206_ev, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196201_eq, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196193_ei, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196200_ep, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196203_es, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196195_ek, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196192_eh, 3, 1, 15), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196199_eo, 3, 1, 15)}, 5, new VillagerTrades.ITrade[]{new VillagerTrades.ItemsForEmeraldsTrade(Items.field_222099_pF, 8, 1, 30)})));
+         hashmap.put(VillagerProfession.field_221155_e, func_221238_a(ImmutableMap.of(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151078_bh, 32, 16, 2), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151137_ax, 1, 2, 1)}, 2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151043_k, 3, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_196128_bn, 1, 1, 5)}, 3, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_179556_br, 2, 12, 20), new VillagerTrades.ItemsForEmeraldsTrade(Blocks.field_150426_aN, 4, 1, 12, 10)}, 4, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_203183_eM, 4, 12, 30), new VillagerTrades.EmeraldForItemsTrade(Items.field_151069_bo, 9, 12, 30), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151079_bi, 5, 1, 15)}, 5, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151075_bm, 22, 12, 30), new VillagerTrades.ItemsForEmeraldsTrade(Items.field_151062_by, 3, 1, 30)})));
+         hashmap.put(VillagerProfession.field_221152_b, func_221238_a(ImmutableMap.of(1, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151044_h, 15, 16, 2), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_151165_aa), 7, 1, 12, 1, 0.2F), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_151167_ab), 4, 1, 12, 1, 0.2F), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_151028_Y), 5, 1, 12, 1, 0.2F), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_151030_Z), 9, 1, 12, 1, 0.2F)}, 2, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151042_j, 4, 12, 10), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_222109_pP), 36, 1, 12, 5, 0.2F), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_151029_X), 1, 1, 12, 5, 0.2F), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_151022_W), 3, 1, 12, 5, 0.2F)}, 3, new VillagerTrades.ITrade[]{new VillagerTrades.EmeraldForItemsTrade(Items.field_151129_at, 1, 12, 20), new VillagerTrades.EmeraldForItemsTrade(Items.field_151045_i, 1, 12, 20), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_151020_U), 1, 1, 12, 10, 0.2F), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_151023_V), 4, 1, 12, 10, 0.2F), new VillagerTrades.ItemsForEmeraldsTrade(new ItemStack(Items.field_185159_cQ), 5, 1, 12, 10, 0.2F)}, 4, new VillagerTrades.ITrade[]{new VillagerTrades.EnchantedItemForEmeraldsTrade(Items.field_151173_ae, 14, 3, 15, 0.2F), new VillagerTrades.EnchantedItemForEmeraldsTrade(Items.field_151175_af, 8, 3, 15, 0.2F)}, 5, new VillagerTrades.ITrade[]{new VillagerTrades.EnchantedItemForEmeraldsTrade(Items.field_151161_ac, 8, 3, 30, 0.2F), new VillagerTrades.EnchantedItemForEmeraldsTrade(Items.field_151163_ad, 16, 3, 30, 0.2F)})));
+diff --git a/src/main/java/net/minecraft/entity/monster/VindicatorEntity.java b/src/main/java/net/minecraft/entity/monster/VindicatorEntity.java
+index a76a4c41b32b501c204bb89bb0deb6d4a442c872..21ee30563694f572b2329203e5d3d449debb2e98 100644
+--- a/src/main/java/net/minecraft/entity/monster/VindicatorEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/VindicatorEntity.java
+@@ -63,7 +63,7 @@ public class VindicatorEntity extends AbstractIllagerEntity {
+         this.field_70714_bg.func_75776_a(2, new AbstractIllagerEntity.RaidOpenDoorGoal(this));
+         this.field_70714_bg.func_75776_a(3, new AbstractRaiderEntity.FindTargetGoal(this, 10.0F));
+         this.field_70714_bg.func_75776_a(4, new VindicatorEntity.AttackGoal(this));
+-        this.field_70715_bh.func_75776_a(1, (new HurtByTargetGoal(this, new Class[]{AbstractRaiderEntity.class})).func_75250_a());
++        this.field_70715_bh.func_75776_a(1, (new HurtByTargetGoal(this, new Class[]{AbstractRaiderEntity.class})).func_220794_a(new Class[0])); // Paper - decompile fix
+         this.field_70715_bh.func_75776_a(2, new NearestAttackableTargetGoal<>(this, PlayerEntity.class, true));
+         this.field_70715_bh.func_75776_a(3, new NearestAttackableTargetGoal<>(this, AbstractVillagerEntity.class, true));
+         this.field_70715_bh.func_75776_a(3, new NearestAttackableTargetGoal<>(this, IronGolemEntity.class, true));
+diff --git a/src/main/java/net/minecraft/item/crafting/RecipeManager.java b/src/main/java/net/minecraft/item/crafting/RecipeManager.java
+index c27b6016b80ece9898f260107a61dc460838a3ec..327e8a0fc0f9122c2953b17bf2ba798e52bc17d7 100644
+--- a/src/main/java/net/minecraft/item/crafting/RecipeManager.java
++++ b/src/main/java/net/minecraft/item/crafting/RecipeManager.java
+@@ -75,7 +75,7 @@ public class RecipeManager extends JsonReloadListener {
+         }
+ 
+         this.field_199522_d = (Map) map1.entrySet().stream().collect(ImmutableMap.toImmutableMap(Entry::getKey, (entry1) -> {
+-            return (entry1.getValue()); // CraftBukkit
++            return entry1.getValue(); // CraftBukkit // Paper - decompile fix - *shrugs internally*
+         }));
+         RecipeManager.field_199521_c.info("Loaded {} recipes", map1.size());
+     }
+diff --git a/src/main/java/net/minecraft/loot/LootEntry.java b/src/main/java/net/minecraft/loot/LootEntry.java
+index 21a6fd23c0fd38e0b50c9fb7a5072402665d1ede..392f1d81f360cbb57ca265be313c2347e02735ef 100644
+--- a/src/main/java/net/minecraft/loot/LootEntry.java
++++ b/src/main/java/net/minecraft/loot/LootEntry.java
+@@ -39,7 +39,7 @@ public abstract class LootEntry implements ILootEntry {
+ 
+         // CraftBukkit start
+         @Override
+-        public final void func_230424_a_(JsonObject p_230424_1_, T p_230424_2_, JsonSerializationContext p_230424_3_) {
++        public void func_230424_a_(JsonObject p_230424_1_, T p_230424_2_, JsonSerializationContext p_230424_3_) { // Paper - remove final
+             if (!org.apache.commons.lang3.ArrayUtils.isEmpty(p_230424_2_.field_216144_d)) {
+                 p_230424_1_.add("conditions", p_230424_3_.serialize(p_230424_2_.field_216144_d));
+             }
+diff --git a/src/main/java/net/minecraft/loot/StandaloneLootEntry.java b/src/main/java/net/minecraft/loot/StandaloneLootEntry.java
+index 0b4ef48511eec143ce587b90855315d30068de66..0bc0f35bfe411ad58929044ec23ad2ee020e9855 100644
+--- a/src/main/java/net/minecraft/loot/StandaloneLootEntry.java
++++ b/src/main/java/net/minecraft/loot/StandaloneLootEntry.java
+@@ -129,7 +129,7 @@ public abstract class StandaloneLootEntry extends LootEntry {
+         @Override
+         public T func_212841_b_(ILootFunction.IBuilder p_212841_1_) {
+             this.field_216089_c.add(p_212841_1_.func_216052_b());
+-            return (StandaloneLootEntry.Builder) this.func_212845_d_();
++            return this.func_212845_d_(); // Paper - decompile fix
+         }
+ 
+         protected ILootFunction[] func_216084_a() {
+@@ -138,12 +138,12 @@ public abstract class StandaloneLootEntry extends LootEntry {
+ 
+         public T func_216086_a(int p_216086_1_) {
+             this.field_216087_a = p_216086_1_;
+-            return (StandaloneLootEntry.Builder) this.func_212845_d_();
++            return this.func_212845_d_(); // Paper - decompile fix
+         }
+ 
+         public T func_216085_b(int p_216085_1_) {
+             this.field_216088_b = p_216085_1_;
+-            return (StandaloneLootEntry.Builder) this.func_212845_d_();
++            return this.func_212845_d_(); // Paper - decompile fix
+         }
+     }
+ 
+diff --git a/src/main/java/net/minecraft/loot/functions/ExplorationMap.java b/src/main/java/net/minecraft/loot/functions/ExplorationMap.java
+index b348222a4aad19be6021804832253f7e2e94ca85..44a51bb830c0d85974cddc21432cc10f628788e5 100644
+--- a/src/main/java/net/minecraft/loot/functions/ExplorationMap.java
++++ b/src/main/java/net/minecraft/loot/functions/ExplorationMap.java
+@@ -90,7 +90,7 @@ public class ExplorationMap extends LootFunction {
+         public Serializer() {}
+ 
+         public void func_230424_a_(JsonObject p_230424_1_, ExplorationMap p_230424_2_, JsonSerializationContext p_230424_3_) {
+-            super.func_230424_a_(p_230424_1_, (LootFunction) p_230424_2_, p_230424_3_);
++            super.func_230424_a_(p_230424_1_, p_230424_2_, p_230424_3_); // Paper - decompile fix
+             if (!p_230424_2_.field_204318_b.equals(ExplorationMap.field_237425_a_)) {
+                 p_230424_1_.add("destination", p_230424_3_.serialize(p_230424_2_.field_204318_b.func_143025_a()));
+             }
+diff --git a/src/main/java/net/minecraft/nbt/CompressedStreamTools.java b/src/main/java/net/minecraft/nbt/CompressedStreamTools.java
+index 12d79dab325ab8d9cb70323e927825ab6ca8094d..cd90f5306391f526da6e4980fd9af324d921310d 100644
+--- a/src/main/java/net/minecraft/nbt/CompressedStreamTools.java
++++ b/src/main/java/net/minecraft/nbt/CompressedStreamTools.java
+@@ -14,6 +14,7 @@ import java.util.zip.GZIPOutputStream;
+ import net.minecraft.crash.CrashReport;
+ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.crash.ReportedException;
++import io.netty.buffer.ByteBufInputStream; // Paper
+ 
+ public class CompressedStreamTools {
+ 
+@@ -78,7 +79,7 @@ public class CompressedStreamTools {
+ 
+     public static CompoundNBT func_152456_a(DataInput p_152456_0_, NBTSizeTracker p_152456_1_) throws IOException {
+         // Spigot start
+-        if ( p_152456_0_ instanceof io.netty.buffer.ByteBufInputStream )
++        if ( p_152456_0_ instanceof ByteBufInputStream) // Paper
+         {
+             p_152456_0_ = new DataInputStream(new org.spigotmc.LimitStream((InputStream) p_152456_0_, p_152456_1_));
+         }
+diff --git a/src/main/java/net/minecraft/nbt/INBT.java b/src/main/java/net/minecraft/nbt/INBT.java
+index e4533453f5e32e7a9d0cb663b9fa81d90af597f1..ac010b81732af60eb639a1eaa1b8a8d4b4170dd6 100644
+--- a/src/main/java/net/minecraft/nbt/INBT.java
++++ b/src/main/java/net/minecraft/nbt/INBT.java
+@@ -20,7 +20,7 @@ public interface INBT {
+ 
+     INBTType<?> func_225647_b_();
+ 
+-    INBT func_74737_b();
++    public INBT func_74737_b(); // Paper - decompile fix
+ 
+     default String func_150285_a_() {
+         return this.toString();
+diff --git a/src/main/java/net/minecraft/nbt/ListNBT.java b/src/main/java/net/minecraft/nbt/ListNBT.java
+index 70db5ec384b89c710244985cebd5bf2ecea226e7..5dec6fe782e10e7f90f0ce712ce1bddc94e2cffc 100644
+--- a/src/main/java/net/minecraft/nbt/ListNBT.java
++++ b/src/main/java/net/minecraft/nbt/ListNBT.java
+@@ -53,7 +53,7 @@ public class ListNBT extends CollectionNBT<INBT> {
+             return "TAG_List";
+         }
+     };
+-    private static final ByteSet field_229695_b_ = new ByteOpenHashSet(Arrays.asList(1, 2, 3, 4, 5, 6));
++    private static final ByteSet field_229695_b_ = new ByteOpenHashSet(Arrays.asList((byte) 1, (byte) 2, (byte) 3, (byte) 4, (byte) 5, (byte) 6)); // Paper - decompiler fix
+     private final List<INBT> field_74747_a;
+     private byte field_74746_b;
+ 
+diff --git a/src/main/java/net/minecraft/network/ProtocolType.java b/src/main/java/net/minecraft/network/ProtocolType.java
+index 6472910471f763cc7248bb33430d1fc744760d1f..d0bf9b54471e396bb3c420fbd6fed0838bce5a94 100644
+--- a/src/main/java/net/minecraft/network/ProtocolType.java
++++ b/src/main/java/net/minecraft/network/ProtocolType.java
+@@ -9,7 +9,12 @@ import java.util.List;
+ import java.util.Map;
+ import java.util.function.Supplier;
+ import javax.annotation.Nullable;
++import net.minecraft.client.network.login.IClientLoginNetHandler;
++import net.minecraft.client.network.play.IClientPlayNetHandler;
++import net.minecraft.client.network.status.IClientStatusNetHandler;
++import net.minecraft.network.handshake.IHandshakeNetHandler;
+ import net.minecraft.network.handshake.client.CHandshakePacket;
++import net.minecraft.network.login.IServerLoginNetHandler;
+ import net.minecraft.network.login.client.CCustomPayloadLoginPacket;
+ import net.minecraft.network.login.client.CEncryptionResponsePacket;
+ import net.minecraft.network.login.client.CLoginStartPacket;
+@@ -18,6 +23,7 @@ import net.minecraft.network.login.server.SDisconnectLoginPacket;
+ import net.minecraft.network.login.server.SEnableCompressionPacket;
+ import net.minecraft.network.login.server.SEncryptionRequestPacket;
+ import net.minecraft.network.login.server.SLoginSuccessPacket;
++import net.minecraft.network.play.IServerPlayNetHandler;
+ import net.minecraft.network.play.client.CAnimateHandPacket;
+ import net.minecraft.network.play.client.CChatMessagePacket;
+ import net.minecraft.network.play.client.CClickWindowPacket;
+@@ -151,6 +157,7 @@ import net.minecraft.network.play.server.SWindowItemsPacket;
+ import net.minecraft.network.play.server.SWindowPropertyPacket;
+ import net.minecraft.network.play.server.SWorldBorderPacket;
+ import net.minecraft.network.play.server.SWorldSpawnChangedPacket;
++import net.minecraft.network.status.IServerStatusNetHandler;
+ import net.minecraft.network.status.client.CPingPacket;
+ import net.minecraft.network.status.client.CServerQueryPacket;
+ import net.minecraft.network.status.server.SPongPacket;
+@@ -160,7 +167,7 @@ import org.apache.logging.log4j.LogManager;
+ 
+ public enum ProtocolType {
+ 
+-    HANDSHAKING(-1, func_229714_b_().func_229724_a_(PacketDirection.SERVERBOUND, (new ProtocolType.PacketList<>()).func_229721_a_(CHandshakePacket.class, CHandshakePacket::new))), PLAY(0, func_229714_b_().func_229724_a_(PacketDirection.CLIENTBOUND, (new ProtocolType.PacketList<>()).func_229721_a_(SSpawnObjectPacket.class, SSpawnObjectPacket::new).a(SSpawnExperienceOrbPacket.class, SSpawnExperienceOrbPacket::new).a(SSpawnMobPacket.class, SSpawnMobPacket::new).a(SSpawnPaintingPacket.class, SSpawnPaintingPacket::new).a(SSpawnPlayerPacket.class, SSpawnPlayerPacket::new).a(SAnimateHandPacket.class, SAnimateHandPacket::new).a(SStatisticsPacket.class, SStatisticsPacket::new).a(SPlayerDiggingPacket.class, SPlayerDiggingPacket::new).a(SAnimateBlockBreakPacket.class, SAnimateBlockBreakPacket::new).a(SUpdateTileEntityPacket.class, SUpdateTileEntityPacket::new).a(SBlockActionPacket.class, SBlockActionPacket::new).a(SChangeBlockPacket.class, SChangeBlockPacket::new).a(SUpdateBossInfoPacket.class, SUpdateBossInfoPacket::new).a(SServerDifficultyPacket.class, SServerDifficultyPacket::new).a(SChatPacket.class, SChatPacket::new).a(SMultiBlockChangePacket.class, SMultiBlockChangePacket::new).a(STabCompletePacket.class, STabCompletePacket::new).a(SCommandListPacket.class, SCommandListPacket::new).a(SConfirmTransactionPacket.class, SConfirmTransactionPacket::new).a(SCloseWindowPacket.class, SCloseWindowPacket::new).a(SWindowItemsPacket.class, SWindowItemsPacket::new).a(SWindowPropertyPacket.class, SWindowPropertyPacket::new).a(SSetSlotPacket.class, SSetSlotPacket::new).a(SCooldownPacket.class, SCooldownPacket::new).a(SCustomPayloadPlayPacket.class, SCustomPayloadPlayPacket::new).a(SPlaySoundPacket.class, SPlaySoundPacket::new).a(SDisconnectPacket.class, SDisconnectPacket::new).a(SEntityStatusPacket.class, SEntityStatusPacket::new).a(SExplosionPacket.class, SExplosionPacket::new).a(SUnloadChunkPacket.class, SUnloadChunkPacket::new).a(SChangeGameStatePacket.class, SChangeGameStatePacket::new).a(SOpenHorseWindowPacket.class, SOpenHorseWindowPacket::new).a(SKeepAlivePacket.class, SKeepAlivePacket::new).a(SChunkDataPacket.class, SChunkDataPacket::new).a(SPlaySoundEventPacket.class, SPlaySoundEventPacket::new).a(SSpawnParticlePacket.class, SSpawnParticlePacket::new).a(SUpdateLightPacket.class, SUpdateLightPacket::new).a(SJoinGamePacket.class, SJoinGamePacket::new).a(SMapDataPacket.class, SMapDataPacket::new).a(SMerchantOffersPacket.class, SMerchantOffersPacket::new).a(SEntityPacket.RelativeMovePacket.class, SEntityPacket.RelativeMovePacket::new).a(SEntityPacket.MovePacket.class, SEntityPacket.MovePacket::new).a(SEntityPacket.LookPacket.class, SEntityPacket.LookPacket::new).a(SEntityPacket.class, SEntityPacket::new).a(SMoveVehiclePacket.class, SMoveVehiclePacket::new).a(SOpenBookWindowPacket.class, SOpenBookWindowPacket::new).a(SOpenWindowPacket.class, SOpenWindowPacket::new).a(SOpenSignMenuPacket.class, SOpenSignMenuPacket::new).a(SPlaceGhostRecipePacket.class, SPlaceGhostRecipePacket::new).a(SPlayerAbilitiesPacket.class, SPlayerAbilitiesPacket::new).a(SCombatPacket.class, SCombatPacket::new).a(SPlayerListItemPacket.class, SPlayerListItemPacket::new).a(SPlayerLookPacket.class, SPlayerLookPacket::new).a(SPlayerPositionLookPacket.class, SPlayerPositionLookPacket::new).a(SRecipeBookPacket.class, SRecipeBookPacket::new).a(SDestroyEntitiesPacket.class, SDestroyEntitiesPacket::new).a(SRemoveEntityEffectPacket.class, SRemoveEntityEffectPacket::new).a(SSendResourcePackPacket.class, SSendResourcePackPacket::new).a(SRespawnPacket.class, SRespawnPacket::new).a(SEntityHeadLookPacket.class, SEntityHeadLookPacket::new).a(SSelectAdvancementsTabPacket.class, SSelectAdvancementsTabPacket::new).a(SWorldBorderPacket.class, SWorldBorderPacket::new).a(SCameraPacket.class, SCameraPacket::new).a(SHeldItemChangePacket.class, SHeldItemChangePacket::new).a(SUpdateChunkPositionPacket.class, SUpdateChunkPositionPacket::new).a(SUpdateViewDistancePacket.class, SUpdateViewDistancePacket::new).a(SWorldSpawnChangedPacket.class, SWorldSpawnChangedPacket::new).a(SDisplayObjectivePacket.class, SDisplayObjectivePacket::new).a(SEntityMetadataPacket.class, SEntityMetadataPacket::new).a(SMountEntityPacket.class, SMountEntityPacket::new).a(SEntityVelocityPacket.class, SEntityVelocityPacket::new).a(SEntityEquipmentPacket.class, SEntityEquipmentPacket::new).a(SSetExperiencePacket.class, SSetExperiencePacket::new).a(SUpdateHealthPacket.class, SUpdateHealthPacket::new).a(SScoreboardObjectivePacket.class, SScoreboardObjectivePacket::new).a(SSetPassengersPacket.class, SSetPassengersPacket::new).a(STeamsPacket.class, STeamsPacket::new).a(SUpdateScorePacket.class, SUpdateScorePacket::new).a(SUpdateTimePacket.class, SUpdateTimePacket::new).a(STitlePacket.class, STitlePacket::new).a(SSpawnMovingSoundEffectPacket.class, SSpawnMovingSoundEffectPacket::new).a(SPlaySoundEffectPacket.class, SPlaySoundEffectPacket::new).a(SStopSoundPacket.class, SStopSoundPacket::new).a(SPlayerListHeaderFooterPacket.class, SPlayerListHeaderFooterPacket::new).a(SQueryNBTResponsePacket.class, SQueryNBTResponsePacket::new).a(SCollectItemPacket.class, SCollectItemPacket::new).a(SEntityTeleportPacket.class, SEntityTeleportPacket::new).a(SAdvancementInfoPacket.class, SAdvancementInfoPacket::new).a(SEntityPropertiesPacket.class, SEntityPropertiesPacket::new).a(SPlayEntityEffectPacket.class, SPlayEntityEffectPacket::new).a(SUpdateRecipesPacket.class, SUpdateRecipesPacket::new).a(STagsListPacket.class, STagsListPacket::new)).a(PacketDirection.SERVERBOUND, (new ProtocolType.PacketList<>()).func_229721_a_(CConfirmTeleportPacket.class, CConfirmTeleportPacket::new).a(CQueryTileEntityNBTPacket.class, CQueryTileEntityNBTPacket::new).a(CSetDifficultyPacket.class, CSetDifficultyPacket::new).a(CChatMessagePacket.class, CChatMessagePacket::new).a(CClientStatusPacket.class, CClientStatusPacket::new).a(CClientSettingsPacket.class, CClientSettingsPacket::new).a(CTabCompletePacket.class, CTabCompletePacket::new).a(CConfirmTransactionPacket.class, CConfirmTransactionPacket::new).a(CEnchantItemPacket.class, CEnchantItemPacket::new).a(CClickWindowPacket.class, CClickWindowPacket::new).a(CCloseWindowPacket.class, CCloseWindowPacket::new).a(CCustomPayloadPacket.class, CCustomPayloadPacket::new).a(CEditBookPacket.class, CEditBookPacket::new).a(CQueryEntityNBTPacket.class, CQueryEntityNBTPacket::new).a(CUseEntityPacket.class, CUseEntityPacket::new).a(CJigsawBlockGeneratePacket.class, CJigsawBlockGeneratePacket::new).a(CKeepAlivePacket.class, CKeepAlivePacket::new).a(CLockDifficultyPacket.class, CLockDifficultyPacket::new).a(CPlayerPacket.PositionPacket.class, CPlayerPacket.PositionPacket::new).a(CPlayerPacket.PositionRotationPacket.class, CPlayerPacket.PositionRotationPacket::new).a(CPlayerPacket.RotationPacket.class, CPlayerPacket.RotationPacket::new).a(CPlayerPacket.class, CPlayerPacket::new).a(CMoveVehiclePacket.class, CMoveVehiclePacket::new).a(CSteerBoatPacket.class, CSteerBoatPacket::new).a(CPickItemPacket.class, CPickItemPacket::new).a(CPlaceRecipePacket.class, CPlaceRecipePacket::new).a(CPlayerAbilitiesPacket.class, CPlayerAbilitiesPacket::new).a(CPlayerDiggingPacket.class, CPlayerDiggingPacket::new).a(CEntityActionPacket.class, CEntityActionPacket::new).a(CInputPacket.class, CInputPacket::new).a(CRecipeInfoPacket.class, CRecipeInfoPacket::new).a(CRenameItemPacket.class, CRenameItemPacket::new).a(CResourcePackStatusPacket.class, CResourcePackStatusPacket::new).a(CSeenAdvancementsPacket.class, CSeenAdvancementsPacket::new).a(CSelectTradePacket.class, CSelectTradePacket::new).a(CUpdateBeaconPacket.class, CUpdateBeaconPacket::new).a(CHeldItemChangePacket.class, CHeldItemChangePacket::new).a(CUpdateCommandBlockPacket.class, CUpdateCommandBlockPacket::new).a(CUpdateMinecartCommandBlockPacket.class, CUpdateMinecartCommandBlockPacket::new).a(CCreativeInventoryActionPacket.class, CCreativeInventoryActionPacket::new).a(CUpdateJigsawBlockPacket.class, CUpdateJigsawBlockPacket::new).a(CUpdateStructureBlockPacket.class, CUpdateStructureBlockPacket::new).a(CUpdateSignPacket.class, CUpdateSignPacket::new).a(CAnimateHandPacket.class, CAnimateHandPacket::new).a(CSpectatePacket.class, CSpectatePacket::new).a(CPlayerTryUseItemOnBlockPacket.class, CPlayerTryUseItemOnBlockPacket::new).a(CPlayerTryUseItemPacket.class, CPlayerTryUseItemPacket::new))), STATUS(1, func_229714_b_().func_229724_a_(PacketDirection.SERVERBOUND, (new ProtocolType.PacketList<>()).func_229721_a_(CServerQueryPacket.class, CServerQueryPacket::new).a(CPingPacket.class, CPingPacket::new)).a(PacketDirection.CLIENTBOUND, (new ProtocolType.PacketList<>()).func_229721_a_(SServerInfoPacket.class, SServerInfoPacket::new).a(SPongPacket.class, SPongPacket::new))), LOGIN(2, func_229714_b_().func_229724_a_(PacketDirection.CLIENTBOUND, (new ProtocolType.PacketList<>()).func_229721_a_(SDisconnectLoginPacket.class, SDisconnectLoginPacket::new).a(SEncryptionRequestPacket.class, SEncryptionRequestPacket::new).a(SLoginSuccessPacket.class, SLoginSuccessPacket::new).a(SEnableCompressionPacket.class, SEnableCompressionPacket::new).a(SCustomPayloadLoginPacket.class, SCustomPayloadLoginPacket::new)).a(PacketDirection.SERVERBOUND, (new ProtocolType.PacketList<>()).func_229721_a_(CLoginStartPacket.class, CLoginStartPacket::new).a(CEncryptionResponsePacket.class, CEncryptionResponsePacket::new).a(CCustomPayloadLoginPacket.class, CCustomPayloadLoginPacket::new)));
++    HANDSHAKING(-1, func_229714_b_().func_229724_a_(PacketDirection.SERVERBOUND, (new ProtocolType.PacketList<IHandshakeNetHandler>()).func_229721_a_(CHandshakePacket.class, CHandshakePacket::new))), PLAY(0, func_229714_b_().func_229724_a_(PacketDirection.CLIENTBOUND, (new ProtocolType.PacketList<IClientPlayNetHandler>()).func_229721_a_(SSpawnObjectPacket.class, SSpawnObjectPacket::new).func_229721_a_(SSpawnExperienceOrbPacket.class, SSpawnExperienceOrbPacket::new).func_229721_a_(SSpawnMobPacket.class, SSpawnMobPacket::new).func_229721_a_(SSpawnPaintingPacket.class, SSpawnPaintingPacket::new).func_229721_a_(SSpawnPlayerPacket.class, SSpawnPlayerPacket::new).func_229721_a_(SAnimateHandPacket.class, SAnimateHandPacket::new).func_229721_a_(SStatisticsPacket.class, SStatisticsPacket::new).func_229721_a_(SPlayerDiggingPacket.class, SPlayerDiggingPacket::new).func_229721_a_(SAnimateBlockBreakPacket.class, SAnimateBlockBreakPacket::new).func_229721_a_(SUpdateTileEntityPacket.class, SUpdateTileEntityPacket::new).func_229721_a_(SBlockActionPacket.class, SBlockActionPacket::new).func_229721_a_(SChangeBlockPacket.class, SChangeBlockPacket::new).func_229721_a_(SUpdateBossInfoPacket.class, SUpdateBossInfoPacket::new).func_229721_a_(SServerDifficultyPacket.class, SServerDifficultyPacket::new).func_229721_a_(SChatPacket.class, SChatPacket::new).func_229721_a_(SMultiBlockChangePacket.class, SMultiBlockChangePacket::new).func_229721_a_(STabCompletePacket.class, STabCompletePacket::new).func_229721_a_(SCommandListPacket.class, SCommandListPacket::new).func_229721_a_(SConfirmTransactionPacket.class, SConfirmTransactionPacket::new).func_229721_a_(SCloseWindowPacket.class, SCloseWindowPacket::new).func_229721_a_(SWindowItemsPacket.class, SWindowItemsPacket::new).func_229721_a_(SWindowPropertyPacket.class, SWindowPropertyPacket::new).func_229721_a_(SSetSlotPacket.class, SSetSlotPacket::new).func_229721_a_(SCooldownPacket.class, SCooldownPacket::new).func_229721_a_(SCustomPayloadPlayPacket.class, SCustomPayloadPlayPacket::new).func_229721_a_(SPlaySoundPacket.class, SPlaySoundPacket::new).func_229721_a_(SDisconnectPacket.class, SDisconnectPacket::new).func_229721_a_(SEntityStatusPacket.class, SEntityStatusPacket::new).func_229721_a_(SExplosionPacket.class, SExplosionPacket::new).func_229721_a_(SUnloadChunkPacket.class, SUnloadChunkPacket::new).func_229721_a_(SChangeGameStatePacket.class, SChangeGameStatePacket::new).func_229721_a_(SOpenHorseWindowPacket.class, SOpenHorseWindowPacket::new).func_229721_a_(SKeepAlivePacket.class, SKeepAlivePacket::new).func_229721_a_(SChunkDataPacket.class, SChunkDataPacket::new).func_229721_a_(SPlaySoundEventPacket.class, SPlaySoundEventPacket::new).func_229721_a_(SSpawnParticlePacket.class, SSpawnParticlePacket::new).func_229721_a_(SUpdateLightPacket.class, SUpdateLightPacket::new).func_229721_a_(SJoinGamePacket.class, SJoinGamePacket::new).func_229721_a_(SMapDataPacket.class, SMapDataPacket::new).func_229721_a_(SMerchantOffersPacket.class, SMerchantOffersPacket::new).func_229721_a_(SEntityPacket.RelativeMovePacket.class, SEntityPacket.RelativeMovePacket::new).func_229721_a_(SEntityPacket.MovePacket.class, SEntityPacket.MovePacket::new).func_229721_a_(SEntityPacket.LookPacket.class, SEntityPacket.LookPacket::new).func_229721_a_(SEntityPacket.class, SEntityPacket::new).func_229721_a_(SMoveVehiclePacket.class, SMoveVehiclePacket::new).func_229721_a_(SOpenBookWindowPacket.class, SOpenBookWindowPacket::new).func_229721_a_(SOpenWindowPacket.class, SOpenWindowPacket::new).func_229721_a_(SOpenSignMenuPacket.class, SOpenSignMenuPacket::new).func_229721_a_(SPlaceGhostRecipePacket.class, SPlaceGhostRecipePacket::new).func_229721_a_(SPlayerAbilitiesPacket.class, SPlayerAbilitiesPacket::new).func_229721_a_(SCombatPacket.class, SCombatPacket::new).func_229721_a_(SPlayerListItemPacket.class, SPlayerListItemPacket::new).func_229721_a_(SPlayerLookPacket.class, SPlayerLookPacket::new).func_229721_a_(SPlayerPositionLookPacket.class, SPlayerPositionLookPacket::new).func_229721_a_(SRecipeBookPacket.class, SRecipeBookPacket::new).func_229721_a_(SDestroyEntitiesPacket.class, SDestroyEntitiesPacket::new).func_229721_a_(SRemoveEntityEffectPacket.class, SRemoveEntityEffectPacket::new).func_229721_a_(SSendResourcePackPacket.class, SSendResourcePackPacket::new).func_229721_a_(SRespawnPacket.class, SRespawnPacket::new).func_229721_a_(SEntityHeadLookPacket.class, SEntityHeadLookPacket::new).func_229721_a_(SSelectAdvancementsTabPacket.class, SSelectAdvancementsTabPacket::new).func_229721_a_(SWorldBorderPacket.class, SWorldBorderPacket::new).func_229721_a_(SCameraPacket.class, SCameraPacket::new).func_229721_a_(SHeldItemChangePacket.class, SHeldItemChangePacket::new).func_229721_a_(SUpdateChunkPositionPacket.class, SUpdateChunkPositionPacket::new).func_229721_a_(SUpdateViewDistancePacket.class, SUpdateViewDistancePacket::new).func_229721_a_(SWorldSpawnChangedPacket.class, SWorldSpawnChangedPacket::new).func_229721_a_(SDisplayObjectivePacket.class, SDisplayObjectivePacket::new).func_229721_a_(SEntityMetadataPacket.class, SEntityMetadataPacket::new).func_229721_a_(SMountEntityPacket.class, SMountEntityPacket::new).func_229721_a_(SEntityVelocityPacket.class, SEntityVelocityPacket::new).func_229721_a_(SEntityEquipmentPacket.class, SEntityEquipmentPacket::new).func_229721_a_(SSetExperiencePacket.class, SSetExperiencePacket::new).func_229721_a_(SUpdateHealthPacket.class, SUpdateHealthPacket::new).func_229721_a_(SScoreboardObjectivePacket.class, SScoreboardObjectivePacket::new).func_229721_a_(SSetPassengersPacket.class, SSetPassengersPacket::new).func_229721_a_(STeamsPacket.class, STeamsPacket::new).func_229721_a_(SUpdateScorePacket.class, SUpdateScorePacket::new).func_229721_a_(SUpdateTimePacket.class, SUpdateTimePacket::new).func_229721_a_(STitlePacket.class, STitlePacket::new).func_229721_a_(SSpawnMovingSoundEffectPacket.class, SSpawnMovingSoundEffectPacket::new).func_229721_a_(SPlaySoundEffectPacket.class, SPlaySoundEffectPacket::new).func_229721_a_(SStopSoundPacket.class, SStopSoundPacket::new).func_229721_a_(SPlayerListHeaderFooterPacket.class, SPlayerListHeaderFooterPacket::new).func_229721_a_(SQueryNBTResponsePacket.class, SQueryNBTResponsePacket::new).func_229721_a_(SCollectItemPacket.class, SCollectItemPacket::new).func_229721_a_(SEntityTeleportPacket.class, SEntityTeleportPacket::new).func_229721_a_(SAdvancementInfoPacket.class, SAdvancementInfoPacket::new).func_229721_a_(SEntityPropertiesPacket.class, SEntityPropertiesPacket::new).func_229721_a_(SPlayEntityEffectPacket.class, SPlayEntityEffectPacket::new).func_229721_a_(SUpdateRecipesPacket.class, SUpdateRecipesPacket::new).func_229721_a_(STagsListPacket.class, STagsListPacket::new)).func_229724_a_(PacketDirection.SERVERBOUND, (new ProtocolType.PacketList<IServerPlayNetHandler>()).func_229721_a_(CConfirmTeleportPacket.class, CConfirmTeleportPacket::new).func_229721_a_(CQueryTileEntityNBTPacket.class, CQueryTileEntityNBTPacket::new).func_229721_a_(CSetDifficultyPacket.class, CSetDifficultyPacket::new).func_229721_a_(CChatMessagePacket.class, CChatMessagePacket::new).func_229721_a_(CClientStatusPacket.class, CClientStatusPacket::new).func_229721_a_(CClientSettingsPacket.class, CClientSettingsPacket::new).func_229721_a_(CTabCompletePacket.class, CTabCompletePacket::new).func_229721_a_(CConfirmTransactionPacket.class, CConfirmTransactionPacket::new).func_229721_a_(CEnchantItemPacket.class, CEnchantItemPacket::new).func_229721_a_(CClickWindowPacket.class, CClickWindowPacket::new).func_229721_a_(CCloseWindowPacket.class, CCloseWindowPacket::new).func_229721_a_(CCustomPayloadPacket.class, CCustomPayloadPacket::new).func_229721_a_(CEditBookPacket.class, CEditBookPacket::new).func_229721_a_(CQueryEntityNBTPacket.class, CQueryEntityNBTPacket::new).func_229721_a_(CUseEntityPacket.class, CUseEntityPacket::new).func_229721_a_(CJigsawBlockGeneratePacket.class, CJigsawBlockGeneratePacket::new).func_229721_a_(CKeepAlivePacket.class, CKeepAlivePacket::new).func_229721_a_(CLockDifficultyPacket.class, CLockDifficultyPacket::new).func_229721_a_(CPlayerPacket.PositionPacket.class, CPlayerPacket.PositionPacket::new).func_229721_a_(CPlayerPacket.PositionRotationPacket.class, CPlayerPacket.PositionRotationPacket::new).func_229721_a_(CPlayerPacket.RotationPacket.class, CPlayerPacket.RotationPacket::new).func_229721_a_(CPlayerPacket.class, CPlayerPacket::new).func_229721_a_(CMoveVehiclePacket.class, CMoveVehiclePacket::new).func_229721_a_(CSteerBoatPacket.class, CSteerBoatPacket::new).func_229721_a_(CPickItemPacket.class, CPickItemPacket::new).func_229721_a_(CPlaceRecipePacket.class, CPlaceRecipePacket::new).func_229721_a_(CPlayerAbilitiesPacket.class, CPlayerAbilitiesPacket::new).func_229721_a_(CPlayerDiggingPacket.class, CPlayerDiggingPacket::new).func_229721_a_(CEntityActionPacket.class, CEntityActionPacket::new).func_229721_a_(CInputPacket.class, CInputPacket::new).func_229721_a_(CRecipeInfoPacket.class, CRecipeInfoPacket::new).func_229721_a_(CRenameItemPacket.class, CRenameItemPacket::new).func_229721_a_(CResourcePackStatusPacket.class, CResourcePackStatusPacket::new).func_229721_a_(CSeenAdvancementsPacket.class, CSeenAdvancementsPacket::new).func_229721_a_(CSelectTradePacket.class, CSelectTradePacket::new).func_229721_a_(CUpdateBeaconPacket.class, CUpdateBeaconPacket::new).func_229721_a_(CHeldItemChangePacket.class, CHeldItemChangePacket::new).func_229721_a_(CUpdateCommandBlockPacket.class, CUpdateCommandBlockPacket::new).func_229721_a_(CUpdateMinecartCommandBlockPacket.class, CUpdateMinecartCommandBlockPacket::new).func_229721_a_(CCreativeInventoryActionPacket.class, CCreativeInventoryActionPacket::new).func_229721_a_(CUpdateJigsawBlockPacket.class, CUpdateJigsawBlockPacket::new).func_229721_a_(CUpdateStructureBlockPacket.class, CUpdateStructureBlockPacket::new).func_229721_a_(CUpdateSignPacket.class, CUpdateSignPacket::new).func_229721_a_(CAnimateHandPacket.class, CAnimateHandPacket::new).func_229721_a_(CSpectatePacket.class, CSpectatePacket::new).func_229721_a_(CPlayerTryUseItemOnBlockPacket.class, CPlayerTryUseItemOnBlockPacket::new).func_229721_a_(CPlayerTryUseItemPacket.class, CPlayerTryUseItemPacket::new))), STATUS(1, func_229714_b_().func_229724_a_(PacketDirection.SERVERBOUND, (new ProtocolType.PacketList<IServerStatusNetHandler>()).func_229721_a_(CServerQueryPacket.class, CServerQueryPacket::new).func_229721_a_(CPingPacket.class, CPingPacket::new)).func_229724_a_(PacketDirection.CLIENTBOUND, (new ProtocolType.PacketList<IClientStatusNetHandler>()).func_229721_a_(SServerInfoPacket.class, SServerInfoPacket::new).func_229721_a_(SPongPacket.class, SPongPacket::new))), LOGIN(2, func_229714_b_().func_229724_a_(PacketDirection.CLIENTBOUND, (new ProtocolType.PacketList<IClientLoginNetHandler>()).func_229721_a_(SDisconnectLoginPacket.class, SDisconnectLoginPacket::new).func_229721_a_(SEncryptionRequestPacket.class, SEncryptionRequestPacket::new).func_229721_a_(SLoginSuccessPacket.class, SLoginSuccessPacket::new).func_229721_a_(SEnableCompressionPacket.class, SEnableCompressionPacket::new).func_229721_a_(SCustomPayloadLoginPacket.class, SCustomPayloadLoginPacket::new)).func_229724_a_(PacketDirection.SERVERBOUND, (new ProtocolType.PacketList<IServerLoginNetHandler>()).func_229721_a_(CLoginStartPacket.class, CLoginStartPacket::new).func_229721_a_(CEncryptionResponsePacket.class, CEncryptionResponsePacket::new).func_229721_a_(CCustomPayloadLoginPacket.class, CCustomPayloadLoginPacket::new))); // Paper - fix decompile error
+ 
+     private static final ProtocolType[] field_150764_e = new ProtocolType[4];
+     private static final Map<Class<? extends IPacket<?>>, ProtocolType> field_150761_f = Maps.newHashMap();
+@@ -245,7 +252,7 @@ public enum ProtocolType {
+         private final List<Supplier<? extends IPacket<T>>> field_229716_b_;
+ 
+         private PacketList() {
+-            this.field_229715_a_ = (Object2IntMap) Util.func_200696_a((Object) (new Object2IntOpenHashMap()), (object2intopenhashmap) -> {
++            this.field_229715_a_ = (Object2IntMap) Util.func_200696_a(new Object2IntOpenHashMap(), (object2intopenhashmap) -> { // Paper - fix decompile error
+                 object2intopenhashmap.defaultReturnValue(-1);
+             });
+             this.field_229716_b_ = Lists.newArrayList();
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 8a4c2ee98b8ea5fcd3e03e0eea1e33da21e063cc..589f3cb90402d52b14947c023eca1e455914b937 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -89,6 +89,7 @@ import net.minecraft.profiler.LongTickDetector;
+ import net.minecraft.profiler.Snooper;
+ import net.minecraft.profiler.TimeTracker;
+ import net.minecraft.resources.DataPackRegistries;
++import net.minecraft.resources.IResourcePack;
+ import net.minecraft.resources.ResourcePackInfo;
+ import net.minecraft.resources.ResourcePackList;
+ import net.minecraft.scoreboard.Scoreboard;
+@@ -1654,9 +1655,9 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+             ResourcePackList resourcepackrepository = this.field_195577_ad;
+ 
+             this.field_195577_ad.getClass();
+-            return stream.map(resourcepackrepository::func_198981_a).filter(Objects::nonNull).map(ResourcePackInfo::func_195796_e).collect(ImmutableList.toImmutableList()); // CraftBukkit - decompile error
++            return stream.<ResourcePackInfo>map(resourcepackrepository::func_198981_a).filter(Objects::nonNull).map(ResourcePackInfo::func_195796_e).collect(ImmutableList.toImmutableList()); // CraftBukkit - decompile error // Paper - decompile error
+         }, this).thenCompose((immutablelist) -> {
+-            return DataPackRegistries.func_240961_a_(immutablelist, this.func_71262_S() ? Commands.EnvironmentType.DEDICATED : Commands.EnvironmentType.INTEGRATED, this.func_223707_k(), this.field_213217_au, this);
++            return DataPackRegistries.func_240961_a_((List<IResourcePack>) immutablelist, this.func_71262_S() ? Commands.EnvironmentType.DEDICATED : Commands.EnvironmentType.INTEGRATED, this.func_223707_k(), this.field_213217_au, this); // Paper - decompile error
+         }).thenAcceptAsync((datapackresources) -> {
+             this.field_195576_ac.close();
+             this.field_195576_ac = datapackresources;
+diff --git a/src/main/java/net/minecraft/state/EnumProperty.java b/src/main/java/net/minecraft/state/EnumProperty.java
+index 59d8a543dc10c4bfec28c11fef4d87e8334a7586..8ce8a49712dfffa0051c5dace1b2fc29bfdc1837 100644
+--- a/src/main/java/net/minecraft/state/EnumProperty.java
++++ b/src/main/java/net/minecraft/state/EnumProperty.java
+@@ -21,10 +21,10 @@ public class EnumProperty<T extends Enum<T> & IStringSerializable> extends Prope
+     protected EnumProperty(String p_i45649_1_, Class<T> p_i45649_2_, Collection<T> p_i45649_3_) {
+         super(p_i45649_1_, p_i45649_2_);
+         this.field_177711_a = ImmutableSet.copyOf(p_i45649_3_);
+-        Iterator iterator = p_i45649_3_.iterator();
++        Iterator<T> iterator = p_i45649_3_.iterator(); // Paper - decompile fix
+ 
+         while (iterator.hasNext()) {
+-            T t0 = (Enum) iterator.next();
++            T t0 = iterator.next(); // Paper - Decompile fix
+             String s1 = ((IStringSerializable) t0).func_176610_l();
+ 
+             if (this.field_177710_b.containsKey(s1)) {
+diff --git a/src/main/java/net/minecraft/state/Property.java b/src/main/java/net/minecraft/state/Property.java
+index 2286e1271d3647f2e2d2d8559b5d499712f86ef3..baf16d1ee3af01c5da8e058533312f505f77fd31 100644
+--- a/src/main/java/net/minecraft/state/Property.java
++++ b/src/main/java/net/minecraft/state/Property.java
+@@ -16,12 +16,10 @@ public abstract class Property<T extends Comparable<T>> {
+     private final Codec<Property.ValuePair<T>> field_241488_e_;
+ 
+     protected Property(String p_i45652_1_, Class<T> p_i45652_2_) {
+-        this.field_235916_d_ = Codec.STRING.comapFlatMap((s1) -> {
+-            return (DataResult) this.func_185929_b(s1).map(DataResult::success).orElseGet(() -> {
+-                return DataResult.error("Unable to read property: " + this + " with value: " + s1);
+-            });
+-        }, this::func_177702_a);
+-        this.field_241488_e_ = this.field_235916_d_.xmap(this::b, Property.field_235913_a_::b);
++        this.field_235916_d_ = Codec.STRING.comapFlatMap((s1) -> this.func_185929_b(s1).map(DataResult::success).orElseGet(() -> { // Paper - decompile error
++            return DataResult.error("Unable to read property: " + this + " with value: " + s1);
++        }), this::func_177702_a);
++        this.field_241488_e_ = this.field_235916_d_.xmap(this::func_241490_b_, (Property.ValuePair<T> param) -> param.func_241493_b_()); // Paper - decompile fix
+         this.field_235913_a_ = p_i45652_2_;
+         this.field_235914_b_ = p_i45652_1_;
+     }
+diff --git a/src/main/java/net/minecraft/tileentity/PistonTileEntity.java b/src/main/java/net/minecraft/tileentity/PistonTileEntity.java
+index cc8aee0a5e5679129d8f344e0b8aca878b4053b9..89a023026fdce400afedf92538d2b271307d51b5 100644
+--- a/src/main/java/net/minecraft/tileentity/PistonTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/PistonTileEntity.java
+@@ -164,7 +164,7 @@ public class PistonTileEntity extends TileEntity implements ITickableTileEntity
+     private static void func_227022_a_(Direction p_227022_0_, Entity p_227022_1_, double p_227022_2_, Direction p_227022_3_) {
+         PistonTileEntity.field_190613_i.set(p_227022_0_);
+         p_227022_1_.func_213315_a(MoverType.PISTON, new Vector3d(p_227022_2_ * (double) p_227022_3_.func_82601_c(), p_227022_2_ * (double) p_227022_3_.func_96559_d(), p_227022_2_ * (double) p_227022_3_.func_82599_e()));
+-        PistonTileEntity.field_190613_i.set((Object) null);
++        PistonTileEntity.field_190613_i.set(null); // Paper - decompile fix
+     }
+ 
+     private void func_227024_g_(float p_227024_1_) {
+diff --git a/src/main/java/net/minecraft/util/IntIdentityHashBiMap.java b/src/main/java/net/minecraft/util/IntIdentityHashBiMap.java
+index 8443a9457f69dd30e0804198f62c9f8adad2e36e..925b4c993398f75d976990938c9ceb7cc3d3eb79 100644
+--- a/src/main/java/net/minecraft/util/IntIdentityHashBiMap.java
++++ b/src/main/java/net/minecraft/util/IntIdentityHashBiMap.java
+@@ -18,9 +18,9 @@ public class IntIdentityHashBiMap<K> implements IObjectIntIterable<K> {
+ 
+     public IntIdentityHashBiMap(int p_i46830_1_) {
+         p_i46830_1_ = (int) ((float) p_i46830_1_ / 0.8F);
+-        this.field_186818_b = (Object[]) (new Object[p_i46830_1_]);
++        this.field_186818_b = (K[]) (new Object[p_i46830_1_]); // Paper - decompile fix
+         this.field_186819_c = new int[p_i46830_1_];
+-        this.field_186820_d = (Object[]) (new Object[p_i46830_1_]);
++        this.field_186820_d = (K[]) (new Object[p_i46830_1_]); // Paper - decompile fix
+     }
+ 
+     public int func_186815_a(@Nullable K p_186815_1_) {
+@@ -60,9 +60,9 @@ public class IntIdentityHashBiMap<K> implements IObjectIntIterable<K> {
+         K[] ak = this.field_186818_b;
+         int[] aint = this.field_186819_c;
+ 
+-        this.field_186818_b = (Object[]) (new Object[p_186807_1_]);
++        this.field_186818_b = (K[]) (new Object[p_186807_1_]); // Paper - decompile fix
+         this.field_186819_c = new int[p_186807_1_];
+-        this.field_186820_d = (Object[]) (new Object[p_186807_1_]);
++        this.field_186820_d = (K[]) (new Object[p_186807_1_]); // Paper - decompile fix
+         this.field_186821_e = 0;
+         this.field_186822_f = 0;
+ 
+diff --git a/src/main/java/net/minecraft/util/ObjectIntIdentityMap.java b/src/main/java/net/minecraft/util/ObjectIntIdentityMap.java
+index e001a2a97eb690d57845a17cb415af7b2380e3af..d5b3f7073e3090c429bcc6431432e19558f658a2 100644
+--- a/src/main/java/net/minecraft/util/ObjectIntIdentityMap.java
++++ b/src/main/java/net/minecraft/util/ObjectIntIdentityMap.java
+@@ -27,7 +27,7 @@ public class ObjectIntIdentityMap<T> implements IObjectIntIterable<T> {
+         this.field_148749_a.put(p_148746_1_, p_148746_2_);
+ 
+         while (this.field_148748_b.size() <= p_148746_2_) {
+-            this.field_148748_b.add((Object) null);
++            this.field_148748_b.add(null); // Paper - decompile fix
+         }
+ 
+         this.field_148748_b.set(p_148746_2_, p_148746_1_);
+diff --git a/src/main/java/net/minecraft/util/SortedArraySet.java b/src/main/java/net/minecraft/util/SortedArraySet.java
+index fe042f7a90a00eab2676f21c84765e08c850df2e..1b1cd956c9ae3eec78f38c872d75c698e81092a3 100644
+--- a/src/main/java/net/minecraft/util/SortedArraySet.java
++++ b/src/main/java/net/minecraft/util/SortedArraySet.java
+@@ -23,11 +23,11 @@ public class SortedArraySet<T> extends AbstractSet<T> {
+     }
+ 
+     public static <T extends Comparable<T>> SortedArraySet<T> func_226172_a_(int p_226172_0_) {
+-        return new SortedArraySet<>(p_226172_0_, Comparator.naturalOrder());
++        return new SortedArraySet<>(p_226172_0_, (Comparator)Comparator.naturalOrder()); // Paper - decompile fix
+     }
+ 
+     private static <T> T[] func_226177_a_(Object[] p_226177_0_) {
+-        return (Object[]) p_226177_0_;
++        return (T[])p_226177_0_; // Paper - decompile fix
+     }
+ 
+     private int func_226182_c_(T p_226182_1_) {
+@@ -101,7 +101,7 @@ public class SortedArraySet<T> extends AbstractSet<T> {
+     }
+ 
+     public boolean remove(Object object) {
+-        int i = this.func_226182_c_(object);
++        int i = this.func_226182_c_((T)object); // Paper - decompile fix
+ 
+         if (i >= 0) {
+             this.func_226183_d_(i);
+@@ -116,7 +116,7 @@ public class SortedArraySet<T> extends AbstractSet<T> {
+     }
+ 
+     public boolean contains(Object object) {
+-        int i = this.func_226182_c_(object);
++        int i = this.func_226182_c_((T)object); // Paper - decompile fix
+ 
+         return i >= 0;
+     }
+@@ -135,7 +135,7 @@ public class SortedArraySet<T> extends AbstractSet<T> {
+ 
+     public <U> U[] toArray(U[] au) {
+         if (au.length < this.field_226171_c_) {
+-            return (Object[]) Arrays.copyOf(this.field_226170_b_, this.field_226171_c_, au.getClass());
++            return (U[])Arrays.copyOf(this.field_226170_b_, this.field_226171_c_, au.getClass()); // Paper - decompile fix
+         } else {
+             System.arraycopy(this.field_226170_b_, 0, au, 0, this.field_226171_c_);
+             if (au.length > this.field_226171_c_) {
+diff --git a/src/main/java/net/minecraft/util/Util.java b/src/main/java/net/minecraft/util/Util.java
+index d545998aa0dce8aca1ed3ad4d0c9eba023470c85..ff3b62c99aff908dd2e3bc7e1e3c76078cb3f566 100644
+--- a/src/main/java/net/minecraft/util/Util.java
++++ b/src/main/java/net/minecraft/util/Util.java
+@@ -60,8 +60,8 @@ public class Util {
+         return Collectors.toMap(Entry::getKey, Entry::getValue);
+     }
+ 
+-    public static <T extends Comparable<T>> String func_200269_a(Property<T> p_200269_0_, Object p_200269_1_) {
+-        return p_200269_0_.func_241489_a_((Comparable) p_200269_1_);
++    public static <T extends Comparable<T>> String a(Property<T> iblockstate, T object) { // Paper - decompile fix
++        return iblockstate.func_177702_a(object); // Paper - decompile fix
+     }
+ 
+     public static String func_200697_a(String p_200697_0_, @Nullable ResourceLocation p_200697_1_) {
+@@ -229,8 +229,8 @@ public class Util {
+     public static <T> T func_195648_b(Iterable<T> p_195648_0_, @Nullable T p_195648_1_) {
+         Iterator<T> iterator = p_195648_0_.iterator();
+ 
+-        Object object;
+-        Object object1;
++        T object; // Paper - decompile fix
++        T object1; // Paper - decompile fix
+ 
+         for (object1 = null; iterator.hasNext(); object1 = object) {
+             object = iterator.next();
+@@ -255,7 +255,7 @@ public class Util {
+     }
+ 
+     public static <K> Strategy<K> func_212443_g() {
+-        return Util.IdentityStrategy.INSTANCE;
++        return (Strategy<K>) Util.IdentityStrategy.INSTANCE; // Paper - decompile fix
+     }
+ 
+     public static <V> CompletableFuture<List<V>> func_215079_b(List<? extends CompletableFuture<? extends V>> p_215079_0_) {
+@@ -266,7 +266,7 @@ public class Util {
+         p_215079_0_.forEach((completablefuture1) -> {
+             int i = list1.size();
+ 
+-            list1.add((Object) null);
++            list1.add(null); // Paper - decompile fix
+             acompletablefuture[i] = completablefuture1.whenComplete((object, throwable) -> {
+                 if (throwable != null) {
+                     completablefuture.completeExceptionally(throwable);
+diff --git a/src/main/java/net/minecraft/util/concurrent/DelegatedTaskExecutor.java b/src/main/java/net/minecraft/util/concurrent/DelegatedTaskExecutor.java
+index a4a6112bcdfe440190f3fe8f80547b226e115680..f3b1d0f257b892bf707b7f7d037d9349d8a5b118 100644
+--- a/src/main/java/net/minecraft/util/concurrent/DelegatedTaskExecutor.java
++++ b/src/main/java/net/minecraft/util/concurrent/DelegatedTaskExecutor.java
+@@ -100,7 +100,7 @@ public class DelegatedTaskExecutor<T> implements ITaskExecutor<T>, AutoCloseable
+ 
+     public void run() {
+         try {
+-            this.func_213145_a((i) -> {
++            this.func_213145_a((int i) -> { // Paper - decompile fix
+                 return i == 0;
+             });
+         } finally {
+diff --git a/src/main/java/net/minecraft/util/concurrent/ThreadTaskExecutor.java b/src/main/java/net/minecraft/util/concurrent/ThreadTaskExecutor.java
+index 2b4288d96a66654f81aefb2f4d3b17849d32eefe..304ff2bbff193b79a913c7eba3046d082e755099 100644
+--- a/src/main/java/net/minecraft/util/concurrent/ThreadTaskExecutor.java
++++ b/src/main/java/net/minecraft/util/concurrent/ThreadTaskExecutor.java
+@@ -55,7 +55,7 @@ public abstract class ThreadTaskExecutor<R extends Runnable> implements ITaskExe
+             return this.func_213165_a(p_222817_1_);
+         } else {
+             p_222817_1_.run();
+-            return CompletableFuture.completedFuture((Object) null);
++            return CompletableFuture.completedFuture(null); // Paper - decompile fix
+         }
+     }
+ 
+@@ -90,14 +90,14 @@ public abstract class ThreadTaskExecutor<R extends Runnable> implements ITaskExe
+     }
+ 
+     protected boolean func_213168_p() {
+-        R r0 = (Runnable) this.field_213173_d.peek();
++        R r0 = this.field_213173_d.peek(); // Paper - decompile fix
+ 
+         if (r0 == null) {
+             return false;
+         } else if (this.field_213174_e == 0 && !this.func_212874_c_(r0)) {
+             return false;
+         } else {
+-            this.func_213166_h((Runnable) this.field_213173_d.remove());
++            this.func_213166_h(this.field_213173_d.remove()); // Paper - decompile fix
+             return true;
+         }
+     }
+diff --git a/src/main/java/net/minecraft/util/math/BlockPos.java b/src/main/java/net/minecraft/util/math/BlockPos.java
+index 188acd5d7b35f6cd2f4aa0ef600a442801f62cec..b485af1bed686721b4fb1b2a623e8ef86570488a 100644
+--- a/src/main/java/net/minecraft/util/math/BlockPos.java
++++ b/src/main/java/net/minecraft/util/math/BlockPos.java
+@@ -227,8 +227,8 @@ public class BlockPos extends Vector3i {
+         };
+     }
+ 
+-    public static Iterable<BlockPos> func_239583_a_(BlockPos p_239583_0_, int p_239583_1_, int p_239583_2_, int p_239583_3_) {
+-        int l = p_239583_1_ + p_239583_2_ + p_239583_3_;
++    public static Iterable<BlockPos> func_239583_a_(BlockPos p_239583_0_, int p_239583_1_, int p_239583_2_, int p_239583_3_) { // Paper - decompile issues - variable name conflicts to inner class field refs
++        int l_decompiled = p_239583_1_ + p_239583_2_ + p_239583_3_; // Paper - decompile issues
+         int i1 = p_239583_0_.func_177958_n();
+         int j1 = p_239583_0_.func_177956_o();
+         int k1 = p_239583_0_.func_177952_p();
+@@ -256,15 +256,15 @@ public class BlockPos extends Vector3i {
+                                 ++this.field_239607_l_;
+                                 if (this.field_239607_l_ > this.field_239605_j_) {
+                                     ++this.field_239604_i_;
+-                                    if (this.field_239604_i_ > field_239607_l_) {
++                                    if (this.field_239604_i_ > l_decompiled) { // Paper - use proper l above (first line of this method)
+                                         return (BlockPos) this.endOfData();
+                                     }
+ 
+-                                    this.field_239605_j_ = Math.min(field_239604_i_, this.field_239604_i_);
++                                    this.field_239605_j_ = Math.min(p_239583_1_, this.field_239604_i_); // Paper - decompile issues
+                                     this.field_239607_l_ = -this.field_239605_j_;
+                                 }
+ 
+-                                this.field_239606_k_ = Math.min(field_239605_j_, this.field_239604_i_ - Math.abs(this.field_239607_l_));
++                                this.field_239606_k_ = Math.min(p_239583_2_, this.field_239604_i_ - Math.abs(this.field_239607_l_)); // Paper - decompile issues
+                                 this.field_239608_m_ = -this.field_239606_k_;
+                             }
+ 
+@@ -272,7 +272,7 @@ public class BlockPos extends Vector3i {
+                             int i2 = this.field_239608_m_;
+                             int j2 = this.field_239604_i_ - Math.abs(l1) - Math.abs(i2);
+ 
+-                            if (j2 <= field_239606_k_) {
++                            if (j2 <= p_239583_3_) { // Paper - decompile issues
+                                 this.field_239609_n_ = j2 != 0;
+                                 blockposition_mutableblockposition = this.field_218298_a.func_181079_c(i1 + l1, j1 + i2, k1 + j2);
+                             }
+diff --git a/src/main/java/net/minecraft/util/math/shapes/IndirectMerger.java b/src/main/java/net/minecraft/util/math/shapes/IndirectMerger.java
+index 7da59b177feaeaa9b0dc3e7108fa4611da376072..dceb1789e1b3dd45030c88e2cc6da7ffc2e3758d 100644
+--- a/src/main/java/net/minecraft/util/math/shapes/IndirectMerger.java
++++ b/src/main/java/net/minecraft/util/math/shapes/IndirectMerger.java
+@@ -38,7 +38,7 @@ public final class IndirectMerger implements IDoubleListMerger {
+             double d1 = flag4 ? p_i47685_1_.getDouble(i++) : p_i47685_2_.getDouble(j++);
+ 
+             if ((i != 0 && flag2 || flag4 || p_i47685_4_) && (j != 0 && flag3 || !flag4 || p_i47685_3_)) {
+-                if (d0 < d1 - 1.0E-7D) {
++                if (!(d0 >= d1 - 1.0E-7D)) { // Paper - decompile error - welcome to hell
+                     this.field_197857_b.add(i - 1);
+                     this.field_197858_c.add(j - 1);
+                     this.field_197856_a.add(d1);
+diff --git a/src/main/java/net/minecraft/village/PointOfInterestManager.java b/src/main/java/net/minecraft/village/PointOfInterestManager.java
+index 395a285255ed19026f03abad70330fbf9e994a15..ca5518f1df8051df6bc9d45f6903c45f6208f84e 100644
+--- a/src/main/java/net/minecraft/village/PointOfInterestManager.java
++++ b/src/main/java/net/minecraft/village/PointOfInterestManager.java
+@@ -181,9 +181,9 @@ public class PointOfInterestManager extends RegionSectionCache<PointOfInterestDa
+     }
+ 
+     private static boolean func_219151_a(ChunkSection p_219151_0_) {
+-        Set set = PointOfInterestType.field_234167_x_;
++        Set<BlockState> set = PointOfInterestType.field_234167_x_; // Paper - decompile error
+ 
+-        set.getClass();
++        //set.getClass(); // Paper - decompile error
+         return p_219151_0_.func_235962_a_(set::contains);
+     }
+ 
+@@ -201,7 +201,7 @@ public class PointOfInterestManager extends RegionSectionCache<PointOfInterestDa
+         SectionPos.func_229421_b_(new ChunkPos(p_226347_2_), Math.floorDiv(p_226347_3_, 16)).map((sectionposition) -> {
+             return Pair.of(sectionposition, this.func_219113_d(sectionposition.func_218146_v()));
+         }).filter((pair) -> {
+-            return !(Boolean) ((Optional) pair.getSecond()).map(PointOfInterestData::a).orElse(false);
++            return !(Boolean) (pair.getSecond()).map(PointOfInterestData::func_226355_a_).orElse(false); // Paper - decompile fix
+         }).map((pair) -> {
+             return ((SectionPos) pair.getFirst()).func_218155_u();
+         }).filter((chunkcoordintpair) -> {
+@@ -247,13 +247,13 @@ public class PointOfInterestManager extends RegionSectionCache<PointOfInterestDa
+ 
+     public static enum Status {
+ 
+-        HAS_SPACE(PointOfInterest::d), IS_OCCUPIED(PointOfInterest::e), ANY((villageplacerecord) -> {
++        HAS_SPACE(PointOfInterest::func_218265_d), IS_OCCUPIED(PointOfInterest::func_218263_e), ANY((villageplacerecord) -> {
+             return true;
+         });
+ 
+         private final Predicate<? super PointOfInterest> field_221037_d;
+ 
+-        private Status(Predicate predicate) {
++        private Status(Predicate<? super PointOfInterest> predicate) { // Paper - decompile fix
+             this.field_221037_d = predicate;
+         }
+ 
+diff --git a/src/main/java/net/minecraft/world/IEntityReader.java b/src/main/java/net/minecraft/world/IEntityReader.java
+index 726ac0ab85c9a8c0ef11dc4b02c0442459a31deb..f9c41b1c245f79a9a25e931074c405044e7c4772 100644
+--- a/src/main/java/net/minecraft/world/IEntityReader.java
++++ b/src/main/java/net/minecraft/world/IEntityReader.java
+@@ -159,22 +159,22 @@ public interface IEntityReader {
+ 
+     @Nullable
+     default <T extends LivingEntity> T func_217360_a(Class<? extends T> p_217360_1_, EntityPredicate p_217360_2_, @Nullable LivingEntity p_217360_3_, double p_217360_4_, double p_217360_5_, double p_217360_6_, AxisAlignedBB p_217360_7_) {
+-        return this.func_217361_a(this.func_175647_a(p_217360_1_, p_217360_7_, (Predicate) null), p_217360_2_, p_217360_3_, p_217360_4_, p_217360_5_, p_217360_6_);
++        return this.func_217361_a(this.func_175647_a(p_217360_1_, p_217360_7_, null), p_217360_2_, p_217360_3_, p_217360_4_, p_217360_5_, p_217360_6_); // Paper - decompile fix
+     }
+ 
+     @Nullable
+     default <T extends LivingEntity> T func_225318_b(Class<? extends T> p_225318_1_, EntityPredicate p_225318_2_, @Nullable LivingEntity p_225318_3_, double p_225318_4_, double p_225318_5_, double p_225318_6_, AxisAlignedBB p_225318_7_) {
+-        return this.func_217361_a(this.func_225316_b(p_225318_1_, p_225318_7_, (Predicate) null), p_225318_2_, p_225318_3_, p_225318_4_, p_225318_5_, p_225318_6_);
++        return this.func_217361_a(this.func_225316_b(p_225318_1_, p_225318_7_, null), p_225318_2_, p_225318_3_, p_225318_4_, p_225318_5_, p_225318_6_); // Paper - decompile fix
+     }
+ 
+     @Nullable
+     default <T extends LivingEntity> T func_217361_a(List<? extends T> p_217361_1_, EntityPredicate p_217361_2_, @Nullable LivingEntity p_217361_3_, double p_217361_4_, double p_217361_5_, double p_217361_6_) {
+         double d3 = -1.0D;
+         T t0 = null;
+-        Iterator iterator = p_217361_1_.iterator();
++        Iterator<? extends T> iterator = p_217361_1_.iterator(); // Paper - decompile fix
+ 
+         while (iterator.hasNext()) {
+-            T t1 = (LivingEntity) iterator.next();
++            T t1 = iterator.next(); // Paper - decompile fix
+ 
+             if (p_217361_2_.func_221015_a(p_217361_3_, t1)) {
+                 double d4 = t1.func_70092_e(p_217361_4_, p_217361_5_, p_217361_6_);
+@@ -207,10 +207,10 @@ public interface IEntityReader {
+     default <T extends LivingEntity> List<T> func_217374_a(Class<? extends T> p_217374_1_, EntityPredicate p_217374_2_, LivingEntity p_217374_3_, AxisAlignedBB p_217374_4_) {
+         List<T> list = this.func_175647_a(p_217374_1_, p_217374_4_, (Predicate) null);
+         List<T> list1 = Lists.newArrayList();
+-        Iterator iterator = list.iterator();
++        Iterator<T> iterator = list.iterator(); // Paper - decompile fix
+ 
+         while (iterator.hasNext()) {
+-            T t0 = (LivingEntity) iterator.next();
++            T t0 = iterator.next(); // Paper - decompile fix
+ 
+             if (p_217374_2_.func_221015_a(p_217374_3_, t0)) {
+                 list1.add(t0);
+diff --git a/src/main/java/net/minecraft/world/NextTickListEntry.java b/src/main/java/net/minecraft/world/NextTickListEntry.java
+index ac5a36be85e3bac7967d23fe956b7de9b43c1873..01a151e15b4f44c2f2e677d24fb29b85369fd5b5 100644
+--- a/src/main/java/net/minecraft/world/NextTickListEntry.java
++++ b/src/main/java/net/minecraft/world/NextTickListEntry.java
+@@ -38,13 +38,13 @@ public class NextTickListEntry<T> {
+         return this.field_180282_a.hashCode();
+     }
+ 
+-    public static <T> Comparator<NextTickListEntry<T>> func_223192_a() {
++    public static <T> Comparator<Object> func_223192_a() { // Paper - decompile fix
+         return Comparator.comparingLong((nextticklistentry) -> {
+-            return nextticklistentry.b;
++            return ((NextTickListEntry<T>) nextticklistentry).field_235017_b_; // Paper - decompile fix
+         }).thenComparing((nextticklistentry) -> {
+-            return nextticklistentry.c;
++            return ((NextTickListEntry<T>) nextticklistentry).field_82754_f; // Paper - decompile fix
+         }).thenComparingLong((nextticklistentry) -> {
+-            return nextticklistentry.f;
++            return ((NextTickListEntry<T>) nextticklistentry).field_77178_g; // Paper - decompile fix
+         });
+     }
+ 
+diff --git a/src/main/java/net/minecraft/world/biome/Biome.java b/src/main/java/net/minecraft/world/biome/Biome.java
+index bcd34b62b4613ebb01fe08d44b5e889557ea8029..8045bbb7861c2503a719c016ac2b5e745823c2d6 100644
+--- a/src/main/java/net/minecraft/world/biome/Biome.java
++++ b/src/main/java/net/minecraft/world/biome/Biome.java
+@@ -64,76 +64,31 @@ import org.apache.logging.log4j.Logger;
+ public class Biome {
+ 
+     public static final Logger field_150586_aC = LogManager.getLogger();
+-    public static final Codec<Biome> field_235051_b_ = RecordCodecBuilder.create((instance) -> {
+-        RecordCodecBuilder recordcodecbuilder = Biome.RainType.field_235121_d_.fieldOf("precipitation").forGetter((biomebase) -> {
+-            return biomebase.o;
+-        });
+-        RecordCodecBuilder recordcodecbuilder1 = Biome.Category.field_235102_r_.fieldOf("category").forGetter((biomebase) -> {
+-            return biomebase.n;
+-        });
+-        RecordCodecBuilder recordcodecbuilder2 = Codec.FLOAT.fieldOf("depth").forGetter((biomebase) -> {
+-            return biomebase.h;
+-        });
+-        RecordCodecBuilder recordcodecbuilder3 = Codec.FLOAT.fieldOf("scale").forGetter((biomebase) -> {
+-            return biomebase.i;
+-        });
+-        RecordCodecBuilder recordcodecbuilder4 = Codec.FLOAT.fieldOf("temperature").forGetter((biomebase) -> {
+-            return biomebase.j;
+-        });
+-        RecordCodecBuilder recordcodecbuilder5 = Codec.FLOAT.fieldOf("downfall").forGetter((biomebase) -> {
+-            return biomebase.k;
+-        });
+-        RecordCodecBuilder recordcodecbuilder6 = BiomeAmbience.field_235204_a_.fieldOf("effects").forGetter((biomebase) -> {
+-            return biomebase.p;
+-        });
+-        RecordCodecBuilder recordcodecbuilder7 = Codec.INT.fieldOf("sky_color").forGetter((biomebase) -> {
+-            return biomebase.t;
+-        });
+-        RecordCodecBuilder recordcodecbuilder8 = ConfiguredSurfaceBuilder.field_237168_a_.fieldOf("surface_builder").forGetter((biomebase) -> {
+-            return biomebase.m;
+-        });
+-        Codec codec = GenerationStage.Carving.field_236074_c_;
+-        Codec codec1 = ConfiguredCarver.field_236235_a_.listOf();
+-        Logger logger = Biome.field_150586_aC;
+-
+-        logger.getClass();
+-        RecordCodecBuilder recordcodecbuilder9 = Codec.simpleMap(codec, codec1.promotePartial(Util.func_240982_a_("Carver: ", logger::error)), IStringSerializable.func_233025_a_(GenerationStage.Carving.values())).fieldOf("carvers").forGetter((biomebase) -> {
+-            return biomebase.q;
+-        });
+-
+-        codec1 = GenerationStage.Decoration.field_236076_k_;
+-        Codec codec2 = ConfiguredFeature.field_236264_b_.listOf();
+-        Logger logger1 = Biome.field_150586_aC;
+-
+-        logger1.getClass();
+-        RecordCodecBuilder recordcodecbuilder10 = Codec.simpleMap(codec1, codec2.promotePartial(Util.func_240982_a_("Feature: ", logger1::error)), IStringSerializable.func_233025_a_(GenerationStage.Decoration.values())).fieldOf("features").forGetter((biomebase) -> {
+-            return biomebase.r;
+-        });
+-
+-        codec2 = StructureFeature.field_236267_a_.listOf();
+-        logger1 = Biome.field_150586_aC;
+-        logger1.getClass();
+-        RecordCodecBuilder recordcodecbuilder11 = codec2.promotePartial(Util.func_240982_a_("Structure start: ", logger1::error)).fieldOf("starts").forGetter((biomebase) -> {
+-            return (List) biomebase.u.values().stream().sorted(Comparator.comparing((structurefeature) -> {
+-                return IRegistry.STRUCTURE_FEATURE.getKey(structurefeature.b);
+-            })).collect(Collectors.toList());
+-        });
+-        Codec codec3 = EntityClassification.field_233667_g_;
+-        Codec codec4 = Biome.SpawnListEntry.field_235123_b_.listOf();
+-        Logger logger2 = Biome.field_150586_aC;
+-
+-        logger2.getClass();
+-        return instance.group(recordcodecbuilder, recordcodecbuilder1, recordcodecbuilder2, recordcodecbuilder3, recordcodecbuilder4, recordcodecbuilder5, recordcodecbuilder6, recordcodecbuilder7, recordcodecbuilder8, recordcodecbuilder9, recordcodecbuilder10, recordcodecbuilder11, Codec.simpleMap(codec3, codec4.promotePartial(Util.func_240982_a_("Spawn data: ", logger2::error)), IStringSerializable.func_233025_a_(EntityClassification.values())).fieldOf("spawners").forGetter((biomebase) -> {
+-            return biomebase.v;
+-        }), Biome.field_185373_j.field_195868_a.listOf().fieldOf("climate_parameters").forGetter((biomebase) -> {
+-            return biomebase.x;
+-        }), Codec.STRING.optionalFieldOf("parent").forGetter((biomebase) -> {
+-            return Optional.ofNullable(biomebase.l);
+-        })).apply(instance, Biome::new);
++    // Paper decompile error - Spigots stupid decompiler
++    public static final Codec<Biome> field_235051_b_ = RecordCodecBuilder.create(i -> {
++        Codec k1 = GenerationStage.Decoration.field_236076_k_; // Erase type - WorldGenstage.Decoration has wrong type
++        return i.group(
++            RainType.field_235121_d_.fieldOf("precipitation").forGetter(biome -> biome.field_201878_av),
++            Category.field_235102_r_.fieldOf("category").forGetter(biome -> biome.field_201877_au),
++            Codec.FLOAT.fieldOf("depth").forGetter(biome -> biome.field_76748_D),
++            Codec.FLOAT.fieldOf("scale").forGetter(biome -> biome.field_76749_E),
++            Codec.FLOAT.fieldOf("temperature").forGetter(biome -> biome.field_76750_F),
++            Codec.FLOAT.fieldOf("downfall").forGetter(biome -> biome.field_76751_G),
++            BiomeAmbience.field_235204_a_.fieldOf("effects").forGetter(biome -> biome.field_235052_p_),
++            Codec.INT.fieldOf("sky_color").forGetter(biome -> biome.field_229978_u_),
++            ConfiguredSurfaceBuilder.field_237168_a_.fieldOf("surface_builder").forGetter(biome -> biome.field_201875_ar),
++            Codec.simpleMap(GenerationStage.Carving.field_236074_c_, ConfiguredCarver.field_236235_a_.listOf().promotePartial(Util.func_240982_a_("Carver: ", field_150586_aC::error)), IStringSerializable.func_233025_a_(GenerationStage.Carving.values())).fieldOf("carvers").forGetter(biome -> biome.field_201871_ag),
++            Codec.simpleMap((Codec<GenerationStage.Decoration>) k1, ConfiguredFeature.field_236264_b_.listOf().promotePartial(Util.func_240982_a_("Feature: ", field_150586_aC::error)), IStringSerializable.func_233025_a_(GenerationStage.Decoration.values())).fieldOf("features").forGetter(biome -> biome.field_201872_ah),
++            StructureFeature.field_236267_a_.listOf().promotePartial(Util.func_240982_a_("Structure start: ", field_150586_aC::error)).fieldOf("starts").forGetter(biome -> biome.field_201874_aj.values().stream().sorted(Comparator.comparing(cf -> Registry.field_218361_B.func_177774_c(cf.field_236268_b_))).collect(Collectors.toList())),
++            Codec.simpleMap(EntityClassification.field_233667_g_, SpawnListEntry.field_235123_b_.listOf().promotePartial(Util.func_240982_a_("Spawn data: ", field_150586_aC::error)), IStringSerializable.func_233025_a_(EntityClassification.values())).fieldOf("spawners").forGetter(biome -> biome.field_201880_ax),
++            Attributes.field_235104_a_.listOf().fieldOf("climate_parameters").forGetter(biome -> biome.field_235054_x_),
++            Codec.STRING.optionalFieldOf("parent").forGetter(biome -> Optional.ofNullable(biome.field_185364_H))
++        ).apply(i, Biome::new);
++        // Paper end
+     });
+     public static final Set<Biome> field_201870_ab = Sets.newHashSet();
+-    public static final ObjectIntIdentityMap<Biome> field_185373_j = new ObjectIntIdentityMap<>();
+-    protected static final PerlinNoiseGenerator field_150605_ac = new PerlinNoiseGenerator(new SharedSeedRandom(1234L), ImmutableList.of(0));
++    public static final ObjectIntIdentityMap<Biome> reg = new ObjectIntIdentityMap<>(); // Paper - decompile error - rename
++    protected static final PerlinNoiseGenerator NOISE_GENERATOR_3 = new PerlinNoiseGenerator(new SharedSeedRandom(1234L), ImmutableList.of(0)); // Paper - decompile error - rename
+     public static final PerlinNoiseGenerator field_180281_af = new PerlinNoiseGenerator(new SharedSeedRandom(2345L), ImmutableList.of(0));
+     @Nullable
+     protected String field_205405_aL;
+@@ -168,7 +123,7 @@ public class Biome {
+ 
+     @Nullable
+     public static Biome func_185356_b(Biome p_185356_0_) {
+-        return (Biome) Biome.field_185373_j.func_148745_a(Registry.field_212624_m.func_239741_a_((Object) p_185356_0_));
++        return (Biome) Biome.reg.func_148745_a(Registry.field_212624_m.func_148757_b(p_185356_0_)); // Paper - decompile fix / rename
+     }
+ 
+     public static <C extends ICarverConfig> ConfiguredCarver<C> func_203606_a(WorldCarver<C> p_203606_0_, C p_203606_1_) {
+@@ -235,7 +190,7 @@ public class Biome {
+         }, Function.identity()));
+         this.field_201880_ax = map2;
+         this.field_235054_x_ = list1;
+-        this.field_185364_H = (String) optional.orElse((Object) null);
++        this.field_185364_H = (String) optional.orElse(null); // Paper - decompile fix
+         Stream stream = map1.values().stream().flatMap(Collection::stream).filter((worldgenfeatureconfigured) -> {
+             return worldgenfeatureconfigured.field_222737_a == Feature.field_214484_aL;
+         });
+@@ -288,7 +243,7 @@ public class Biome {
+ 
+     protected float func_180626_a(BlockPos p_180626_1_) {
+         if (p_180626_1_.func_177956_o() > 64) {
+-            float f = (float) (Biome.field_150605_ac.func_215464_a((double) ((float) p_180626_1_.func_177958_n() / 8.0F), (double) ((float) p_180626_1_.func_177952_p() / 8.0F), false) * 4.0D);
++            float f = (float) (Biome.NOISE_GENERATOR_3.func_215464_a((double) ((float) p_180626_1_.func_177958_n() / 8.0F), (double) ((float) p_180626_1_.func_177952_p() / 8.0F), false) * 4.0D); // Paper - decompile error - rename
+ 
+             return this.func_185353_n() - (f + (float) p_180626_1_.func_177956_o() - 64.0F) * 0.05F / 30.0F;
+         } else {
+diff --git a/src/main/java/net/minecraft/world/biome/Biomes.java b/src/main/java/net/minecraft/world/biome/Biomes.java
+index bab552bef2619e4f16e638ab07ea164db6c61d03..5ec747bdd66e6b0478f10d0fd52bf05872ac61e4 100644
+--- a/src/main/java/net/minecraft/world/biome/Biomes.java
++++ b/src/main/java/net/minecraft/world/biome/Biomes.java
+@@ -90,7 +90,7 @@ public abstract class Biomes {
+     private static Biome func_222369_a(int p_222369_0_, String p_222369_1_, Biome p_222369_2_) {
+         Registry.func_218343_a(Registry.field_212624_m, p_222369_0_, p_222369_1_, p_222369_2_);
+         if (p_222369_2_.func_185363_b()) {
+-            Biome.field_185373_j.func_148746_a(p_222369_2_, Registry.field_212624_m.func_148757_b(Registry.field_212624_m.func_82594_a(new ResourceLocation(p_222369_2_.field_185364_H))));
++            Biome.reg.func_148746_a(p_222369_2_, Registry.field_212624_m.func_148757_b(Registry.field_212624_m.func_82594_a(new ResourceLocation(p_222369_2_.field_185364_H))));
+         }
+ 
+         return p_222369_2_;
+diff --git a/src/main/java/net/minecraft/world/biome/DeepFrozenOceanBiome.java b/src/main/java/net/minecraft/world/biome/DeepFrozenOceanBiome.java
+index 2346edf4e436c319146287e413b469c31de01633..a649bba6244ad82eedbf490b74600f378632e1e8 100644
+--- a/src/main/java/net/minecraft/world/biome/DeepFrozenOceanBiome.java
++++ b/src/main/java/net/minecraft/world/biome/DeepFrozenOceanBiome.java
+@@ -64,7 +64,7 @@ public class DeepFrozenOceanBiome extends Biome {
+         }
+ 
+         if (p_180626_1_.func_177956_o() > 64) {
+-            float f1 = (float) (DeepFrozenOceanBiome.field_150605_ac.func_215464_a((double) ((float) p_180626_1_.func_177958_n() / 8.0F), (double) ((float) p_180626_1_.func_177952_p() / 8.0F), false) * 4.0D);
++            float f1 = (float) (DeepFrozenOceanBiome.NOISE_GENERATOR_3.func_215464_a((double) ((float) p_180626_1_.func_177958_n() / 8.0F), (double) ((float) p_180626_1_.func_177952_p() / 8.0F), false) * 4.0D); // Paper - rename
+ 
+             return f - (f1 + (float) p_180626_1_.func_177956_o() - 64.0F) * 0.05F / 30.0F;
+         } else {
+diff --git a/src/main/java/net/minecraft/world/biome/FrozenOceanBiome.java b/src/main/java/net/minecraft/world/biome/FrozenOceanBiome.java
+index 4d189a87fa91cacfbf6f498becac5a8666a139fb..cd1d0900229d90672c092f2556c1e28b7edea186 100644
+--- a/src/main/java/net/minecraft/world/biome/FrozenOceanBiome.java
++++ b/src/main/java/net/minecraft/world/biome/FrozenOceanBiome.java
+@@ -63,7 +63,7 @@ public final class FrozenOceanBiome extends Biome {
+         }
+ 
+         if (p_180626_1_.func_177956_o() > 64) {
+-            float f1 = (float) (FrozenOceanBiome.field_150605_ac.func_215464_a((double) ((float) p_180626_1_.func_177958_n() / 8.0F), (double) ((float) p_180626_1_.func_177952_p() / 8.0F), false) * 4.0D);
++            float f1 = (float) (FrozenOceanBiome.NOISE_GENERATOR_3.func_215464_a((double) ((float) p_180626_1_.func_177958_n() / 8.0F), (double) ((float) p_180626_1_.func_177952_p() / 8.0F), false) * 4.0D);  // Paper - rename
+ 
+             return f - (f1 + (float) p_180626_1_.func_177956_o() - 64.0F) * 0.05F / 30.0F;
+         } else {
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/IOWorker.java b/src/main/java/net/minecraft/world/chunk/storage/IOWorker.java
+index 878998cda868c80e84c71799c11746c7474d9399..29704995d818029df3c7d063cb857fa19f48a032 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/IOWorker.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/IOWorker.java
+@@ -89,7 +89,7 @@ public class IOWorker implements AutoCloseable {
+             return this.func_235975_a_(() -> {
+                 try {
+                     this.field_227084_e_.func_235987_a_();
+-                    return Either.left((Object) null);
++                    return Either.left(null); // Paper - decompile error
+                 } catch (Exception exception) {
+                     IOWorker.field_227080_a_.warn("Failed to synchronized chunks", exception);
+                     return Either.right(exception);
+@@ -123,13 +123,13 @@ public class IOWorker implements AutoCloseable {
+     }
+ 
+     private void func_235982_c_() {
+-        this.field_235969_c_.func_212871_a_((Object) (new ITaskQueue.RunnableWithPriority(IOWorker.Priority.LOW.ordinal(), this::func_235978_b_)));
++        this.field_235969_c_.func_212871_a_((new ITaskQueue.RunnableWithPriority(IOWorker.Priority.LOW.ordinal(), this::func_235978_b_))); // Paper - decompile error
+     }
+ 
+     private void func_227091_a_(ChunkPos p_227091_1_, IOWorker.Entry p_227091_2_) {
+         try {
+             this.field_227084_e_.func_219100_a(p_227091_1_, p_227091_2_.field_227113_a_);
+-            p_227091_2_.field_227114_b_.complete((Object) null);
++            p_227091_2_.field_227114_b_.complete(null); // Paper - decompile fix
+         } catch (Exception exception) {
+             IOWorker.field_227080_a_.error("Failed to store chunk {}", p_227091_1_, exception);
+             p_227091_2_.field_227114_b_.completeExceptionally(exception);
+diff --git a/src/main/java/net/minecraft/world/gen/feature/structure/Structure.java b/src/main/java/net/minecraft/world/gen/feature/structure/Structure.java
+index 15faa839372308fb2b2d38c2ac3cf49912d4059f..1277ce4f8c5096ddaed65f7026b9766bab260111 100644
+--- a/src/main/java/net/minecraft/world/gen/feature/structure/Structure.java
++++ b/src/main/java/net/minecraft/world/gen/feature/structure/Structure.java
+@@ -64,7 +64,7 @@ public abstract class Structure<C extends IFeatureConfig> {
+     private static <F extends Structure<?>> F func_236394_a_(String p_236394_0_, F p_236394_1_, GenerationStage.Decoration p_236394_2_) {
+         Structure.field_236365_a_.put(p_236394_0_.toLowerCase(Locale.ROOT), p_236394_1_);
+         Structure.field_236385_u_.put(p_236394_1_, p_236394_2_);
+-        return (Structure) Registry.func_239745_a_(Registry.field_218361_B, p_236394_0_.toLowerCase(Locale.ROOT), (Object) p_236394_1_);
++        return (F) Registry.<Structure<?>>func_218325_a(Registry.field_218361_B, p_236394_0_.toLowerCase(Locale.ROOT), p_236394_1_); // Paper - decomp fix
+     }
+ 
+     public Structure(Codec<C> p_i231997_1_) {
+diff --git a/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java b/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java
+index 80db44be5c38d3ce17765e77a6cbe6d863fd4155..d537eae2ca957079258c4e997b7a0a6bafbabb39 100644
+--- a/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java
++++ b/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java
+@@ -34,10 +34,10 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+         int l = lightenginestoragesky_a.field_215653_c.get(SectionPos.func_218169_f(j));
+ 
+         if (l != lightenginestoragesky_a.field_215652_b && k < l) {
+-            NibbleArray nibblearray = this.func_215520_a((LightDataMap) lightenginestoragesky_a, j);
++            NibbleArray nibblearray = this.func_215531_a(lightenginestoragesky_a, j); // Paper - decompile fix
+ 
+             if (nibblearray == null) {
+-                for (p_215525_1_ = BlockPos.func_218288_f(p_215525_1_); nibblearray == null; nibblearray = this.func_215520_a((LightDataMap) lightenginestoragesky_a, j)) {
++                for (p_215525_1_ = BlockPos.func_218288_f(p_215525_1_); nibblearray == null; nibblearray = this.func_215531_a(lightenginestoragesky_a, j)) { // Paper - decompile fix
+                     j = SectionPos.func_218172_a(j, Direction.UP);
+                     ++k;
+                     if (k >= l) {
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorldLightManager.java b/src/main/java/net/minecraft/world/server/ServerWorldLightManager.java
+index 6aa97535e8f9fc0d5c6a059014d185af0952fe0a..210d3da518a9b00e9b548c941297993a4934e1e2 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorldLightManager.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorldLightManager.java
+@@ -180,9 +180,9 @@ public class ServerWorldLightManager extends WorldLightManager implements AutoCl
+ 
+     public void func_215588_z_() {
+         if ((!this.field_215606_c.isEmpty() || super.func_215570_a()) && this.field_215610_g.compareAndSet(false, true)) {
+-            this.field_215605_b.func_212871_a_((Object) (() -> {
+-                this.b();
+-                this.g.set(false);
++            this.field_215605_b.func_212871_a_((() -> { // Paper - decompile error
++                this.func_215603_b();
++                this.field_215610_g.set(false);
+             }));
+         }
+ 
+diff --git a/src/main/java/net/minecraft/world/server/Ticket.java b/src/main/java/net/minecraft/world/server/Ticket.java
+index 6db20884d281801af88bd81e85fbff3d1e88bd01..795cb1d10674e440af69a84732a675903c4d4af6 100644
+--- a/src/main/java/net/minecraft/world/server/Ticket.java
++++ b/src/main/java/net/minecraft/world/server/Ticket.java
+@@ -23,7 +23,7 @@ public final class Ticket<T> implements Comparable<Ticket<?>> {
+         } else {
+             int j = Integer.compare(System.identityHashCode(this.field_219480_a), System.identityHashCode(ticket.field_219480_a));
+ 
+-            return j != 0 ? j : this.field_219480_a.func_219487_a().compare(this.field_219482_c, ticket.field_219482_c);
++            return j != 0 ? j : this.field_219480_a.func_219487_a().compare(this.field_219482_c, (T)ticket.field_219482_c); // Paper - decompile fix
+         }
+     }
+ 
+diff --git a/src/main/java/net/minecraft/world/storage/DimensionSavedDataManager.java b/src/main/java/net/minecraft/world/storage/DimensionSavedDataManager.java
+index 4ac4818e6a7b9cb183678331cdc4f61f0ae1aced..18b7fb210a34b4eb3bb0f12feea86b621aad41cb 100644
+--- a/src/main/java/net/minecraft/world/storage/DimensionSavedDataManager.java
++++ b/src/main/java/net/minecraft/world/storage/DimensionSavedDataManager.java
+@@ -42,7 +42,7 @@ public class DimensionSavedDataManager {
+         if (t0 != null) {
+             return t0;
+         } else {
+-            T t1 = (WorldSavedData) p_215752_1_.get();
++            T t1 = p_215752_1_.get(); // Paper - decompile fix
+ 
+             this.func_215757_a(t1);
+             return t1;
+@@ -51,7 +51,7 @@ public class DimensionSavedDataManager {
+ 
+     @Nullable
+     public <T extends WorldSavedData> T func_215753_b(Supplier<T> p_215753_1_, String p_215753_2_) {
+-        WorldSavedData persistentbase = (WorldSavedData) this.field_212778_c.get(p_215753_2_);
++        T persistentbase = (T) this.field_212778_c.get(p_215753_2_); // Paper - decompile fix
+ 
+         if (persistentbase == null && !this.field_212778_c.containsKey(p_215753_2_)) {
+             persistentbase = this.func_223409_c(p_215753_1_, p_215753_2_);
+@@ -67,7 +67,7 @@ public class DimensionSavedDataManager {
+             File file = this.func_215754_a(p_223409_2_);
+ 
+             if (file.exists()) {
+-                T t0 = (WorldSavedData) p_223409_1_.get();
++                T t0 = p_223409_1_.get(); // Paper - decompile fix
+                 CompoundNBT nbttagcompound = this.func_215755_a(p_223409_2_, SharedConstants.func_215069_a().getWorldVersion());
+ 
+                 t0.func_76184_a(nbttagcompound.func_74775_l("data"));

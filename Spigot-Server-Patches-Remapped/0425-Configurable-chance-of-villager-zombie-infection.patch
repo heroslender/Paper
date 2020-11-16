@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zero <zero@cock.li>
+Date: Sat, 22 Feb 2020 16:10:31 -0500
+Subject: [PATCH] Configurable chance of villager zombie infection
+
+This allows you to solve an issue in vanilla behavior where:
+* On easy difficulty your villagers will NEVER get infected, meaning they will always die.
+* On normal difficulty they will have a 50% of getting infected or dying.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 1b2256144f7f968667570e5a9838a77173d515c5..f888fc1c5ef4212f81ed936da6485abadc336407 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -601,4 +601,9 @@ public class PaperWorldConfig {
+     private void nerfNetherPortalPigmen() {
+         nerfNetherPortalPigmen = getBoolean("game-mechanics.nerf-pigmen-from-nether-portals", nerfNetherPortalPigmen);
+     }
++
++    public double zombieVillagerInfectionChance = -1.0;
++    private void zombieVillagerInfectionChance() {
++        zombieVillagerInfectionChance = getDouble("zombie-villager-infection-chance", zombieVillagerInfectionChance);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+index bffeff30da3ed5f921485b05797d035e53613833..f1d86cd14b37e13b67694470a68df01a04535aa7 100644
+--- a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+@@ -447,10 +447,14 @@ public class ZombieEntity extends MonsterEntity {
+     @Override
+     public void func_70074_a(LivingEntity p_70074_1_) {
+         super.func_70074_a(p_70074_1_);
+-        if ((this.field_70170_p.func_175659_aa() == Difficulty.NORMAL || this.field_70170_p.func_175659_aa() == Difficulty.HARD) && p_70074_1_ instanceof VillagerEntity) {
+-            if (this.field_70170_p.func_175659_aa() != Difficulty.HARD && this.field_70146_Z.nextBoolean()) {
++        // Paper start
++        if (field_70170_p.paperConfig.zombieVillagerInfectionChance != 0.0 && (field_70170_p.paperConfig.zombieVillagerInfectionChance != -1.0 || this.field_70170_p.func_175659_aa() == Difficulty.NORMAL || this.field_70170_p.func_175659_aa() == Difficulty.HARD) && p_70074_1_ instanceof VillagerEntity) {
++            if (field_70170_p.paperConfig.zombieVillagerInfectionChance == -1.0 && this.field_70170_p.func_175659_aa() != Difficulty.HARD && this.field_70146_Z.nextBoolean()) {
+                 return;
+             }
++            if (field_70170_p.paperConfig.zombieVillagerInfectionChance != -1.0 && (this.field_70146_Z.nextDouble() * 100.0) > field_70170_p.paperConfig.zombieVillagerInfectionChance) {
++                return;
++            } // Paper end
+ 
+             VillagerEntity entityvillager = (VillagerEntity) p_70074_1_;
+             ZombieVillagerEntity entityzombievillager = (ZombieVillagerEntity) EntityType.field_200727_aF.func_200721_a(this.field_70170_p);

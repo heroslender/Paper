@@ -1,0 +1,152 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mark Vainomaa <mikroskeem@mikroskeem.eu>
+Date: Mon, 16 Jul 2018 00:05:05 +0300
+Subject: [PATCH] Add TNTPrimeEvent
+
+
+diff --git a/src/main/java/net/minecraft/block/FireBlock.java b/src/main/java/net/minecraft/block/FireBlock.java
+index a04e9a224f5579169021cbfa464a4c5b8e86d645..4e0e08740fae0690f51e77a28e83e0d6ced8f7d5 100644
+--- a/src/main/java/net/minecraft/block/FireBlock.java
++++ b/src/main/java/net/minecraft/block/FireBlock.java
+@@ -2,9 +2,11 @@ package net.minecraft.block;
+ 
+ import it.unimi.dsi.fastutil.objects.Object2IntMap;
+ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
++import com.destroystokyo.paper.event.block.TNTPrimeEvent; // Paper - TNTPrimeEvent
+ import java.util.Map;
+ import java.util.Random;
+ import net.minecraft.item.BlockItemUseContext;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.state.BooleanProperty;
+ import net.minecraft.state.IntegerProperty;
+ import net.minecraft.state.StateContainer;
+@@ -270,7 +272,7 @@ public class FireBlock extends AbstractFireBlock {
+ 
+                 world.func_180501_a(blockposition, this.func_235494_a_(world, blockposition, l), 3);
+             } else {
+-                world.func_217377_a(blockposition, false);
++                if(iblockdata.func_177230_c() != Blocks.field_150335_W) world.func_217377_a(blockposition, false); // Paper - TNTPrimeEvent - We might be cancelling it below, move the setAir down
+             }
+ 
+             Block block = iblockdata.func_177230_c();
+@@ -278,6 +280,13 @@ public class FireBlock extends AbstractFireBlock {
+             if (block instanceof TNTBlock) {
+                 TNTBlock blocktnt = (TNTBlock) block;
+ 
++                // Paper start - TNTPrimeEvent
++                org.bukkit.block.Block tntBlock = MCUtil.toBukkitBlock(world, blockposition);
++                if (!new TNTPrimeEvent(tntBlock, TNTPrimeEvent.PrimeReason.FIRE, null).callEvent()) {
++                    return;
++                }
++                world.setAir(blockposition, false);
++                // Paper end
+                 TNTBlock.func_196534_a(world, blockposition);
+             }
+         }
+diff --git a/src/main/java/net/minecraft/block/TNTBlock.java b/src/main/java/net/minecraft/block/TNTBlock.java
+index ad8ac1ca87dc8e35dac7393ea94fb53972906390..26c01a0844dfccca99488e74c07f2b441804a7bb 100644
+--- a/src/main/java/net/minecraft/block/TNTBlock.java
++++ b/src/main/java/net/minecraft/block/TNTBlock.java
+@@ -9,6 +9,7 @@ import net.minecraft.entity.projectile.ProjectileEntity;
+ import net.minecraft.item.Item;
+ import net.minecraft.item.ItemStack;
+ import net.minecraft.item.Items;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.state.BooleanProperty;
+ import net.minecraft.state.StateContainer;
+ import net.minecraft.state.properties.BlockStateProperties;
+@@ -20,6 +21,7 @@ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.BlockRayTraceResult;
+ import net.minecraft.world.Explosion;
+ import net.minecraft.world.World;
++import com.destroystokyo.paper.event.block.TNTPrimeEvent; // Paper - TNTPrimeEvent
+ 
+ public class TNTBlock extends Block {
+ 
+@@ -34,6 +36,11 @@ public class TNTBlock extends Block {
+     public void func_220082_b(BlockState p_220082_1_, World p_220082_2_, BlockPos p_220082_3_, BlockState p_220082_4_, boolean p_220082_5_) {
+         if (!p_220082_4_.func_203425_a(p_220082_1_.func_177230_c())) {
+             if (p_220082_2_.func_175640_z(p_220082_3_)) {
++                // Paper start - TNTPrimeEvent
++                org.bukkit.block.Block tntBlock = MCUtil.toBukkitBlock(p_220082_2_, p_220082_3_);;
++                if(!new TNTPrimeEvent(tntBlock, TNTPrimeEvent.PrimeReason.REDSTONE, null).callEvent())
++                    return;
++                // Paper end
+                 func_196534_a(p_220082_2_, p_220082_3_);
+                 p_220082_2_.func_217377_a(p_220082_3_, false);
+             }
+@@ -44,6 +51,11 @@ public class TNTBlock extends Block {
+     @Override
+     public void func_220069_a(BlockState p_220069_1_, World p_220069_2_, BlockPos p_220069_3_, Block p_220069_4_, BlockPos p_220069_5_, boolean p_220069_6_) {
+         if (p_220069_2_.func_175640_z(p_220069_3_)) {
++            // Paper start - TNTPrimeEvent
++            org.bukkit.block.Block tntBlock = MCUtil.toBukkitBlock(p_220069_2_, p_220069_3_);;
++            if(!new TNTPrimeEvent(tntBlock, TNTPrimeEvent.PrimeReason.REDSTONE, null).callEvent())
++                return;
++            // Paper end
+             func_196534_a(p_220069_2_, p_220069_3_);
+             p_220069_2_.func_217377_a(p_220069_3_, false);
+         }
+@@ -62,6 +74,12 @@ public class TNTBlock extends Block {
+     @Override
+     public void func_180652_a(World p_180652_1_, BlockPos p_180652_2_, Explosion p_180652_3_) {
+         if (!p_180652_1_.field_72995_K) {
++            // Paper start - TNTPrimeEvent
++            org.bukkit.block.Block tntBlock = MCUtil.toBukkitBlock(p_180652_1_, p_180652_2_);
++            org.bukkit.entity.Entity source = p_180652_3_.field_77283_e != null ? p_180652_3_.field_77283_e.getBukkitEntity() : null;
++            if(!new TNTPrimeEvent(tntBlock, TNTPrimeEvent.PrimeReason.EXPLOSION, source).callEvent())
++                return;
++            // Paper end
+             TNTEntity entitytntprimed = new TNTEntity(p_180652_1_, (double) p_180652_2_.func_177958_n() + 0.5D, (double) p_180652_2_.func_177956_o(), (double) p_180652_2_.func_177952_p() + 0.5D, p_180652_3_.func_94613_c());
+ 
+             entitytntprimed.func_184534_a((short) (p_180652_1_.field_73012_v.nextInt(entitytntprimed.func_184536_l() / 4) + entitytntprimed.func_184536_l() / 8));
+@@ -90,6 +108,11 @@ public class TNTBlock extends Block {
+         if (item != Items.field_151033_d && item != Items.field_151059_bz) {
+             return super.func_225533_a_(p_225533_1_, p_225533_2_, p_225533_3_, p_225533_4_, p_225533_5_, p_225533_6_);
+         } else {
++            // Paper start - TNTPrimeEvent
++            org.bukkit.block.Block tntBlock = MCUtil.toBukkitBlock(p_225533_2_, p_225533_3_);
++            if(!new TNTPrimeEvent(tntBlock, TNTPrimeEvent.PrimeReason.ITEM, p_225533_4_.getBukkitEntity()).callEvent())
++                return ActionResultType.FAIL;
++            // Paper end
+             func_196535_a(p_225533_2_, p_225533_3_, (LivingEntity) p_225533_4_);
+             p_225533_2_.func_180501_a(p_225533_3_, Blocks.field_150350_a.func_176223_P(), 11);
+             if (!p_225533_4_.func_184812_l_()) {
+@@ -119,6 +142,13 @@ public class TNTBlock extends Block {
+                 }
+                 // CraftBukkit end
+ 
++                // Paper start - TNTPrimeEvent
++                org.bukkit.block.Block tntBlock = MCUtil.toBukkitBlock(p_220066_1_, blockposition);
++                if (!new TNTPrimeEvent(tntBlock, TNTPrimeEvent.PrimeReason.PROJECTILE, p_220066_4_.getBukkitEntity()).callEvent()) {
++                    return;
++                }
++                // Paper end
++
+                 func_196535_a(p_220066_1_, blockposition, entity instanceof LivingEntity ? (LivingEntity) entity : null);
+                 p_220066_1_.func_217377_a(blockposition, false);
+             }
+diff --git a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+index 07536e7bfc5a0017a6eeaf6a4cc1b580235a9307..fb432c3b9c3d35a0397c9bbbe4a539732386af79 100644
+--- a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
++++ b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+@@ -62,6 +62,7 @@ import org.bukkit.craftbukkit.block.CraftBlock;
+ import org.bukkit.event.entity.EntityExplodeEvent;
+ import org.bukkit.event.entity.EntityRegainHealthEvent;
+ // CraftBukkit end
++import com.destroystokyo.paper.event.block.TNTPrimeEvent; // Paper - TNTPrimeEvent
+ 
+ // PAIL: Fixme
+ public class EnderDragonEntity extends MobEntity implements IMob {
+@@ -517,6 +518,11 @@ public class EnderDragonEntity extends MobEntity implements IMob {
+                     });
+                     craftBlock.getNMS().func_215706_a(field_70170_p, blockposition, ItemStack.field_190927_a);
+                 }
++                // Paper start - TNTPrimeEvent
++                org.bukkit.block.Block tntBlock = field_70170_p.getWorld().getBlockAt(blockposition.func_177958_n(), blockposition.func_177956_o(), blockposition.func_177952_p());
++                if(!new TNTPrimeEvent(tntBlock, TNTPrimeEvent.PrimeReason.EXPLOSION, explosionSource.func_94613_c().getBukkitEntity()).callEvent())
++                    continue;
++                // Paper end
+                 nmsBlock.func_180652_a(field_70170_p, blockposition, explosionSource);
+ 
+                 this.field_70170_p.func_217377_a(blockposition, false);

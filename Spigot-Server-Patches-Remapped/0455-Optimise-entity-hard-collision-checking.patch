@@ -1,0 +1,236 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Wed, 15 Apr 2020 18:08:53 -0700
+Subject: [PATCH] Optimise entity hard collision checking
+
+Very few entities actually hard collide, so store them in their own
+entity slices and provide a special getEntites type call just for them.
+This reduces entity collision checking impact (in my testing) by 25%
+for crammed entities (shove 130 cows into an 8x6 area in one chunk).
+Less crammed entities are likely to show significantly less benefit.
+Effectively, this patch optimises crammed entity situations.
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 222f50f6f8ed7a629c435fed0dc0f6c7401cbfe8..5fbd65116c7a46b88954232585d0e0e697766ae9 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -304,6 +304,40 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+     // CraftBukkit end
+ 
++    // Paper start
++    /**
++     * Overriding this field will cause memory leaks.
++     */
++    private final boolean hardCollides;
++
++    private static final java.util.Map<Class<? extends Entity>, Boolean> cachedOverrides = java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
++    {
++        Boolean hardCollides = cachedOverrides.get(this.getClass());
++        if (hardCollides == null) {
++            try {
++                Object getHardCollisionBoxMethod = Entity.class.getMethod("ay");
++                Object getHardCollisionBoxEntityMethod = Entity.class.getMethod("j", Entity.class);
++                if (!this.getClass().getMethod("ay").equals(getHardCollisionBoxMethod)) {
++                    hardCollides = Boolean.TRUE;
++                } else if (!this.getClass().getMethod("j", Entity.class).equals(getHardCollisionBoxEntityMethod)) {
++                    hardCollides = Boolean.TRUE;
++                } else {
++                    hardCollides = Boolean.FALSE;
++                }
++                cachedOverrides.put(this.getClass(), hardCollides);
++            } catch (Throwable thr) {
++                // shouldn't happen, just explode
++                throw new RuntimeException(thr);
++            }
++        }
++        this.hardCollides = hardCollides.booleanValue();
++    }
++
++    public final boolean hardCollides() {
++        return this.hardCollides;
++    }
++    // Paper end
++
+     public Entity(EntityType<?> entitytypes, World world) {
+         this.field_145783_c = Entity.field_213331_b.incrementAndGet();
+         this.field_184244_h = Lists.newArrayList();
+diff --git a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+index 89c792cf7ce75c1da6e07379e0c302c45eb85b65..287dad8f4266e18926ccc90825c6bc68255b9b66 100644
+--- a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
++++ b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+@@ -895,6 +895,7 @@ public class EnderDragonEntity extends MobEntity implements IMob {
+     @Override
+     public void func_70623_bb() {}
+ 
++    public final EnderDragonPartEntity[] getComplexParts() { return this.func_213404_dT(); } // Paper - OBFHELPER
+     public EnderDragonPartEntity[] func_213404_dT() {
+         return this.field_70977_g;
+     }
+diff --git a/src/main/java/net/minecraft/world/IEntityReader.java b/src/main/java/net/minecraft/world/IEntityReader.java
+index f6ec00b6edd9642cbdddc906c31f1cba598ec568..2d51e3051d70c11cf8c1ab8611cf2470890e1a22 100644
+--- a/src/main/java/net/minecraft/world/IEntityReader.java
++++ b/src/main/java/net/minecraft/world/IEntityReader.java
+@@ -62,24 +62,36 @@ public interface IEntityReader {
+         return this.func_225316_b(p_225317_1_, p_225317_2_, EntityPredicates.field_180132_d);
+     }
+ 
++    // Paper start - optimise hard collision
++    /**
++     * Not guaranteed to only return hard colliding entites
++     */
++    default List<Entity> getHardCollidingEntities(@Nullable Entity entity, AxisAlignedBB axisalignedbb, Predicate<Entity> predicate) {
++        return this.func_175674_a(entity, axisalignedbb, predicate);
++    }
++    // Paper end - optimise hard collision
++
+     default Stream<VoxelShape> func_230318_c_(@Nullable Entity p_230318_1_, AxisAlignedBB p_230318_2_, Predicate<Entity> p_230318_3_) {
+         if (p_230318_2_.func_72320_b() < 1.0E-7D) {
+             return Stream.empty();
+         } else {
+             AxisAlignedBB axisalignedbb1 = p_230318_2_.func_186662_g(1.0E-7D);
+ 
+-            return this.func_175674_a(p_230318_1_, axisalignedbb1, p_230318_3_.and((entity1) -> {
++            // Paper start
++            Predicate<Entity> effectivePredicate = p_230318_3_.and((entity1) -> {
+                 return p_230318_1_ == null || !p_230318_1_.func_184223_x(entity1);
+-            })).stream().flatMap((entity1) -> {
++            });
++
++            return ((p_230318_1_ != null && p_230318_1_.hardCollides()) ? this.func_175674_a(p_230318_1_, p_230318_2_, effectivePredicate) : this.getHardCollidingEntities(p_230318_1_, axisalignedbb1, effectivePredicate)).stream().flatMap((entity1) -> {
+                 if (p_230318_1_ != null) {
+-                    AxisAlignedBB axisalignedbb2 = p_230318_1_.func_70114_g(entity1);
++                    AxisAlignedBB axisalignedbb2 = p_230318_1_.func_70114_g(entity1); // Paper - diff on change, hard collision box method
+ 
+                     if (axisalignedbb2 != null && axisalignedbb2.func_72326_a(axisalignedbb1)) {
+                         return Stream.of(entity1.func_70046_E(), axisalignedbb2);
+                     }
+                 }
+ 
+-                return Stream.of(entity1.func_70046_E());
++                return Stream.of(entity1.func_70046_E()); // Paper - diff on change, hard collision box method
+             }).filter(Objects::nonNull).map(VoxelShapes::func_197881_a);
+         }
+     }
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 369bcf29474a253ca237dfbac4c954efefa96222..d91caefa30bdfd64b32a8018a9baf0bcff6dcd5b 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -72,6 +72,7 @@ import net.minecraft.world.chunk.IChunk;
+ import net.minecraft.world.gen.Heightmap;
+ import net.minecraft.world.lighting.WorldLightManager;
+ import net.minecraft.world.server.ChunkHolder;
++import net.minecraft.world.server.ServerChunkProvider;
+ import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.storage.ISpawnWorldInfo;
+ import net.minecraft.world.storage.IWorldInfo;
+@@ -1165,6 +1166,32 @@ public abstract class World implements IWorld, AutoCloseable {
+         return this.func_217353_a(p_225522_1_, p_225522_2_, ChunkStatus.field_222617_m, false);
+     }
+ 
++    // Paper start - optimise hard collision handling
++    @Override
++    public List<Entity> getHardCollidingEntities(@Nullable Entity entity, AxisAlignedBB axisalignedbb, Predicate<Entity> predicate) {
++        // copied from below
++        List<Entity> list = Lists.newArrayList();
++        int i = MathHelper.func_76128_c((axisalignedbb.field_72340_a - 2.0D) / 16.0D);
++        int j = MathHelper.func_76128_c((axisalignedbb.field_72336_d + 2.0D) / 16.0D);
++        int k = MathHelper.func_76128_c((axisalignedbb.field_72339_c - 2.0D) / 16.0D);
++        int l = MathHelper.func_76128_c((axisalignedbb.field_72334_f + 2.0D) / 16.0D);
++
++        ServerChunkProvider chunkProvider = ((ServerWorld)this).E();
++
++        for (int i1 = i; i1 <= j; ++i1) {
++            for (int j1 = k; j1 <= l; ++j1) {
++                Chunk chunk = chunkProvider.getChunkAtIfLoadedMainThread(i1, j1);
++
++                if (chunk != null) {
++                    chunk.getHardCollidingEntities(entity, axisalignedbb, list, predicate);
++                }
++            }
++        }
++
++        return list;
++    }
++    // Paper end - optimise hard collision handling
++
+     @Override
+     public List<Entity> func_175674_a(@Nullable Entity p_175674_1_, AxisAlignedBB p_175674_2_, @Nullable Predicate<? super Entity> p_175674_3_) {
+         this.func_217381_Z().func_230035_c_("getEntities");
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 59e23075bb80b0ac30181dede6b075d3788ac74c..e96a27032a8c426bba6a4c10901895bc8eed8acc 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -135,6 +135,54 @@ public class Chunk implements IChunk {
+     private final int[] inventoryEntityCounts = new int[16];
+     // Paper end
+ 
++    // Paper start - optimise hard collision handling
++    final com.destroystokyo.paper.util.maplist.EntityList[] hardCollidingEntities = new com.destroystokyo.paper.util.maplist.EntityList[16];
++
++    {
++        for (int i = 0, len = this.hardCollidingEntities.length; i < len; ++i) {
++            this.hardCollidingEntities[i] = new com.destroystokyo.paper.util.maplist.EntityList();
++        }
++    }
++
++    public final void getHardCollidingEntities(@Nullable Entity entity, AxisAlignedBB axisalignedbb, List<Entity> into, Predicate<Entity> predicate) {
++        // copied from getEntities
++        int min = MathHelper.func_76128_c((axisalignedbb.field_72338_b - 2.0D) / 16.0D);
++        int max = MathHelper.func_76128_c((axisalignedbb.field_72337_e + 2.0D) / 16.0D);
++
++        min = MathHelper.func_76125_a(min, 0, this.hardCollidingEntities.length - 1);
++        max = MathHelper.func_76125_a(max, 0, this.hardCollidingEntities.length - 1);
++
++        for (int k = min; k <= max; ++k) {
++            com.destroystokyo.paper.util.maplist.EntityList entityList = this.hardCollidingEntities[k];
++            Entity[] entities = entityList.getRawData();
++
++            for (int i = 0, len = entityList.size(); i < len; ++i) {
++                Entity entity1 = entities[i];
++                if (entity1.shouldBeRemoved) continue; // Paper
++
++                if (entity1 != entity && entity1.func_174813_aQ().intersects(axisalignedbb) && (predicate == null || predicate.test(entity1))) {
++                    into.add(entity1);
++
++                    if (!(entity1 instanceof EnderDragonEntity)) {
++                        continue;
++                    }
++
++                    EnderDragonPartEntity[] aentitycomplexpart = ((EnderDragonEntity) entity1).getComplexParts();
++                    int l = aentitycomplexpart.length;
++
++                    for (int i1 = 0; i1 < l; ++i1) {
++                        EnderDragonPartEntity entitycomplexpart = aentitycomplexpart[i1];
++
++                        if (entitycomplexpart != entity && entitycomplexpart.func_174813_aQ().intersects(axisalignedbb) && (predicate == null || predicate.test(entitycomplexpart))) {
++                            into.add(entitycomplexpart);
++                        }
++                    }
++                }
++            }
++        }
++    }
++    // Paper end - optimise hard collision handling
++
+     public Chunk(World world, ChunkPos chunkcoordintpair, BiomeContainer biomestorage, UpgradeData chunkconverter, ITickList<Block> ticklist, ITickList<Fluid> ticklist1, long i, @Nullable ChunkSection[] achunksection, @Nullable Consumer<Chunk> consumer) {
+         this.field_76652_q = new ChunkSection[16];
+         this.field_201618_i = Maps.newHashMap();
+@@ -590,7 +638,7 @@ public class Chunk implements IChunk {
+         p_76612_1_.field_70162_ai = k;
+         p_76612_1_.field_70164_aj = this.field_212816_F.field_77275_b;
+         this.entities.add(p_76612_1_); // Paper - per chunk entity list
+-        this.field_76645_j[k].add(p_76612_1_);
++        this.field_76645_j[k].add(p_76612_1_); if (p_76612_1_.hardCollides()) this.hardCollidingEntities[k].add(p_76612_1_); // Paper - optimise hard colliding entities
+         // Paper start
+         if (p_76612_1_ instanceof ItemEntity) {
+             itemCounts[k]++;
+@@ -627,7 +675,7 @@ public class Chunk implements IChunk {
+             p_76608_1_.entitySlice = null;
+             p_76608_1_.field_70175_ag = false;
+         }
+-        if (!this.field_76645_j[p_76608_2_].remove(p_76608_1_)) {
++        if (p_76608_1_.hardCollides()) this.hardCollidingEntities[p_76608_2_].remove(p_76608_1_); if (!this.field_76645_j[p_76608_2_].remove(p_76608_1_)) { // Paper - optimise hard colliding entities
+             return;
+         }
+         if (p_76608_1_ instanceof ItemEntity) {

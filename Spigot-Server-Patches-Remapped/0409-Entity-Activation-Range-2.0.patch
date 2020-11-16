@@ -1,0 +1,795 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 13 May 2016 01:38:06 -0400
+Subject: [PATCH] Entity Activation Range 2.0
+
+Optimizes performance of Activation Range
+
+Adds many new configurations and a new wake up inactive system
+
+Fixes and adds new Immunities to improve gameplay behavior
+
+Adds water Mobs to activation range config and nerfs fish
+Adds flying monsters to control ghast and phantoms
+Adds villagers as separate config
+
+diff --git a/src/main/java/net/minecraft/entity/CreatureEntity.java b/src/main/java/net/minecraft/entity/CreatureEntity.java
+index 0f958674e20ea61a55156ea8c86e2ee36c56f0bb..8355f0417ee1cafd775721b793a4bde19aeff9a1 100644
+--- a/src/main/java/net/minecraft/entity/CreatureEntity.java
++++ b/src/main/java/net/minecraft/entity/CreatureEntity.java
+@@ -14,6 +14,7 @@ import org.bukkit.event.entity.EntityUnleashEvent;
+ public abstract class CreatureEntity extends MobEntity {
+ 
+     public org.bukkit.craftbukkit.entity.CraftCreature getBukkitCreature() { return (org.bukkit.craftbukkit.entity.CraftCreature) super.getBukkitEntity(); } // Paper
++    public BlockPos movingTarget = null; public BlockPos getMovingTarget() { return movingTarget; } // Paper
+ 
+     protected CreatureEntity(EntityType<? extends CreatureEntity> entitytypes, World world) {
+         super(entitytypes, world);
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index f1fa0bd7e7f4232f900192d148e9d1161a9f0c73..034c433c4b25c74037cc888e8002f12bea116674 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -39,6 +39,7 @@ import net.minecraft.enchantment.ProtectionEnchantment;
+ import net.minecraft.entity.effect.LightningBoltEntity;
+ import net.minecraft.entity.item.BoatEntity;
+ import net.minecraft.entity.item.ItemEntity;
++import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
+ import net.minecraft.entity.passive.AnimalEntity;
+ import net.minecraft.entity.passive.TameableEntity;
+ import net.minecraft.entity.passive.fish.AbstractFishEntity;
+@@ -258,7 +259,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     public boolean field_70158_ak;
+     public boolean field_70160_al;
+     public int field_71088_bW;
+-    protected boolean field_71087_bX; public final boolean inPortal() { return this.field_71087_bX; } // Paper - OBFHELPER
++    public boolean field_71087_bX; // Paper - public
+     protected int field_82153_h;
+     protected BlockPos field_181016_an;
+     protected Vector3d field_181017_ao;
+@@ -284,6 +285,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     public final org.spigotmc.ActivationRange.ActivationType activationType = org.spigotmc.ActivationRange.initializeEntityActivationType(this);
+     public final boolean defaultActivationState;
+     public long activatedTick = Integer.MIN_VALUE;
++    public boolean isTemporarilyActive = false; // Paper
+     public boolean spawnedViaMobSpawner; // Paper - Yes this name is similar to above, upstream took the better one
+     protected int numCollisions = 0; // Paper
+     public void inactiveTick() { }
+@@ -667,6 +669,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             this.func_174829_m();
+         } else {
+             if (p_213315_1_ == MoverType.PISTON) {
++                this.activatedTick = MinecraftServer.currentTick + 20; // Paper
+                 p_213315_2_ = this.func_213308_a(p_213315_2_);
+                 if (p_213315_2_.equals(Vector3d.field_186680_a)) {
+                     return;
+@@ -679,6 +682,13 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+                 this.field_213328_B = Vector3d.field_186680_a;
+                 this.func_213317_d(Vector3d.field_186680_a);
+             }
++            // Paper start - ignore movement changes while inactive.
++            if (isTemporarilyActive && !(this instanceof ItemEntity || this instanceof AbstractMinecartEntity) && p_213315_2_ == func_213322_ci() && p_213315_1_ == MoverType.SELF) {
++                func_213317_d(Vector3d.field_186680_a);
++                this.field_70170_p.func_217381_Z().func_76319_b();
++                return;
++            }
++            // Paper end
+ 
+             p_213315_2_ = this.func_225514_a_(p_213315_2_, p_213315_1_);
+             Vector3d vec3d1 = this.func_213306_e(p_213315_2_);
+@@ -2792,6 +2802,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         return this.field_189513_ar;
+     }
+ 
++    public final boolean isPushedByWater() { return this.func_96092_aw(); } // Paper - OBFHELPER - the below is not an obfhelper, don't use it!
+     public boolean func_96092_aw() {
+         // Paper start
+         return this.pushedByWater();
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 3c889f9f17d6af72743fb9ea031c4d64a883a81f..4d0c90e96d7c4c573fa2a8922db3be2d0752cfec 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -191,7 +191,7 @@ public abstract class LivingEntity extends Entity {
+     protected float field_70741_aB;
+     protected int field_70744_aE; protected int getKillCount() { return this.field_70744_aE; } // Paper - OBFHELPER
+     public float field_110153_bc;
+-    protected boolean field_70703_bu;
++    public boolean field_70703_bu; // Paper protected -> public
+     public float field_70702_br;
+     public float field_70701_bs;
+     public float field_191988_bg;
+diff --git a/src/main/java/net/minecraft/entity/MobEntity.java b/src/main/java/net/minecraft/entity/MobEntity.java
+index b37db45378a9315dafe72e5b5863ca41a64a2056..ebe074e34ffe4a68c743730c38f1f1af0c6c7b40 100644
+--- a/src/main/java/net/minecraft/entity/MobEntity.java
++++ b/src/main/java/net/minecraft/entity/MobEntity.java
+@@ -116,7 +116,7 @@ public abstract class MobEntity extends LivingEntity {
+     public ResourceLocation field_184659_bA;
+     public long field_184653_bB;
+     @Nullable
+-    private Entity field_110168_bw;
++    public Entity field_110168_bw; // Paper - private -> public
+     private int field_213400_bI;
+     @Nullable
+     private CompoundNBT field_110170_bx;
+@@ -197,6 +197,17 @@ public abstract class MobEntity extends LivingEntity {
+         return this.field_70749_g;
+     }
+ 
++    // Paper start
++    @Override
++    public void inactiveTick() {
++        super.inactiveTick();
++        this.field_70714_bg.inactiveTick();
++        if (this.field_70715_bh.inactiveTick()) {
++            this.field_70715_bh.func_75774_a();
++        }
++    }
++    // Paper end
++
+     public MovementController func_70605_aq() {
+         if (this.func_184218_aH() && this.func_184187_bx() instanceof MobEntity) {
+             MobEntity entityinsentient = (MobEntity) this.func_184187_bx();
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/Goal.java b/src/main/java/net/minecraft/entity/ai/goal/Goal.java
+index 871b0c42dbb9cab0d599507291e573dfc1da7265..ba78ffb3d7f627f4846d4a6b843392c7d6cc79db 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/Goal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/Goal.java
+@@ -20,7 +20,10 @@ public abstract class Goal {
+ 
+     public void func_75249_e() {}
+ 
+-    public void func_75251_c() {}
++    public void func_75251_c() {
++        onTaskReset(); // Paper
++    }
++    public void onTaskReset() {} // Paper
+ 
+     public void func_75246_d() {}
+ 
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/GoalSelector.java b/src/main/java/net/minecraft/entity/ai/goal/GoalSelector.java
+index 7320bbb04c6fa22e110019e19968c45a2c0584eb..91ce0db5afaf4efb7bc4727b3db62b1afc569a99 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/GoalSelector.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/GoalSelector.java
+@@ -26,10 +26,11 @@ public class GoalSelector {
+         }
+     };
+     private final Map<Goal.Flag, PrioritizedGoal> field_220891_c = new EnumMap(Goal.Flag.class);
+-    private final Set<PrioritizedGoal> field_220892_d = Sets.newLinkedHashSet();
++    private final Set<PrioritizedGoal> field_220892_d = Sets.newLinkedHashSet(); private Set<PrioritizedGoal> getTasks() { return field_220892_d; }// Paper - OBFHELPER
+     private final Supplier<IProfiler> field_75781_c;
+     private final EnumSet<Goal.Flag> field_220893_f = EnumSet.noneOf(Goal.Flag.class);
+-    private int field_75779_e = 3;
++    private int field_75779_e = 3;private int getTickRate() { return field_75779_e; } // Paper - OBFHELPER
++    private int curRate;private int getCurRate() { return curRate; } private void incRate() { this.curRate++; } // Paper TODO
+ 
+     public GoalSelector(Supplier<IProfiler> p_i231546_1_) {
+         this.field_75781_c = p_i231546_1_;
+@@ -39,6 +40,25 @@ public class GoalSelector {
+         this.field_220892_d.add(new PrioritizedGoal(p_75776_1_, p_75776_2_));
+     }
+ 
++    // Paper start
++    public boolean inactiveTick() {
++        if (getCurRate() % getTickRate() != 0) {
++            incRate();
++            return false;
++        } else {
++            return true;
++        }
++    }
++    public boolean hasTasks() {
++        for (PrioritizedGoal task : getTasks()) {
++            if (task.isRunning()) {
++                return true;
++            }
++        }
++        return false;
++    }
++    // Paper end
++
+     public void func_85156_a(Goal p_85156_1_) {
+         this.field_220892_d.stream().filter((pathfindergoalwrapped) -> {
+             return pathfindergoalwrapped.func_220772_j() == p_85156_1_;
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/MoveToBlockGoal.java b/src/main/java/net/minecraft/entity/ai/goal/MoveToBlockGoal.java
+index 218f89580b0966024420f632688480d3ea169456..9514438f51c2e2ab07a269a8ac12e895b89c637b 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/MoveToBlockGoal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/MoveToBlockGoal.java
+@@ -9,12 +9,12 @@ import net.minecraft.world.IWorldReader;
+ 
+ public abstract class MoveToBlockGoal extends Goal {
+ 
+-    protected final CreatureEntity field_179495_c;
++    protected final CreatureEntity field_179495_c;public CreatureEntity getEntity() { return field_179495_c; } // Paper - OBFHELPER
+     public final double field_179492_d;
+     protected int field_179496_a;
+     protected int field_179493_e;
+     private int field_179490_f;
+-    protected BlockPos field_179494_b;
++    protected BlockPos field_179494_b; public BlockPos getTarget() { return field_179494_b; } public void setTarget(BlockPos pos) { this.field_179494_b = pos; getEntity().movingTarget = pos != BlockPos.field_177992_a ? pos : null; } // Paper - OBFHELPER
+     private boolean field_179491_g;
+     private final int field_179497_h;
+     private final int field_203113_j;
+@@ -23,6 +23,13 @@ public abstract class MoveToBlockGoal extends Goal {
+     public MoveToBlockGoal(CreatureEntity entitycreature, double d0, int i) {
+         this(entitycreature, d0, i, 1);
+     }
++    // Paper start - activation range improvements
++    @Override
++    public void onTaskReset() {
++        super.onTaskReset();
++        setTarget(BlockPos.field_177992_a);
++    }
++    // Paper end
+ 
+     public MoveToBlockGoal(CreatureEntity entitycreature, double d0, int i, int j) {
+         this.field_179494_b = BlockPos.field_177992_a;
+@@ -105,6 +112,7 @@ public abstract class MoveToBlockGoal extends Goal {
+                         blockposition_mutableblockposition.func_239621_a_((Vector3i) blockposition, i1, k - 1, j1);
+                         if (this.field_179495_c.func_213389_a((BlockPos) blockposition_mutableblockposition) && this.func_179488_a(this.field_179495_c.field_70170_p, blockposition_mutableblockposition)) {
+                             this.field_179494_b = blockposition_mutableblockposition;
++                            setTarget(blockposition_mutableblockposition.func_185334_h()); // Paper
+                             return true;
+                         }
+                     }
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/PrioritizedGoal.java b/src/main/java/net/minecraft/entity/ai/goal/PrioritizedGoal.java
+index 5904e2d3d5150d9614d3085215d6f44bc089c7e9..8712500920ce2181b2eec35be9afea666514b36f 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/PrioritizedGoal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/PrioritizedGoal.java
+@@ -64,6 +64,7 @@ public class PrioritizedGoal extends Goal {
+         return this.field_220774_a.func_220686_i();
+     }
+ 
++    public boolean isRunning() { return this.func_220773_g(); } // Paper - OBFHELPER
+     public boolean func_220773_g() {
+         return this.field_220776_c;
+     }
+diff --git a/src/main/java/net/minecraft/entity/merchant/villager/AbstractVillagerEntity.java b/src/main/java/net/minecraft/entity/merchant/villager/AbstractVillagerEntity.java
+index 5d1ee6a63d9a2366e5024cab7771179a3cd2e57d..e5f0bc5f8682f854df6d86723a12daf48c9908c8 100644
+--- a/src/main/java/net/minecraft/entity/merchant/villager/AbstractVillagerEntity.java
++++ b/src/main/java/net/minecraft/entity/merchant/villager/AbstractVillagerEntity.java
+@@ -73,10 +73,12 @@ public abstract class AbstractVillagerEntity extends AgeableEntity implements IN
+         return super.func_213386_a(p_213386_1_, p_213386_2_, p_213386_3_, (ILivingEntityData) p_213386_4_, p_213386_5_);
+     }
+ 
++    public final int getUnhappy() { return func_213719_ec(); } // Paper - OBFHELPER
+     public int func_213719_ec() {
+         return (Integer) this.field_70180_af.func_187225_a(AbstractVillagerEntity.field_222820_bA);
+     }
+ 
++    public final void setUnhappy(int i) { func_213720_r(i); } // Paper - OBFHELPER
+     public void func_213720_r(int p_213720_1_) {
+         this.field_70180_af.func_187227_b(AbstractVillagerEntity.field_222820_bA, p_213720_1_);
+     }
+diff --git a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+index da65f67eedb504eaf26114cd1f76f99826b83801..2b01436fdb99861d9814584c44755d97f3b69a64 100644
+--- a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
++++ b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+@@ -214,18 +214,29 @@ public class VillagerEntity extends AbstractVillagerEntity implements IReputatio
+     @Override
+     public void inactiveTick() {
+         // SPIGOT-3874, SPIGOT-3894, SPIGOT-3846, SPIGOT-5286 :(
+-        if (field_70170_p.spigotConfig.tickInactiveVillagers && this.func_70613_aW()) {
+-            this.func_70619_bc();
++        // Paper start
++        if (this.getUnhappy() > 0) {
++            this.setUnhappy(this.getUnhappy() - 1);
+         }
++        if (this.func_70613_aW()) {
++            if (field_70170_p.spigotConfig.tickInactiveVillagers) {
++                this.func_70619_bc();
++            } else {
++                this.mobTick(true);
++            }
++        }
++        doReputationTick();
++        // Paper end
++
+         super.inactiveTick();
+     }
+     // Spigot End
+ 
+     @Override
+-    protected void func_70619_bc() {
++    protected void func_70619_bc() { mobTick(false); }
++    protected void mobTick(boolean inactive) {
+         this.field_70170_p.func_217381_Z().func_76320_a("villagerBrain");
+-        this.func_213375_cj().func_218210_a((ServerWorld) this.field_70170_p, this); // CraftBukkit - decompile error
+-        this.field_70170_p.func_217381_Z().func_76319_b();
++        if (!inactive) this.func_213375_cj().func_218210_a((ServerWorld) this.field_70170_p, this); // CraftBukkit - decompile error // Paper
+         if (this.field_234542_bL_) {
+             this.field_234542_bL_ = false;
+         }
+@@ -248,7 +259,7 @@ public class VillagerEntity extends AbstractVillagerEntity implements IReputatio
+             this.field_213778_bG = null;
+         }
+ 
+-        if (!this.func_175446_cd() && this.field_70146_Z.nextInt(100) == 0) {
++        if (!inactive && !this.func_175446_cd() && this.field_70146_Z.nextInt(100) == 0) { // Paper
+             Raid raid = ((ServerWorld) this.field_70170_p).func_217475_c_(this.func_233580_cy_());
+ 
+             if (raid != null && raid.func_221333_v() && !raid.func_221319_a()) {
+@@ -259,6 +270,7 @@ public class VillagerEntity extends AbstractVillagerEntity implements IReputatio
+         if (this.func_213700_eh().func_221130_b() == VillagerProfession.field_221151_a && this.func_213716_dX()) {
+             this.func_213750_eg();
+         }
++        if (inactive) return; // Paper
+ 
+         super.func_70619_bc();
+     }
+@@ -890,6 +902,7 @@ public class VillagerEntity extends AbstractVillagerEntity implements IReputatio
+         }
+     }
+ 
++    private void doReputationTick() { func_223343_eC(); } // Paper - OBFHELPER
+     private void func_223343_eC() {
+         long i = this.field_70170_p.func_82737_E();
+ 
+diff --git a/src/main/java/net/minecraft/entity/passive/horse/LlamaEntity.java b/src/main/java/net/minecraft/entity/passive/horse/LlamaEntity.java
+index a0c490f2207cd0df2fb184bf1128112dbc91e28b..18f391cfff1709af94c999619bbc7be7deddc7ad 100644
+--- a/src/main/java/net/minecraft/entity/passive/horse/LlamaEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/horse/LlamaEntity.java
+@@ -452,6 +452,7 @@ public class LlamaEntity extends AbstractChestedHorseEntity implements IRangedAt
+         return this.field_190725_bL != null;
+     }
+ 
++    public final boolean inCaravan() { return this.func_190718_dR(); } // Paper - OBFHELPER
+     public boolean func_190718_dR() {
+         return this.field_190724_bK != null;
+     }
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index fb00a72c14276dccd8e7c5c9875fa523683d0307..8512f7ae48b1d86e28e746de31e88ea69e84cb4d 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -141,6 +141,12 @@ public abstract class World implements IWorld, AutoCloseable {
+     public long ticksPerWaterSpawns;
+     public long ticksPerWaterAmbientSpawns;
+     public long ticksPerAmbientSpawns;
++    // Paper start
++    public int wakeupInactiveRemainingAnimals;
++    public int wakeupInactiveRemainingFlying;
++    public int wakeupInactiveRemainingMonsters;
++    public int wakeupInactiveRemainingVillagers;
++    // Paper end
+     public boolean populating;
+     public final org.spigotmc.SpigotWorldConfig spigotConfig; // Spigot
+ 
+diff --git a/src/main/java/org/spigotmc/ActivationRange.java b/src/main/java/org/spigotmc/ActivationRange.java
+index b137afe740d8637bc3208e0c5c126a5e7374f177..0bc46ad323fbda3c2d6cc9b3209369da583fa580 100644
+--- a/src/main/java/org/spigotmc/ActivationRange.java
++++ b/src/main/java/org/spigotmc/ActivationRange.java
+@@ -4,7 +4,11 @@ import java.util.Collection;
+ import java.util.List;
+ import net.minecraft.entity.CreatureEntity;
+ import net.minecraft.entity.Entity;
++import net.minecraft.entity.FlyingEntity;
+ import net.minecraft.entity.LivingEntity;
++import net.minecraft.entity.MobEntity;
++import net.minecraft.entity.ai.brain.Brain;
++import net.minecraft.entity.ai.brain.schedule.Activity;
+ import net.minecraft.entity.boss.WitherEntity;
+ import net.minecraft.entity.boss.dragon.EnderDragonEntity;
+ import net.minecraft.entity.boss.dragon.EnderDragonPartEntity;
+@@ -15,22 +19,28 @@ import net.minecraft.entity.item.TNTEntity;
+ import net.minecraft.entity.merchant.villager.VillagerEntity;
+ import net.minecraft.entity.monster.AbstractRaiderEntity;
+ import net.minecraft.entity.monster.CreeperEntity;
+-import net.minecraft.entity.monster.MonsterEntity;
+-import net.minecraft.entity.monster.SlimeEntity;
++import net.minecraft.entity.monster.IMob;
++import net.minecraft.entity.monster.PillagerEntity;
+ import net.minecraft.entity.passive.AmbientEntity;
+ import net.minecraft.entity.passive.AnimalEntity;
++import net.minecraft.entity.passive.BeeEntity;
+ import net.minecraft.entity.passive.SheepEntity;
++import net.minecraft.entity.passive.WaterMobEntity;
++import net.minecraft.entity.passive.horse.LlamaEntity;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.entity.projectile.AbstractArrowEntity;
+ import net.minecraft.entity.projectile.DamagingProjectileEntity;
++import net.minecraft.entity.projectile.EyeOfEnderEntity;
+ import net.minecraft.entity.projectile.FireworkRocketEntity;
+ import net.minecraft.entity.projectile.ThrowableEntity;
+ import net.minecraft.entity.projectile.TridentEntity;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.math.AxisAlignedBB;
++import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.MathHelper;
+ import net.minecraft.world.World;
+ import net.minecraft.world.chunk.Chunk;
++import net.minecraft.world.server.ServerChunkProvider;
+ import co.aikar.timings.MinecraftTimings;
+ 
+ public class ActivationRange
+@@ -38,6 +48,9 @@ public class ActivationRange
+ 
+     public enum ActivationType
+     {
++        WATER, // Paper
++        FLYING_MONSTER, // Paper
++        VILLAGER, // Paper
+         MONSTER,
+         ANIMAL,
+         RAIDER,
+@@ -45,6 +58,43 @@ public class ActivationRange
+ 
+         AxisAlignedBB boundingBox = new AxisAlignedBB( 0, 0, 0, 0, 0, 0 );
+     }
++    // Paper start
++
++    static Activity[] VILLAGER_PANIC_IMMUNITIES = {
++        Activity.field_221374_j,
++        Activity.field_221373_i,
++        Activity.field_221372_h,
++        Activity.field_221371_g
++    };
++
++    private static int checkInactiveWakeup(Entity entity) {
++        World world = entity.field_70170_p;
++        SpigotWorldConfig config = world.spigotConfig;
++        long inactiveFor = MinecraftServer.currentTick - entity.activatedTick;
++        if (entity.activationType == ActivationType.VILLAGER) {
++            if (inactiveFor > config.wakeUpInactiveVillagersEvery && world.wakeupInactiveRemainingVillagers > 0) {
++                world.wakeupInactiveRemainingVillagers--;
++                return config.wakeUpInactiveVillagersFor;
++            }
++        } else if (entity.activationType == ActivationType.ANIMAL) {
++            if (inactiveFor > config.wakeUpInactiveAnimalsEvery && world.wakeupInactiveRemainingAnimals > 0) {
++                world.wakeupInactiveRemainingAnimals--;
++                return config.wakeUpInactiveAnimalsFor;
++            }
++        } else if (entity.activationType == ActivationType.FLYING_MONSTER) {
++            if (inactiveFor > config.wakeUpInactiveFlyingEvery && world.wakeupInactiveRemainingFlying > 0) {
++                world.wakeupInactiveRemainingFlying--;
++                return config.wakeUpInactiveFlyingFor;
++            }
++        } else if (entity.activationType == ActivationType.MONSTER || entity.activationType == ActivationType.RAIDER) {
++            if (inactiveFor > config.wakeUpInactiveMonstersEvery && world.wakeupInactiveRemainingMonsters > 0) {
++                world.wakeupInactiveRemainingMonsters--;
++                return config.wakeUpInactiveMonstersFor;
++            }
++        }
++        return -1;
++    }
++    // Paper end
+ 
+     static AxisAlignedBB maxBB = new AxisAlignedBB( 0, 0, 0, 0, 0, 0 );
+ 
+@@ -57,10 +107,13 @@ public class ActivationRange
+      */
+     public static ActivationType initializeEntityActivationType(Entity entity)
+     {
++        if (entity instanceof WaterMobEntity) { return ActivationType.WATER; } // Paper
++        else if (entity instanceof VillagerEntity) { return ActivationType.VILLAGER; } // Paper
++        else if (entity instanceof FlyingEntity && entity instanceof IMob) { return ActivationType.FLYING_MONSTER; } // Paper - doing & Monster incase Flying no longer includes monster in future
+         if ( entity instanceof AbstractRaiderEntity )
+         {
+             return ActivationType.RAIDER;
+-        } else if ( entity instanceof MonsterEntity || entity instanceof SlimeEntity )
++        } else if ( entity instanceof IMob ) // Paper - correct monster check
+         {
+             return ActivationType.MONSTER;
+         } else if ( entity instanceof CreatureEntity || entity instanceof AmbientEntity )
+@@ -81,10 +134,14 @@ public class ActivationRange
+      */
+     public static boolean initializeEntityActivationState(Entity entity, SpigotWorldConfig config)
+     {
+-        if ( ( entity.activationType == ActivationType.MISC && config.miscActivationRange == 0 )
+-                || ( entity.activationType == ActivationType.RAIDER && config.raiderActivationRange == 0 )
+-                || ( entity.activationType == ActivationType.ANIMAL && config.animalActivationRange == 0 )
+-                || ( entity.activationType == ActivationType.MONSTER && config.monsterActivationRange == 0 )
++        if ( ( entity.activationType == ActivationType.MISC && config.miscActivationRange <= 0 )
++                || ( entity.activationType == ActivationType.RAIDER && config.raiderActivationRange <= 0 )
++                || ( entity.activationType == ActivationType.ANIMAL && config.animalActivationRange <= 0 )
++                || ( entity.activationType == ActivationType.MONSTER && config.monsterActivationRange <= 0 )
++                || ( entity.activationType == ActivationType.VILLAGER && config.villagerActivationRange <= 0 ) // Paper
++                || ( entity.activationType == ActivationType.WATER && config.waterActivationRange <= 0 ) // Paper
++                || ( entity.activationType == ActivationType.FLYING_MONSTER && config.flyingMonsterActivationRange <= 0 ) // Paper
++                || entity instanceof EyeOfEnderEntity // Paper
+                 || entity instanceof PlayerEntity
+                 || entity instanceof ThrowableEntity
+                 || entity instanceof EnderDragonEntity
+@@ -117,10 +174,25 @@ public class ActivationRange
+         final int raiderActivationRange = world.spigotConfig.raiderActivationRange;
+         final int animalActivationRange = world.spigotConfig.animalActivationRange;
+         final int monsterActivationRange = world.spigotConfig.monsterActivationRange;
++        // Paper start
++        final int waterActivationRange = world.spigotConfig.waterActivationRange;
++        final int flyingActivationRange = world.spigotConfig.flyingMonsterActivationRange;
++        final int villagerActivationRange = world.spigotConfig.villagerActivationRange;
++        world.wakeupInactiveRemainingAnimals = Math.min(world.wakeupInactiveRemainingAnimals + 1, world.spigotConfig.wakeUpInactiveAnimals);
++        world.wakeupInactiveRemainingVillagers = Math.min(world.wakeupInactiveRemainingVillagers + 1, world.spigotConfig.wakeUpInactiveVillagers);
++        world.wakeupInactiveRemainingMonsters = Math.min(world.wakeupInactiveRemainingMonsters + 1, world.spigotConfig.wakeUpInactiveMonsters);
++        world.wakeupInactiveRemainingFlying = Math.min(world.wakeupInactiveRemainingFlying + 1, world.spigotConfig.wakeUpInactiveFlying);
++        final ServerChunkProvider chunkProvider = (ServerChunkProvider) world.func_72863_F();
++        // Paper end
+ 
+         int maxRange = Math.max( monsterActivationRange, animalActivationRange );
+         maxRange = Math.max( maxRange, raiderActivationRange );
+         maxRange = Math.max( maxRange, miscActivationRange );
++        // Paper start
++        maxRange = Math.max( maxRange, flyingActivationRange );
++        maxRange = Math.max( maxRange, waterActivationRange );
++        maxRange = Math.max( maxRange, villagerActivationRange );
++        // Paper end
+         maxRange = Math.min( ( world.spigotConfig.viewDistance << 4 ) - 8, maxRange );
+ 
+         for ( PlayerEntity player : world.func_217369_A() )
+@@ -132,6 +204,11 @@ public class ActivationRange
+             ActivationType.RAIDER.boundingBox = player.func_174813_aQ().func_72314_b( raiderActivationRange, 256, raiderActivationRange );
+             ActivationType.ANIMAL.boundingBox = player.func_174813_aQ().func_72314_b( animalActivationRange, 256, animalActivationRange );
+             ActivationType.MONSTER.boundingBox = player.func_174813_aQ().func_72314_b( monsterActivationRange, 256, monsterActivationRange );
++            // Paper start
++            ActivationType.WATER.boundingBox = player.func_174813_aQ().func_72314_b( waterActivationRange, 256, waterActivationRange );
++            ActivationType.FLYING_MONSTER.boundingBox = player.func_174813_aQ().func_72314_b( flyingActivationRange, 256, flyingActivationRange );
++            ActivationType.VILLAGER.boundingBox = player.func_174813_aQ().func_72314_b( villagerActivationRange, 256, waterActivationRange );
++            // Paper end
+ 
+             int i = MathHelper.func_76128_c( maxBB.field_72340_a / 16.0D );
+             int j = MathHelper.func_76128_c( maxBB.field_72336_d / 16.0D );
+@@ -142,7 +219,7 @@ public class ActivationRange
+             {
+                 for ( int j1 = k; j1 <= l; ++j1 )
+                 {
+-                    Chunk chunk = (Chunk) world.getChunkIfLoadedImmediately( i1, j1 );
++                    Chunk chunk = chunkProvider.getChunkAtIfLoadedMainThreadNoCache( i1, j1 ); // Paper
+                     if ( chunk != null )
+                     {
+                         activateChunkEntities( chunk );
+@@ -160,19 +237,15 @@ public class ActivationRange
+      */
+     private static void activateChunkEntities(Chunk chunk)
+     {
+-        for ( List<Entity> slice : chunk.field_76645_j )
+-        {
+-            for ( Entity entity : (Collection<Entity>) slice )
++        // Paper start
++        Entity[] rawData = chunk.entities.getRawData();
++        for (int i = 0; i < chunk.entities.size(); i++) {
++            Entity entity = rawData[i];
++            //for ( Entity entity : (Collection<Entity>) slice )
++            // Paper end
+             {
+-                if ( MinecraftServer.currentTick > entity.activatedTick )
+-                {
+-                    if ( entity.defaultActivationState )
+-                    {
+-                        entity.activatedTick = MinecraftServer.currentTick;
+-                        continue;
+-                    }
+-                    if ( entity.activationType.boundingBox.func_72326_a( entity.func_174813_aQ() ) )
+-                    {
++                if (MinecraftServer.currentTick > entity.activatedTick) {
++                    if (entity.defaultActivationState || entity.activationType.boundingBox.func_72326_a(entity.func_174813_aQ())) { // Paper
+                         entity.activatedTick = MinecraftServer.currentTick;
+                     }
+                 }
+@@ -187,56 +260,105 @@ public class ActivationRange
+      * @param entity
+      * @return
+      */
+-    public static boolean checkEntityImmunities(Entity entity)
++    public static int checkEntityImmunities(Entity entity) // Paper - return # of ticks to get immunity
+     {
++        // Paper start
++        SpigotWorldConfig config = entity.field_70170_p.spigotConfig;
++        int inactiveWakeUpImmunity = checkInactiveWakeup(entity);
++        if (inactiveWakeUpImmunity > -1) {
++            return inactiveWakeUpImmunity;
++        }
++        if (entity.field_190534_ay > 0) {
++            return 2;
++        }
++        long inactiveFor = MinecraftServer.currentTick - entity.activatedTick;
++        // Paper end
+         // quick checks.
+-        if ( entity.field_70171_ac || entity.field_190534_ay > 0 )
++        if ( (entity.activationType != ActivationType.WATER && entity.field_70171_ac && entity.isPushedByWater()) ) // Paper
+         {
+-            return true;
++            return 100; // Paper
+         }
+         if ( !( entity instanceof AbstractArrowEntity ) )
+         {
+-            if ( !entity.func_233570_aj_() || !entity.field_184244_h.isEmpty() || entity.func_184218_aH() )
++            if ( (!entity.func_233570_aj_() && !(entity instanceof FlyingEntity)) || !entity.field_184244_h.isEmpty() || entity.func_184218_aH() )
+             {
+-                return true;
++                return 10; // Paper
+             }
+         } else if ( !( (AbstractArrowEntity) entity ).field_70254_i )
+         {
+-            return true;
++            return 1; // Paper
+         }
+         // special cases.
+         if ( entity instanceof LivingEntity )
+         {
+             LivingEntity living = (LivingEntity) entity;
+-            if ( /*TODO: Missed mapping? living.attackTicks > 0 || */ living.field_70737_aN > 0 || living.field_70713_bf.size() > 0 )
++            if ( living.func_70617_f_() || living.field_70703_bu || living.field_70737_aN > 0 || living.field_70713_bf.size() > 0 ) // Paper
+             {
+-                return true;
++                return 1; // Paper
+             }
+-            if ( entity instanceof CreatureEntity && ( (CreatureEntity) entity ).func_70638_az() != null )
++            if ( entity instanceof MobEntity && ((MobEntity) entity ).func_70638_az() != null) // Paper
+             {
+-                return true;
++                return 20; // Paper
+             }
+-            if ( entity instanceof VillagerEntity && ( (VillagerEntity) entity ).func_213743_em() )
++            // Paper start
++            if (entity instanceof BeeEntity) {
++                BeeEntity bee = (BeeEntity)entity;
++                BlockPos movingTarget = bee.getMovingTarget();
++                if (bee.func_233678_J__() ||
++                    (bee.func_226410_eB_() != null && bee.func_226410_eB_().equals(movingTarget)) ||
++                    (bee.func_226424_eq_() != null && bee.func_226424_eq_().equals(movingTarget))
++                ) {
++                    return 20;
++                }
++            }
++            if ( entity instanceof VillagerEntity ) {
++                Brain<VillagerEntity> behaviorController = ((VillagerEntity) entity).func_213375_cj();
++
++                if (config.villagersActiveForPanic) {
++                    for (Activity activity : VILLAGER_PANIC_IMMUNITIES) {
++                        if (behaviorController.func_218214_c(activity)) {
++                            return 20*5;
++                        }
++                    }
++                }
++
++                if (config.villagersWorkImmunityAfter > 0 && inactiveFor >= config.villagersWorkImmunityAfter) {
++                    if (behaviorController.func_218214_c(Activity.field_221367_c)) {
++                        return config.villagersWorkImmunityFor;
++                    }
++                }
++            }
++            if ( entity instanceof LlamaEntity && ( (LlamaEntity ) entity ).inCaravan() )
+             {
+-                return true;
++                return 1;
+             }
++            // Paper end
+             if ( entity instanceof AnimalEntity )
+             {
+                 AnimalEntity animal = (AnimalEntity) entity;
+                 if ( animal.func_70631_g_() || animal.func_70880_s() )
+                 {
+-                    return true;
++                    return 5; // Paper
+                 }
+                 if ( entity instanceof SheepEntity && ( (SheepEntity) entity ).func_70892_o() )
+                 {
+-                    return true;
++                    return 1; // Paper
+                 }
+             }
+             if (entity instanceof CreeperEntity && ((CreeperEntity) entity).func_146078_ca()) { // isExplosive
+-                return true;
++                return 20; // Paper
+             }
++            // Paper start
++            if (entity instanceof MobEntity && ((MobEntity) entity).field_70715_bh.hasTasks() ) {
++                return 0;
++            }
++            if (entity instanceof PillagerEntity) {
++                PillagerEntity pillager = (PillagerEntity) entity;
++                // TODO:?
++            }
++            // Paper end
+         }
+-        return false;
++        return -1; // Paper
+     }
+ 
+     /**
+@@ -251,8 +373,19 @@ public class ActivationRange
+         if ( !entity.field_70175_ag || entity instanceof FireworkRocketEntity ) {
+             return true;
+         }
++        // Paper start - special case always immunities
++        // immunize brand new entities, dead entities, and portal scenarios
++        if (entity.defaultActivationState || entity.field_70173_aa < 20*10 || !entity.func_70089_S() || entity.field_71087_bX || entity.field_71088_bW > 0) {
++            return true;
++        }
++        // immunize leashed entities
++        if (entity instanceof MobEntity && ((MobEntity)entity).field_110168_bw instanceof PlayerEntity) {
++            return true;
++        }
++        // Paper end
+ 
+-        boolean isActive = entity.activatedTick >= MinecraftServer.currentTick || entity.defaultActivationState;
++        boolean isActive = entity.activatedTick >= MinecraftServer.currentTick;
++        entity.isTemporarilyActive = false; // Paper
+ 
+         // Should this entity tick?
+         if ( !isActive )
+@@ -260,15 +393,19 @@ public class ActivationRange
+             if ( ( MinecraftServer.currentTick - entity.activatedTick - 1 ) % 20 == 0 )
+             {
+                 // Check immunities every 20 ticks.
+-                if ( checkEntityImmunities( entity ) )
+-                {
+-                    // Triggered some sort of immunity, give 20 full ticks before we check again.
+-                    entity.activatedTick = MinecraftServer.currentTick + 20;
++                // Paper start
++                int immunity = checkEntityImmunities(entity);
++                if (immunity >= 0) {
++                    entity.activatedTick = MinecraftServer.currentTick + immunity;
++                } else {
++                    entity.isTemporarilyActive = true;
+                 }
++                // Paper end
+                 isActive = true;
++
+             }
+             // Add a little performance juice to active entities. Skip 1/4 if not immune.
+-        } else if ( !entity.defaultActivationState && entity.field_70173_aa % 4 == 0 && !checkEntityImmunities( entity ) )
++        } else if (entity.field_70173_aa % 4 == 0 && checkEntityImmunities( entity) < 0 ) // Paper
+         {
+             isActive = false;
+         }
+diff --git a/src/main/java/org/spigotmc/SpigotWorldConfig.java b/src/main/java/org/spigotmc/SpigotWorldConfig.java
+index f0ad5fa235adfd165b8e56be7352568a3b3ae54a..9859e0c964e4d1e7dc7689cb97f40643a8e5cdd7 100644
+--- a/src/main/java/org/spigotmc/SpigotWorldConfig.java
++++ b/src/main/java/org/spigotmc/SpigotWorldConfig.java
+@@ -180,13 +180,59 @@ public class SpigotWorldConfig
+     public int monsterActivationRange = 32;
+     public int raiderActivationRange = 48;
+     public int miscActivationRange = 16;
++    // Paper start
++    public int flyingMonsterActivationRange = 32;
++    public int waterActivationRange = 16;
++    public int villagerActivationRange = 32;
++    public int wakeUpInactiveAnimals = 4;
++    public int wakeUpInactiveAnimalsEvery = 60*20;
++    public int wakeUpInactiveAnimalsFor = 5*20;
++    public int wakeUpInactiveMonsters = 8;
++    public int wakeUpInactiveMonstersEvery = 20*20;
++    public int wakeUpInactiveMonstersFor = 5*20;
++    public int wakeUpInactiveVillagers = 4;
++    public int wakeUpInactiveVillagersEvery = 30*20;
++    public int wakeUpInactiveVillagersFor = 5*20;
++    public int wakeUpInactiveFlying = 8;
++    public int wakeUpInactiveFlyingEvery = 10*20;
++    public int wakeUpInactiveFlyingFor = 5*20;
++    public int villagersWorkImmunityAfter = 5*20;
++    public int villagersWorkImmunityFor = 20;
++    public boolean villagersActiveForPanic = true;
++    // Paper end
+     public boolean tickInactiveVillagers = true;
+     private void activationRange()
+     {
++        boolean hasAnimalsConfig = config.getInt("entity-activation-range.animals", animalActivationRange) != animalActivationRange; // Paper
+         animalActivationRange = getInt( "entity-activation-range.animals", animalActivationRange );
+         monsterActivationRange = getInt( "entity-activation-range.monsters", monsterActivationRange );
+         raiderActivationRange = getInt( "entity-activation-range.raiders", raiderActivationRange );
+         miscActivationRange = getInt( "entity-activation-range.misc", miscActivationRange );
++        // Paper start
++        waterActivationRange = getInt( "entity-activation-range.water", waterActivationRange );
++        villagerActivationRange = getInt( "entity-activation-range.villagers", hasAnimalsConfig ? animalActivationRange : villagerActivationRange );
++        flyingMonsterActivationRange = getInt( "entity-activation-range.flying-monsters", flyingMonsterActivationRange );
++
++        wakeUpInactiveAnimals = getInt("entity-activation-range.wake-up-inactive.animals-max-per-tick", wakeUpInactiveAnimals);
++        wakeUpInactiveAnimalsEvery = getInt("entity-activation-range.wake-up-inactive.animals-every", wakeUpInactiveAnimalsEvery);
++        wakeUpInactiveAnimalsFor = getInt("entity-activation-range.wake-up-inactive.animals-for", wakeUpInactiveAnimalsFor);
++
++        wakeUpInactiveMonsters = getInt("entity-activation-range.wake-up-inactive.monsters-max-per-tick", wakeUpInactiveMonsters);
++        wakeUpInactiveMonstersEvery = getInt("entity-activation-range.wake-up-inactive.monsters-every", wakeUpInactiveMonstersEvery);
++        wakeUpInactiveMonstersFor = getInt("entity-activation-range.wake-up-inactive.monsters-for", wakeUpInactiveMonstersFor);
++
++        wakeUpInactiveVillagers = getInt("entity-activation-range.wake-up-inactive.villagers-max-per-tick", wakeUpInactiveVillagers);
++        wakeUpInactiveVillagersEvery = getInt("entity-activation-range.wake-up-inactive.villagers-every", wakeUpInactiveVillagersEvery);
++        wakeUpInactiveVillagersFor = getInt("entity-activation-range.wake-up-inactive.villagers-for", wakeUpInactiveVillagersFor);
++
++        wakeUpInactiveFlying = getInt("entity-activation-range.wake-up-inactive.flying-monsters-max-per-tick", wakeUpInactiveFlying);
++        wakeUpInactiveFlyingEvery = getInt("entity-activation-range.wake-up-inactive.flying-monsters-every", wakeUpInactiveFlyingEvery);
++        wakeUpInactiveFlyingFor = getInt("entity-activation-range.wake-up-inactive.flying-monsters-for", wakeUpInactiveFlyingFor);
++
++        villagersWorkImmunityAfter = getInt( "entity-activation-range.villagers-work-immunity-after", villagersWorkImmunityAfter );
++        villagersWorkImmunityFor = getInt( "entity-activation-range.villagers-work-immunity-for", villagersWorkImmunityFor );
++        villagersActiveForPanic = getBoolean( "entity-activation-range.villagers-active-for-panic", villagersActiveForPanic );
++        // Paper end
+         tickInactiveVillagers = getBoolean( "entity-activation-range.tick-inactive-villagers", tickInactiveVillagers );
+         log( "Entity Activation Range: An " + animalActivationRange + " / Mo " + monsterActivationRange + " / Ra " + raiderActivationRange + " / Mi " + miscActivationRange + " / Tiv " + tickInactiveVillagers );
+     }

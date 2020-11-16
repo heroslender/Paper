@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Suddenly <suddenly@suddenly.coffee>
+Date: Tue, 1 Mar 2016 13:51:54 -0600
+Subject: [PATCH] Add configurable despawn distances for living entities
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 6d6a68cb1b952da8308ac9ce5b54694bc9ba0e30..2845686411615245137cfe1a155088a865a4d3a0 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -97,4 +97,20 @@ public class PaperWorldConfig {
+     private void nerfedMobsShouldJump() {
+         nerfedMobsShouldJump = getBoolean("spawner-nerfed-mobs-should-jump", false);
+     }
++
++    public int softDespawnDistance;
++    public int hardDespawnDistance;
++    private void despawnDistances() {
++        softDespawnDistance = getInt("despawn-ranges.soft", 32); // 32^2 = 1024, Minecraft Default
++        hardDespawnDistance = getInt("despawn-ranges.hard", 128); // 128^2 = 16384, Minecraft Default
++
++        if (softDespawnDistance > hardDespawnDistance) {
++            softDespawnDistance = hardDespawnDistance;
++        }
++
++        log("Living Entity Despawn Ranges:  Soft: " + softDespawnDistance + " Hard: " + hardDespawnDistance);
++
++        softDespawnDistance = softDespawnDistance*softDespawnDistance;
++        hardDespawnDistance = hardDespawnDistance*hardDespawnDistance;
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/MobEntity.java b/src/main/java/net/minecraft/entity/MobEntity.java
+index fd20d5be62ae753b53b2572e91ccb20651a8e00a..ce5160c822d0a2714bd425a16ae233a24f1b7859 100644
+--- a/src/main/java/net/minecraft/entity/MobEntity.java
++++ b/src/main/java/net/minecraft/entity/MobEntity.java
+@@ -766,14 +766,14 @@ public abstract class MobEntity extends LivingEntity {
+                 int i = this.func_200600_R().func_220339_d().func_233671_f_();
+                 int j = i * i;
+ 
+-                if (d0 > (double) j) { // CraftBukkit - remove isTypeNotPersistent() check
++                if (d0 > (double) field_70170_p.paperConfig.hardDespawnDistance) { // CraftBukkit - remove isTypeNotPersistent() check // Paper - custom despawn distances
+                     this.func_70106_y();
+                 }
+ 
+                 int k = this.func_200600_R().func_220339_d().func_233672_g_();
+                 int l = k * k;
+ 
+-                if (this.field_70708_bq > 600 && this.field_70146_Z.nextInt(800) == 0 && d0 > (double) l) { // CraftBukkit - remove isTypeNotPersistent() check
++                if (this.field_70708_bq > 600 && this.field_70146_Z.nextInt(800) == 0 && d0 > field_70170_p.paperConfig.softDespawnDistance) { // CraftBukkit - remove isTypeNotPersistent() check // Paper - custom despawn distances
+                     this.func_70106_y();
+                 } else if (d0 < (double) l) {
+                     this.field_70708_bq = 0;

@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: 2277 <38501234+2277@users.noreply.github.com>
+Date: Tue, 31 Mar 2020 10:33:55 +0100
+Subject: [PATCH] Move player to spawn point if spawn in unloaded world
+
+The code following this has better support for null worlds to move
+them back to the world spawn.
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index d3cf7946d2ab513f8fe70f0ebdb535dfeb7f1820..f44b2dd83d8d4bc4d4725162659eb4550ad07762 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -1847,9 +1847,11 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+                     bworld = server.getWorld(worldName);
+                 }
+ 
+-                if (bworld == null) {
+-                    bworld = ((org.bukkit.craftbukkit.CraftServer) server).getServer().func_71218_a(World.field_234918_g_).getWorld();
+-                }
++                // Paper start - Move player to spawn point if spawn in unloaded world
++//                if (bworld == null) {
++//                    bworld = ((org.bukkit.craftbukkit.CraftServer) server).getServer().getWorldServer(World.OVERWORLD).getWorld();
++//                }
++                // Paper end - Move player to spawn point if spawn in unloaded world
+ 
+                 func_70029_a(bworld == null ? null : ((CraftWorld) bworld).getHandle());
+             }

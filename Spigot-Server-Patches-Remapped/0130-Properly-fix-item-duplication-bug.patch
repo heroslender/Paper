@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alfie Cleveland <alfeh@me.com>
+Date: Tue, 27 Dec 2016 01:57:57 +0000
+Subject: [PATCH] Properly fix item duplication bug
+
+Credit to prplz for figuring out the real issue
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index c0186d63483a4933c755a0ae3932c8cbeea54c4a..b328a67dfd61cc954751cc1c55f29fcc819d7a51 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -2054,7 +2054,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+ 
+     @Override
+     protected boolean dH() {
+-        return super.func_70610_aX() || !getBukkitEntity().isOnline();
++        return super.func_70610_aX() || (this.field_71135_a != null && this.field_71135_a.isDisconnected()); // Paper
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 3f3626be71f12d14d0f3f64349fd37925e054785..8bb426c783a0645eb2fe5f14e4b6516b99792106 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -2711,7 +2711,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     }
+ 
+     public final boolean isDisconnected() {
+-        return !this.field_147369_b.joining && !this.field_147371_a.func_150724_d();
++        return (!this.field_147369_b.joining && !this.field_147371_a.func_150724_d()) || this.processedDisconnect; // Paper
+     }
+     // CraftBukkit end
+ 

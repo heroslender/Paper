@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Fri, 16 Dec 2016 16:03:19 -0600
+Subject: [PATCH] Don't let fishinghooks use portals
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 85d79679064c619b0c3889815aefa59e9d310994..ef9b67c28e5f334e11007e10fa105efe5098ae3a 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -251,7 +251,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     public boolean field_70158_ak;
+     public boolean field_70160_al;
+     public int field_71088_bW;
+-    protected boolean field_71087_bX;
++    protected boolean field_71087_bX; public final boolean inPortal() { return this.field_71087_bX; } // Paper - OBFHELPER
+     protected int field_82153_h;
+     protected BlockPos field_181016_an;
+     protected Vector3d field_181017_ao;
+diff --git a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+index 9f66ff68e2ace2ab128037d5b05b12faf594d98a..e1f129dd788eea16db3721dd26bc187db76df4f7 100644
+--- a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+@@ -230,6 +230,12 @@ public class FishingBobberEntity extends ProjectileEntity {
+ 
+             this.func_213317_d(this.func_213322_ci().func_186678_a(0.92D));
+             this.func_226264_Z_();
++
++            // Paper start - These shouldn't be going through portals
++            if (this.field_71087_bX) {
++                this.func_70106_y();
++            }
++            // Paper end
+         }
+     }
+ 

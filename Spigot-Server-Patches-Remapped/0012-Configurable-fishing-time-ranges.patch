@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Tue, 1 Mar 2016 13:14:11 -0600
+Subject: [PATCH] Configurable fishing time ranges
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 912611cf1aeccf5a82a789aab07d76723d4357cc..7d9976ce6bf86e6fdfd0c7770104cee0db363a6d 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -84,4 +84,12 @@ public class PaperWorldConfig {
+ 
+         log("Baby zombies will move at the speed of " + babyZombieMovementModifier);
+     }
++
++    public int fishingMinTicks;
++    public int fishingMaxTicks;
++    private void fishingTickRange() {
++        fishingMinTicks = getInt("fishing-time-range.MinimumTicks", 100);
++        fishingMaxTicks = getInt("fishing-time-range.MaximumTicks", 600);
++        log("Fishing time ranges are between " + fishingMinTicks +" and " + fishingMaxTicks + " ticks");
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+index 7bd0eb6de04c9bb3052d4484a6a065aadc52c811..9f66ff68e2ace2ab128037d5b05b12faf594d98a 100644
+--- a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+@@ -377,8 +377,9 @@ public class FishingBobberEntity extends ProjectileEntity {
+                     this.field_146038_az = MathHelper.func_76136_a(this.field_70146_Z, 20, 80);
+                 }
+             } else {
+-                this.field_146040_ay = MathHelper.func_76136_a(this.field_70146_Z, 100, 600);
++                this.field_146040_ay = MathHelper.func_76136_a(this.field_70146_Z, field_70170_p.paperConfig.fishingMinTicks, field_70170_p.paperConfig.fishingMaxTicks); // Paper
+                 this.field_146040_ay -= this.field_191519_ax * 20 * 5;
++                this.field_146040_ay = Math.max(0, this.field_146040_ay); // Paper - Don't allow negative values;
+             }
+         }
+ 

@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Mon, 31 Jul 2017 01:45:19 -0500
+Subject: [PATCH] Reset spawner timer when spawner event is cancelled
+
+
+diff --git a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+index 8127ef71505dbbea47e00d43299557e86512b782..cd5e5d1cdf4b3e107c8770eb8f61d513bc05e969 100644
+--- a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+@@ -162,6 +162,7 @@ public abstract class AbstractSpawner {
+                         }
+                         entity.spawnedViaMobSpawner = true; // Paper
+                         // Spigot Start
++                        flag = true; // Paper
+                         if (org.bukkit.craftbukkit.event.CraftEventFactory.callSpawnerSpawnEvent(entity, blockposition).isCancelled()) {
+                             Entity vehicle = entity.func_184187_bx();
+                             if (vehicle != null) {
+@@ -180,7 +181,7 @@ public abstract class AbstractSpawner {
+                             ((MobEntity) entity).func_70656_aK();
+                         }
+ 
+-                        flag = true;
++                        /*flag = true;*/ // Paper - moved up above cancellable event
+                     }
+                 }
+ 

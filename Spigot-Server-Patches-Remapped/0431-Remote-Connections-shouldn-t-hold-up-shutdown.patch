@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 31 Mar 2020 03:50:42 -0400
+Subject: [PATCH] Remote Connections shouldn't hold up shutdown
+
+Bugs in the connection logic appears to leave stale connections even, preventing shutdown
+
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index 4731679e4ad5a74b4579816b630c4d437d49d565..4afc4e358ca857527152e6b30681793bfd43fe04 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -398,11 +398,11 @@ public class DedicatedServer extends MinecraftServer implements IServer {
+         }
+ 
+         if (this.field_71339_n != null) {
+-            this.field_71339_n.func_219591_b();
++            //this.remoteControlListener.b(); // Paper - don't wait for remote connections
+         }
+ 
+         if (this.field_71342_m != null) {
+-            this.field_71342_m.func_219591_b();
++            //this.remoteStatusListener.b(); // Paper - don't wait for remote connections
+         }
+ 
+         System.exit(0); // CraftBukkit

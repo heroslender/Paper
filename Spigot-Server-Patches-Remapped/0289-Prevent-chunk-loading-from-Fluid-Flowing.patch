@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 10 Sep 2018 23:36:16 -0400
+Subject: [PATCH] Prevent chunk loading from Fluid Flowing
+
+
+diff --git a/src/main/java/net/minecraft/fluid/FlowingFluid.java b/src/main/java/net/minecraft/fluid/FlowingFluid.java
+index 2dcbacbb9722cf3943958ffd356f4a03a5d6a580..a52d0ba92125023c907d515b3c4948b2d3c2b50d 100644
+--- a/src/main/java/net/minecraft/fluid/FlowingFluid.java
++++ b/src/main/java/net/minecraft/fluid/FlowingFluid.java
+@@ -176,7 +176,8 @@ public abstract class FlowingFluid extends Fluid {
+                 Direction enumdirection = (Direction) entry.getKey();
+                 FluidState fluid1 = (FluidState) entry.getValue();
+                 BlockPos blockposition1 = p_207937_2_.func_177972_a(enumdirection);
+-                BlockState iblockdata1 = p_207937_1_.func_180495_p(blockposition1);
++                BlockState iblockdata1 = p_207937_1_.getTypeIfLoaded(blockposition1); // Paper
++                if (iblockdata1 == null) continue; // Paper
+ 
+                 if (this.func_205570_b(p_207937_1_, p_207937_2_, p_207937_4_, enumdirection, blockposition1, iblockdata1, p_207937_1_.func_204610_c(blockposition1), fluid1.func_206886_c())) {
+                     // CraftBukkit start
+@@ -203,7 +204,8 @@ public abstract class FlowingFluid extends Fluid {
+         while (iterator.hasNext()) {
+             Direction enumdirection = (Direction) iterator.next();
+             BlockPos blockposition1 = p_205576_2_.func_177972_a(enumdirection);
+-            BlockState iblockdata1 = p_205576_1_.func_180495_p(blockposition1);
++            BlockState iblockdata1 = p_205576_1_.getTypeIfLoaded(blockposition1); // Paper
++            if (iblockdata1 == null) continue; // Paper
+             FluidState fluid = iblockdata1.func_204520_s();
+ 
+             if (fluid.func_206886_c().func_207187_a((Fluid) this) && this.func_212751_a(enumdirection, (IBlockReader) p_205576_1_, p_205576_2_, p_205576_3_, blockposition1, iblockdata1)) {
+@@ -320,11 +322,18 @@ public abstract class FlowingFluid extends Fluid {
+             if (enumdirection1 != p_205571_4_) {
+                 BlockPos blockposition2 = p_205571_2_.func_177972_a(enumdirection1);
+                 short short0 = func_212752_a(p_205571_6_, blockposition2);
+-                Pair<BlockState, FluidState> pair = (Pair) p_205571_7_.computeIfAbsent(short0, (k) -> {
+-                    BlockState iblockdata1 = p_205571_1_.func_180495_p(blockposition2);
++                // Paper start - avoid loading chunks
++                Pair<BlockState, FluidState> pair = p_205571_7_.get(short0);
++                if (pair == null) {
++                    BlockState iblockdatax = p_205571_1_.getTypeIfLoaded(blockposition2);
++                    if (iblockdatax == null) {
++                        continue;
++                    }
+ 
+-                    return Pair.of(iblockdata1, iblockdata1.func_204520_s());
+-                });
++                    pair = Pair.of(iblockdatax, iblockdatax.func_204520_s());
++                    p_205571_7_.put(short0, pair);
++                }
++                // Paper end
+                 BlockState iblockdata1 = (BlockState) pair.getFirst();
+                 FluidState fluid = (FluidState) pair.getSecond();
+ 
+@@ -396,11 +405,16 @@ public abstract class FlowingFluid extends Fluid {
+             Direction enumdirection = (Direction) iterator.next();
+             BlockPos blockposition1 = p_205572_2_.func_177972_a(enumdirection);
+             short short0 = func_212752_a(p_205572_2_, blockposition1);
+-            Pair<BlockState, FluidState> pair = (Pair) short2objectmap.computeIfAbsent(short0, (j) -> {
+-                BlockState iblockdata1 = p_205572_1_.func_180495_p(blockposition1);
+-
+-                return Pair.of(iblockdata1, iblockdata1.func_204520_s());
+-            });
++            // Paper start
++            Pair pair = (Pair) short2objectmap.get(short0);
++            if (pair == null) {
++                BlockState iblockdatax = p_205572_1_.getTypeIfLoaded(blockposition1);
++                if (iblockdatax == null) continue;
++
++                pair = Pair.of(iblockdatax, iblockdatax.func_204520_s());
++                short2objectmap.put(short0, pair);
++            }
++            // Paper end
+             BlockState iblockdata1 = (BlockState) pair.getFirst();
+             FluidState fluid = (FluidState) pair.getSecond();
+             FluidState fluid1 = this.func_205576_a(p_205572_1_, blockposition1, iblockdata1);

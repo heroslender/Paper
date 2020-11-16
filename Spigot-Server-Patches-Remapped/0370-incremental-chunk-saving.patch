@@ -1,0 +1,315 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sun, 9 Jun 2019 03:53:22 +0100
+Subject: [PATCH] incremental chunk saving
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 6e1756eb90b6237100612527f69c995246d53ed1..5f3c8f74a60f9446623b863f9297402be1cd2f88 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -450,4 +450,19 @@ public class PaperWorldConfig {
+         keepLoadedRange = (short) (getInt("keep-spawn-loaded-range", Math.min(spigotConfig.viewDistance, 10)) * 16);
+         log( "Keep Spawn Loaded Range: " + (keepLoadedRange/16));
+     }
++
++    public int autoSavePeriod = -1;
++    private void autoSavePeriod() {
++        autoSavePeriod = getInt("auto-save-interval", -1);
++        if (autoSavePeriod > 0) {
++            log("Auto Save Interval: " +autoSavePeriod + " (" + (autoSavePeriod / 20) + "s)");
++        } else if (autoSavePeriod < 0) {
++            autoSavePeriod = net.minecraft.server.MinecraftServer.getServer().autosavePeriod;
++        }
++    }
++
++    public int maxAutoSaveChunksPerTick = 24;
++    private void maxAutoSaveChunksPerTick() {
++        maxAutoSaveChunksPerTick = getInt("max-auto-save-chunks-per-tick", 24);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index cc98dffae4e76d9c490d19f9f982d853664dd2b5..70040cd31035e13661b1240b896a2b498a123e25 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -257,6 +257,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+     public static int currentTick = 0; // Paper - Further improve tick loop
+     public java.util.Queue<Runnable> processQueue = new java.util.concurrent.ConcurrentLinkedQueue<Runnable>();
+     public int autosavePeriod;
++    public boolean serverAutoSave = false; // Paper
+     public Commands vanillaCommandDispatcher;
+     private boolean forceTicks;
+     // CraftBukkit end
+@@ -1248,14 +1249,24 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+             this.field_147147_p.func_151318_b().func_151330_a(agameprofile);
+         }
+ 
+-        if (autosavePeriod > 0 && this.field_71315_w % autosavePeriod == 0) { // CraftBukkit
+-            MinecraftServer.field_147145_h.debug("Autosave started");
++        //if (autosavePeriod > 0 && this.ticks % autosavePeriod == 0) { // CraftBukkit // Paper - move down
++            //MinecraftServer.LOGGER.debug("Autosave started"); // Paper
++            serverAutoSave = (autosavePeriod > 0 && this.field_71315_w % autosavePeriod == 0); // Paper
+             this.field_71304_b.func_76320_a("save");
++            if (autosavePeriod > 0 && this.field_71315_w % autosavePeriod == 0) { // Paper
+             this.field_71318_t.func_72389_g();
+-            this.func_213211_a(true, false, false);
++            }// Paper
++            // Paper start
++            for (ServerWorld world : func_212370_w()) {
++                if (world.paperConfig.autoSavePeriod > 0) {
++                    world.saveIncrementally(serverAutoSave);
++                }
++            }
++            // Paper end
++
+             this.field_71304_b.func_76319_b();
+-            MinecraftServer.field_147145_h.debug("Autosave finished");
+-        }
++            //MinecraftServer.LOGGER.debug("Autosave finished"); // Paper
++        //} // Paper
+ 
+         this.field_71304_b.func_76320_a("snooper");
+         if (((DedicatedServer) this).func_213221_d_().field_218993_F && !this.field_71307_n.func_76468_d() && this.field_71315_w > 100) { // Spigot
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 4e6c6070c0b9cbb3ce7532e769497d520949e61e..c5d8b86c3acb62f5f517a45609289e8bc1622510 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -84,7 +84,7 @@ public class Chunk implements IChunk {
+     private ITickList<Block> field_201621_s;
+     private ITickList<Fluid> field_205325_u;
+     private boolean field_76644_m;
+-    private long field_76641_n;
++    public long field_76641_n; // Paper
+     private volatile boolean field_76643_l;
+     private long field_111204_q;
+     @Nullable
+diff --git a/src/main/java/net/minecraft/world/server/ChunkHolder.java b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+index c26e0510278e3317f55725c7b055221c1ba34c3b..36ae27aa44af65c8c4221b5ca94c02ce800b23bc 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkHolder.java
++++ b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+@@ -61,6 +61,9 @@ public class ChunkHolder {
+ 
+     private final ChunkManager chunkMap; // Paper
+ 
++    long lastAutoSaveTime; // Paper - incremental autosave
++    long inactiveTimeStart; // Paper - incremental autosave
++
+     public ChunkHolder(ChunkPos chunkcoordintpair, int i, WorldLightManager lightengine, ChunkHolder.IListener playerchunk_c, ChunkHolder.IPlayerProvider playerchunk_d) {
+         this.field_219312_g = new AtomicReferenceArray(ChunkHolder.field_219310_e.size());
+         this.field_222983_h = ChunkHolder.field_219309_d;
+@@ -407,7 +410,19 @@ public class ChunkHolder {
+         boolean flag2 = playerchunk_state.func_219065_a(ChunkHolder.LocationType.BORDER);
+         boolean flag3 = playerchunk_state1.func_219065_a(ChunkHolder.LocationType.BORDER);
+ 
++        boolean prevHasBeenLoaded = this.field_219329_x; // Paper
+         this.field_219329_x |= flag3;
++        // Paper start - incremental autosave
++        if (this.field_219329_x & !prevHasBeenLoaded) {
++            long timeSinceAutoSave = this.inactiveTimeStart - this.lastAutoSaveTime;
++            if (timeSinceAutoSave < 0) {
++                // safest bet is to assume autosave is needed here
++                timeSinceAutoSave = this.chunkMap.field_219255_i.paperConfig.autoSavePeriod;
++            }
++            this.lastAutoSaveTime = this.chunkMap.field_219255_i.func_82737_E() - timeSinceAutoSave;
++            this.chunkMap.autoSaveQueue.add(this);
++        }
++        // Paper end
+         if (!flag2 && flag3) {
+             // Paper start - cache ticking ready status
+             int expectCreateCount = ++this.fullChunkCreateCount;
+@@ -527,8 +542,32 @@ public class ChunkHolder {
+     }
+ 
+     public void func_219303_l() {
++        boolean prev = this.field_219329_x; // Paper
++        this.field_219329_x = func_219286_c(this.field_219317_l).func_219065_a(ChunkHolder.LocationType.BORDER);
++        // Paper start - incremental autosave
++        if (prev != this.field_219329_x) {
++            if (this.field_219329_x) {
++                long timeSinceAutoSave = this.inactiveTimeStart - this.lastAutoSaveTime;
++                if (timeSinceAutoSave < 0) {
++                    // safest bet is to assume autosave is needed here
++                    timeSinceAutoSave = this.chunkMap.field_219255_i.paperConfig.autoSavePeriod;
++                }
++                this.lastAutoSaveTime = this.chunkMap.field_219255_i.func_82737_E() - timeSinceAutoSave;
++                this.chunkMap.autoSaveQueue.add(this);
++            } else {
++                this.inactiveTimeStart = this.chunkMap.field_219255_i.func_82737_E();
++                this.chunkMap.autoSaveQueue.remove(this);
++            }
++        }
++        // Paper end
++    }
++
++    // Paper start - incremental autosave
++    public boolean setHasBeenLoaded() {
+         this.field_219329_x = func_219286_c(this.field_219317_l).func_219065_a(ChunkHolder.LocationType.BORDER);
++        return this.field_219329_x;
+     }
++    // Paper end
+ 
+     public void func_219294_a(ChunkPrimerWrapper p_219294_1_) {
+         for (int i = 0; i < this.field_219312_g.length(); ++i) {
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 56617e123db897df9cb45fad1f42f83e1091eedc..e3579fbbfb3cffcb7c3b4837b95256226d53313f 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -385,6 +385,64 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+ 
+     }
+ 
++    // Paper start - incremental autosave
++    final it.unimi.dsi.fastutil.objects.ObjectRBTreeSet<ChunkHolder> autoSaveQueue = new it.unimi.dsi.fastutil.objects.ObjectRBTreeSet<>((playerchunk1, playerchunk2) -> {
++        int timeCompare =  Long.compare(playerchunk1.lastAutoSaveTime, playerchunk2.lastAutoSaveTime);
++        if (timeCompare != 0) {
++            return timeCompare;
++        }
++
++        return Long.compare(MCUtil.getCoordinateKey(playerchunk1.field_219319_n), MCUtil.getCoordinateKey(playerchunk2.field_219319_n));
++    });
++
++    protected void saveIncrementally() {
++        int savedThisTick = 0;
++        // optimized since we search far less chunks to hit ones that need to be saved
++        List<ChunkHolder> reschedule = new java.util.ArrayList<>(this.field_219255_i.paperConfig.maxAutoSaveChunksPerTick);
++        long currentTick = this.field_219255_i.func_82737_E();
++        long maxSaveTime = currentTick - this.field_219255_i.paperConfig.autoSavePeriod;
++
++        for (Iterator<ChunkHolder> iterator = this.autoSaveQueue.iterator(); iterator.hasNext();) {
++            ChunkHolder playerchunk = iterator.next();
++            if (playerchunk.lastAutoSaveTime > maxSaveTime) {
++                break;
++            }
++
++            iterator.remove();
++
++            IChunk ichunkaccess = playerchunk.func_219302_f().getNow(null);
++            if (ichunkaccess instanceof Chunk) {
++                boolean shouldSave = ((Chunk)ichunkaccess).field_76641_n <= maxSaveTime;
++
++                if (shouldSave && this.func_219229_a(ichunkaccess)) {
++                    ++savedThisTick;
++
++                    if (!playerchunk.setHasBeenLoaded()) {
++                        // do not fall through to reschedule logic
++                        playerchunk.inactiveTimeStart = currentTick;
++                        if (savedThisTick >= this.field_219255_i.paperConfig.maxAutoSaveChunksPerTick) {
++                            break;
++                        }
++                        continue;
++                    }
++                }
++            }
++
++            reschedule.add(playerchunk);
++
++            if (savedThisTick >= this.field_219255_i.paperConfig.maxAutoSaveChunksPerTick) {
++                break;
++            }
++        }
++
++        for (int i = 0, len = reschedule.size(); i < len; ++i) {
++            ChunkHolder playerchunk = reschedule.get(i);
++            playerchunk.lastAutoSaveTime = this.field_219255_i.func_82737_E();
++            this.autoSaveQueue.add(playerchunk);
++        }
++    }
++    // Paper end
++
+     protected void func_219177_a(boolean p_219177_1_) {
+         if (p_219177_1_) {
+             List<ChunkHolder> list = (List) this.field_219252_f.values().stream().filter(ChunkHolder::func_219289_k).peek(ChunkHolder::func_219303_l).collect(Collectors.toList());
+@@ -495,6 +553,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+ 
+                         this.field_219255_i.func_217466_a(chunk);
+                     }
++                    this.autoSaveQueue.remove(p_219212_2_); // Paper
+ 
+                     this.field_219256_j.func_215581_a(ichunkaccess.func_76632_l());
+                     this.field_219256_j.func_215588_z_();
+@@ -687,6 +746,8 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+                     p_219200_1_.func_219294_a(new ChunkPrimerWrapper(chunk));
+                 }
+ 
++                chunk.func_177432_b(this.field_219255_i.func_82737_E() - 1); // Paper - avoid autosaving newly generated/loaded chunks
++
+                 chunk.func_217314_a(() -> {
+                     return ChunkHolder.func_219286_c(p_219200_1_.func_219299_i());
+                 });
+diff --git a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+index b414f63bf8b1402abff5458d741b914746599574..aa61277b1021a44905102aef952f2a053558e244 100644
+--- a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
++++ b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+@@ -563,6 +563,15 @@ public class ServerChunkProvider extends AbstractChunkProvider {
+         } // Paper - Timings
+     }
+ 
++    // Paper start - duplicate save, but call incremental
++    public void saveIncrementally() {
++        this.func_217235_l();
++        try (co.aikar.timings.Timing timed = field_73251_h.timings.chunkSaveData.startTiming()) { // Paper - Timings
++            this.field_217237_a.saveIncrementally();
++        } // Paper - Timings
++    }
++    // Paper end
++
+     @Override
+     public void close() throws IOException {
+         // CraftBukkit start
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index c51f9b3287e07f03f7aa6036525709135fe387a9..969fd674c1179581d18750297c7f356bfc0d3880 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -870,11 +870,43 @@ public class ServerWorld extends World implements ISeedReader {
+         return !this.field_73061_a.func_175579_a(this, p_175660_2_, p_175660_1_) && this.func_175723_af().func_177746_a(p_175660_2_);
+     }
+ 
++    // Paper start - derived from below
++    public void saveIncrementally(boolean doFull) {
++        ServerChunkProvider chunkproviderserver = this.E();
++
++        if (doFull) {
++            org.bukkit.Bukkit.getPluginManager().callEvent(new org.bukkit.event.world.WorldSaveEvent(getWorld()));
++        }
++
++        try (co.aikar.timings.Timing ignored = timings.worldSave.startTiming()) {
++            if (doFull) {
++                this.saveData();
++            }
++
++            timings.worldSaveChunks.startTiming(); // Paper
++            if (!this.func_217402_u()) chunkproviderserver.saveIncrementally();
++            timings.worldSaveChunks.stopTiming(); // Paper
++
++
++            // Copied from save()
++            // CraftBukkit start - moved from MinecraftServer.saveChunks
++            if (doFull) { // Paper
++                ServerWorld worldserver1 = this;
++
++                field_241103_E_.func_230393_a_(worldserver1.func_175723_af().func_235927_t_());
++                field_241103_E_.func_230414_b_(this.field_73061_a.func_201300_aS().func_201380_c());
++                convertable.func_237288_a_(this.field_73061_a.field_240767_f_, this.field_241103_E_, this.field_73061_a.func_184103_al().func_72378_q());
++            }
++            // CraftBukkit end
++        }
++    }
++    // Paper end
++
+     public void func_217445_a(@Nullable IProgressUpdate p_217445_1_, boolean p_217445_2_, boolean p_217445_3_) {
+         ServerChunkProvider chunkproviderserver = this.E();
+ 
+         if (!p_217445_3_) {
+-            org.bukkit.Bukkit.getPluginManager().callEvent(new org.bukkit.event.world.WorldSaveEvent(getWorld())); // CraftBukkit
++            if (p_217445_2_) org.bukkit.Bukkit.getPluginManager().callEvent(new org.bukkit.event.world.WorldSaveEvent(getWorld())); // CraftBukkit // Paper
+             try (co.aikar.timings.Timing ignored = timings.worldSave.startTiming()) { // Paper
+             if (p_217445_1_ != null) {
+                 p_217445_1_.func_200210_a(new TranslationTextComponent("menu.savingLevel"));
+@@ -900,6 +932,7 @@ public class ServerWorld extends World implements ISeedReader {
+         // CraftBukkit end
+     }
+ 
++    private void saveData() { this.func_73042_a(); } // Paper - OBFHELPER
+     private void func_73042_a() {
+         if (this.field_241105_O_ != null) {
+             this.field_241103_E_.func_230413_a_(this.field_241105_O_.func_186088_a()); // CraftBukkit

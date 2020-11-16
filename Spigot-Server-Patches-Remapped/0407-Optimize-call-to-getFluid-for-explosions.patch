@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BrodyBeckwith <brody@beckwith.dev>
+Date: Tue, 14 Jan 2020 17:49:03 -0500
+Subject: [PATCH] Optimize call to getFluid for explosions
+
+
+diff --git a/src/main/java/net/minecraft/world/Explosion.java b/src/main/java/net/minecraft/world/Explosion.java
+index 9b6095133fcf35effca61b56668157256e33cb99..23f8bc869131fe2001b6626e9fb0dcd4056293c0 100644
+--- a/src/main/java/net/minecraft/world/Explosion.java
++++ b/src/main/java/net/minecraft/world/Explosion.java
+@@ -152,7 +152,7 @@ public class Explosion {
+                         for (float f1 = 0.3F; f > 0.0F; f -= 0.22500001F) {
+                             BlockPos blockposition = new BlockPos(d4, d5, d6);
+                             BlockState iblockdata = this.field_77287_j.func_180495_p(blockposition);
+-                            FluidState fluid = this.field_77287_j.func_204610_c(blockposition);
++                            FluidState fluid = iblockdata.func_204520_s(); // Paper
+                             Optional<Float> optional = this.field_234893_k_.func_230312_a_(this, this.field_77287_j, blockposition, iblockdata, fluid);
+ 
+                             if (optional.isPresent()) {

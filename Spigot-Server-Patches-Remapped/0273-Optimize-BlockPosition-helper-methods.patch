@@ -1,0 +1,99 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Wed, 15 Aug 2018 12:05:12 -0700
+Subject: [PATCH] Optimize BlockPosition helper methods
+
+Resolves #1338
+
+diff --git a/src/main/java/net/minecraft/util/math/BlockPos.java b/src/main/java/net/minecraft/util/math/BlockPos.java
+index 68727d8496e8a48ffa965b65da975dc22c12b55d..ac518d2a3c74d3608d5a320a43d4bc13a141c960 100644
+--- a/src/main/java/net/minecraft/util/math/BlockPos.java
++++ b/src/main/java/net/minecraft/util/math/BlockPos.java
+@@ -120,57 +120,74 @@ public class BlockPos extends Vector3i {
+     }
+ 
+     public BlockPos func_177984_a() {
+-        return this.func_177972_a(Direction.UP);
++        return new BlockPos(this.func_177958_n(), this.func_177956_o() + 1, this.func_177952_p()); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177981_b(int p_177981_1_) {
+-        return this.func_177967_a(Direction.UP, p_177981_1_);
++        return p_177981_1_ == 0 ? this : new BlockPos(this.func_177958_n(), this.func_177956_o() + p_177981_1_, this.func_177952_p()); // Paper - Optimize BlockPosition
+     }
+ 
+     @Override
+     public BlockPos func_177977_b() {
+-        return this.func_177972_a(Direction.DOWN);
++        return new BlockPos(this.func_177958_n(), this.func_177956_o() - 1, this.func_177952_p()); // Paper - Optimize BlockPosition
+     }
+ 
+     @Override
+     public BlockPos func_177979_c(int p_177979_1_) {
+-        return this.func_177967_a(Direction.DOWN, p_177979_1_);
++        return p_177979_1_ == 0 ? this : new BlockPos(this.func_177958_n(), this.func_177956_o() - p_177979_1_, this.func_177952_p()); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177978_c() {
+-        return this.func_177972_a(Direction.NORTH);
++        return new BlockPos(this.func_177958_n(), this.func_177956_o(), this.func_177952_p() - 1); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177964_d(int p_177964_1_) {
+-        return this.func_177967_a(Direction.NORTH, p_177964_1_);
++        return p_177964_1_ == 0 ? this : new BlockPos(this.func_177958_n(), this.func_177956_o(), this.func_177952_p() - p_177964_1_); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177968_d() {
+-        return this.func_177972_a(Direction.SOUTH);
++        return new BlockPos(this.func_177958_n(), this.func_177956_o(), this.func_177952_p() + 1); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177970_e(int p_177970_1_) {
+-        return this.func_177967_a(Direction.SOUTH, p_177970_1_);
++        return p_177970_1_ == 0 ? this : new BlockPos(this.func_177958_n(), this.func_177956_o(), this.func_177952_p() + p_177970_1_); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177976_e() {
+-        return this.func_177972_a(Direction.WEST);
++        return new BlockPos(this.func_177958_n() - 1, this.func_177956_o(), this.func_177952_p()); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177985_f(int p_177985_1_) {
+-        return this.func_177967_a(Direction.WEST, p_177985_1_);
++        return p_177985_1_ == 0 ? this : new BlockPos(this.func_177958_n() - p_177985_1_, this.func_177956_o(), this.func_177952_p()); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177974_f() {
+-        return this.func_177972_a(Direction.EAST);
++        return new BlockPos(this.func_177958_n() + 1, this.func_177956_o(), this.func_177952_p()); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177965_g(int p_177965_1_) {
+-        return this.func_177967_a(Direction.EAST, p_177965_1_);
++        return p_177965_1_ == 0 ? this : new BlockPos(this.func_177958_n() + p_177965_1_, this.func_177956_o(), this.func_177952_p()); // Paper - Optimize BlockPosition
+     }
+ 
+     public BlockPos func_177972_a(Direction p_177972_1_) {
+-        return new BlockPos(this.func_177958_n() + p_177972_1_.func_82601_c(), this.func_177956_o() + p_177972_1_.func_96559_d(), this.func_177952_p() + p_177972_1_.func_82599_e());
++        // Paper Start - Optimize BlockPosition
++        switch(p_177972_1_) {
++            case UP:
++                return new BlockPos(this.func_177958_n(), this.func_177956_o() + 1, this.func_177952_p());
++            case DOWN:
++                return new BlockPos(this.func_177958_n(), this.func_177956_o() - 1, this.func_177952_p());
++            case NORTH:
++                return new BlockPos(this.func_177958_n(), this.func_177956_o(), this.func_177952_p() - 1);
++            case SOUTH:
++                return new BlockPos(this.func_177958_n(), this.func_177956_o(), this.func_177952_p() + 1);
++            case WEST:
++                return new BlockPos(this.func_177958_n() - 1, this.func_177956_o(), this.func_177952_p());
++            case EAST:
++                return new BlockPos(this.func_177958_n() + 1, this.func_177956_o(), this.func_177952_p());
++            default:
++                return new BlockPos(this.func_177958_n() + p_177972_1_.func_82601_c(), this.func_177956_o() + p_177972_1_.func_96559_d(), this.func_177952_p() + p_177972_1_.func_82599_e());
++        }
++        // Paper End
+     }
+ 
+     @Override

@@ -1,0 +1,77 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 12 Sep 2018 21:47:01 -0400
+Subject: [PATCH] Optimize Biome Mob Lookups for Mob Spawning
+
+Uses an EnumMap as well as a Set paired List for O(1) contains calls.
+
+diff --git a/src/main/java/net/minecraft/world/biome/Biome.java b/src/main/java/net/minecraft/world/biome/Biome.java
+index 8045bbb7861c2503a719c016ac2b5e745823c2d6..9f199193e23b1700565b6f378c7ff1b7e23a5049 100644
+--- a/src/main/java/net/minecraft/world/biome/Biome.java
++++ b/src/main/java/net/minecraft/world/biome/Biome.java
+@@ -157,7 +157,7 @@ public class Biome {
+                 this.field_201872_ah.put(worldgenstage_decoration, Lists.newArrayList());
+             }
+ 
+-            this.field_201880_ax = Maps.newHashMap();
++            this.field_201880_ax = Maps.newEnumMap(EntityClassification.class); // Paper
+             EntityClassification[] aenumcreaturetype = EntityClassification.values();
+ 
+             i = aenumcreaturetype.length;
+@@ -165,7 +165,7 @@ public class Biome {
+             for (j = 0; j < i; ++j) {
+                 EntityClassification enumcreaturetype = aenumcreaturetype[j];
+ 
+-                this.field_201880_ax.put(enumcreaturetype, Lists.newArrayList());
++                this.field_201880_ax.put(enumcreaturetype, new net.minecraft.world.biome.Biome.MobList()); // Paper
+             }
+ 
+         } else {
+@@ -188,7 +188,7 @@ public class Biome {
+         this.field_201874_aj = (Map) list.stream().collect(Collectors.toMap((structurefeature) -> {
+             return structurefeature.field_236268_b_;
+         }, Function.identity()));
+-        this.field_201880_ax = map2;
++        this.field_201880_ax = Maps.newEnumMap(EntityClassification.class); this.field_201880_ax.putAll(map2); // Paper
+         this.field_235054_x_ = list1;
+         this.field_185364_H = (String) optional.orElse(null); // Paper - decompile fix
+         Stream stream = map1.values().stream().flatMap(Collection::stream).filter((worldgenfeatureconfigured) -> {
+@@ -471,6 +471,38 @@ public class Biome {
+         return this.field_185364_H;
+     }
+ 
++    // Paper start - keep track of data in a pair set to give O(1) contains calls - we have to hook removals incase plugins mess with it
++    public static class MobList extends java.util.ArrayList<SpawnListEntry> {
++        java.util.Set<SpawnListEntry> biomes = new java.util.HashSet<>();
++
++        @Override
++        public boolean contains(Object o) {
++            return biomes.contains(o);
++        }
++
++        @Override
++        public boolean add(SpawnListEntry biomeMeta) {
++            biomes.add(biomeMeta);
++            return super.add(biomeMeta);
++        }
++
++        @Override
++        public SpawnListEntry remove(int index) {
++            SpawnListEntry removed = super.remove(index);
++            if (removed != null) {
++                biomes.remove(removed);
++            }
++            return removed;
++        }
++
++        @Override
++        public void clear() {
++            biomes.clear();
++            super.clear();
++        }
++    }
++    // Paper end
++
+     public static class Attributes {
+ 
+         public static final Codec<Biome.Attributes> field_235104_a_ = RecordCodecBuilder.create((instance) -> {

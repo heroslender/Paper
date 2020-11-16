@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sudzzy <originmc@outlook.com>
+Date: Wed, 2 Mar 2016 23:34:44 -0600
+Subject: [PATCH] Configurable container update tick rate
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 428deed56dae597291670bea8c8a6a67ce4d940f..a4da22ea65d5fdba38f8dc331919088f9ca99aed 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -176,4 +176,9 @@ public class PaperWorldConfig {
+     private void mobSpawnerTickRate() {
+         mobSpawnerTickRate = getInt("mob-spawner-tick-rate", 1);
+     }
++
++    public int containerUpdateTickRate;
++    private void containerUpdateTickRate() {
++        containerUpdateTickRate = getInt("container-update-tick-rate", 1);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index f4a5d2c01cfd7ced86c93a40a707803a9e15c50a..b001d49edbd335158e26f36dd0305e13a570b780 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -197,6 +197,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public boolean field_71137_h;
+     public int field_71138_i;
+     public boolean field_71136_j;
++    private int containerUpdateDelay; // Paper
+ 
+     // CraftBukkit start
+     public String displayName;
+@@ -516,7 +517,12 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+             --this.field_70172_ad;
+         }
+ 
+-        this.field_71070_bA.func_75142_b();
++        // Paper start - Configurable container update tick rate
++        if (--containerUpdateDelay <= 0) {
++            this.field_71070_bA.func_75142_b();
++            containerUpdateDelay = field_70170_p.paperConfig.containerUpdateTickRate;
++        }
++        // Paper end
+         if (!this.field_70170_p.field_72995_K && !this.field_71070_bA.func_75145_c(this)) {
+             this.func_71053_j();
+             this.field_71070_bA = this.field_71069_bz;

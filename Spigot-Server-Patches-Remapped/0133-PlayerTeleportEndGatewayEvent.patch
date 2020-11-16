@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 31 Dec 2016 21:44:50 -0500
+Subject: [PATCH] PlayerTeleportEndGatewayEvent
+
+Allows you to access the Gateway being used in a teleport event
+
+diff --git a/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java b/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
+index 9cf9da6a34a8d546c8a578cc8927e206b9dfebd3..b0c140f59cf2d1b4bc795aa584fcfadd07d644bf 100644
+--- a/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
+@@ -13,6 +13,7 @@ import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.NBTUtil;
+ import net.minecraft.network.play.server.SUpdateTileEntityPacket;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.util.math.AxisAlignedBB;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.ChunkPos;
+@@ -173,7 +174,7 @@ public class EndGatewayTileEntity extends EndPortalTileEntity implements ITickab
+                     location.setPitch(player.getLocation().getPitch());
+                     location.setYaw(player.getLocation().getYaw());
+ 
+-                    PlayerTeleportEvent teleEvent = new PlayerTeleportEvent(player, player.getLocation(), location, PlayerTeleportEvent.TeleportCause.END_GATEWAY);
++                    PlayerTeleportEvent teleEvent = new com.destroystokyo.paper.event.player.PlayerTeleportEndGatewayEvent(player, player.getLocation(), location, new org.bukkit.craftbukkit.block.CraftEndGateway(MCUtil.toLocation(field_145850_b, this.func_174877_v()).getBlock())); // Paper
+                     Bukkit.getPluginManager().callEvent(teleEvent);
+                     if (teleEvent.isCancelled()) {
+                         return;

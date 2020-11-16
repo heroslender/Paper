@@ -1,0 +1,107 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 16 May 2016 20:47:41 -0400
+Subject: [PATCH] Optimize UserCache / Thread Safe
+
+Because Techable keeps complaining about how this isn't thread safe,
+easier to do this than replace the entire thing.
+
+Additionally, move Saving of the User cache to be done async, incase
+the user never changed the default setting for Spigot's save on stop only.
+
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 6ae232c5eb68670917aa04daffad296c1351b772..b795d0e93e1ada99c76900bcab9a148efe783d17 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -895,7 +895,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         } catch (java.lang.InterruptedException ignored) {} // Paper
+         if (org.spigotmc.SpigotConfig.saveUserCacheOnStopOnly) {
+             field_147145_h.info("Saving usercache.json");
+-            this.func_152358_ax().func_152658_c();
++            this.func_152358_ax().c(false); // Paper
+         }
+         // Spigot end
+ 
+diff --git a/src/main/java/net/minecraft/server/management/PlayerProfileCache.java b/src/main/java/net/minecraft/server/management/PlayerProfileCache.java
+index 41781878ffa6885665cfa259e2dc10bde99252b2..2949b5f6551ab78a278ec92ad539871334f52a58 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerProfileCache.java
++++ b/src/main/java/net/minecraft/server/management/PlayerProfileCache.java
+@@ -38,6 +38,7 @@ import java.util.Map;
+ import java.util.UUID;
+ import javax.annotation.Nullable;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.util.JSONUtils;
+ import org.apache.commons.io.IOUtils;
+ 
+@@ -45,8 +46,8 @@ public class PlayerProfileCache {
+ 
+     public static final SimpleDateFormat field_152659_a = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z");
+     private static boolean field_187322_c;
+-    private final Map<String, PlayerProfileCache.ProfileEntry> field_152661_c = Maps.newHashMap();
+-    private final Map<UUID, PlayerProfileCache.ProfileEntry> field_152662_d = Maps.newHashMap();
++    private final Map<String, PlayerProfileCache.ProfileEntry> field_152661_c = new java.util.concurrent.ConcurrentHashMap<>(); // Paper
++    private final Map<UUID, PlayerProfileCache.ProfileEntry> field_152662_d = new java.util.concurrent.ConcurrentHashMap<>(); // Paper
+     private final Deque<GameProfile> field_152663_e = new java.util.concurrent.LinkedBlockingDeque<GameProfile>(); // CraftBukkit
+     private final GameProfileRepository field_187323_g;
+     protected final Gson field_152660_b;
+@@ -99,7 +100,7 @@ public class PlayerProfileCache {
+         this.func_152651_a(p_152649_1_, (Date) null);
+     }
+ 
+-    private void func_152651_a(GameProfile p_152651_1_, Date p_152651_2_) {
++    private synchronized void func_152651_a(GameProfile p_152651_1_, Date p_152651_2_) { // Paper - synchronize
+         UUID uuid = p_152651_1_.getId();
+ 
+         if (p_152651_2_ == null) {
+@@ -112,8 +113,9 @@ public class PlayerProfileCache {
+ 
+         PlayerProfileCache.ProfileEntry usercache_usercacheentry = new PlayerProfileCache.ProfileEntry(p_152651_1_, p_152651_2_);
+ 
+-        if (this.field_152662_d.containsKey(uuid)) {
++        //if (this.e.containsKey(uuid)) { // Paper
+             PlayerProfileCache.ProfileEntry usercache_usercacheentry1 = (PlayerProfileCache.ProfileEntry) this.field_152662_d.get(uuid);
++        if (usercache_usercacheentry1 != null) { // Paper
+ 
+             this.field_152661_c.remove(usercache_usercacheentry1.func_152668_a().getName().toLowerCase(Locale.ROOT));
+             this.field_152663_e.remove(p_152651_1_);
+@@ -126,7 +128,7 @@ public class PlayerProfileCache {
+     }
+ 
+     @Nullable
+-    public GameProfile func_152655_a(String p_152655_1_) {
++    public synchronized GameProfile func_152655_a(String p_152655_1_) { // Paper - synchronize
+         String s1 = p_152655_1_.toLowerCase(Locale.ROOT);
+         PlayerProfileCache.ProfileEntry usercache_usercacheentry = (PlayerProfileCache.ProfileEntry) this.field_152661_c.get(s1);
+ 
+@@ -211,8 +213,15 @@ public class PlayerProfileCache {
+ 
+     }
+ 
++    // Paper start
+     public void func_152658_c() {
++        c(true);
++    }
++    public void c(boolean asyncSave) {
++        // Paper end
+         String s = this.field_152660_b.toJson(this.func_152656_a(org.spigotmc.SpigotConfig.userCacheCap));
++        Runnable save = () -> {
++
+         BufferedWriter bufferedwriter = null;
+ 
+         try {
+@@ -226,6 +235,14 @@ public class PlayerProfileCache {
+         } finally {
+             IOUtils.closeQuietly(bufferedwriter);
+         }
++        // Paper start
++        };
++        if (asyncSave) {
++            MCUtil.scheduleAsyncTask(save);
++        } else {
++            save.run();
++        }
++        // Paper end
+ 
+     }
+ 

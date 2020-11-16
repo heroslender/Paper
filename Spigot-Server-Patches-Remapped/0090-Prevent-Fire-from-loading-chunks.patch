@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 17 Apr 2016 17:27:09 -0400
+Subject: [PATCH] Prevent Fire from loading chunks
+
+This causes the nether to spam unload/reload chunks, plus overall
+bad behavior.
+
+diff --git a/src/main/java/net/minecraft/block/FireBlock.java b/src/main/java/net/minecraft/block/FireBlock.java
+index 600e7a66c5bc4f6126f9de05038f456c4f146bde..0b403723f3549d4fe3f082bff1fba65be03ee03b 100644
+--- a/src/main/java/net/minecraft/block/FireBlock.java
++++ b/src/main/java/net/minecraft/block/FireBlock.java
+@@ -116,7 +116,7 @@ public class FireBlock extends AbstractFireBlock {
+                 BooleanProperty blockstateboolean = (BooleanProperty) FireBlock.field_196449_B.get(enumdirection);
+ 
+                 if (blockstateboolean != null) {
+-                    iblockdata1 = (BlockState) iblockdata1.func_206870_a(blockstateboolean, this.func_196446_i(p_196448_1_.func_180495_p(p_196448_2_.func_177972_a(enumdirection))));
++                    iblockdata1 = (BlockState) iblockdata1.func_206870_a(blockstateboolean, this.func_196446_i(p_196448_1_.getTypeIfLoaded(p_196448_2_.func_177972_a(enumdirection)))); // Paper - prevent chunk loads
+                 }
+             }
+ 
+@@ -196,6 +196,7 @@ public class FireBlock extends AbstractFireBlock {
+                                 }
+ 
+                                 blockposition_mutableblockposition.func_239621_a_((Vector3i) p_225534_3_, l, j1, i1);
++                                if (!p_225534_2_.func_175667_e(blockposition_mutableblockposition)) continue; // Paper
+                                 int l1 = this.func_176538_m((IWorldReader) p_225534_2_, (BlockPos) blockposition_mutableblockposition);
+ 
+                                 if (l1 > 0) {
+@@ -241,10 +242,16 @@ public class FireBlock extends AbstractFireBlock {
+     }
+ 
+     private void trySpread(World world, BlockPos blockposition, int i, Random random, int j, BlockPos sourceposition) { // CraftBukkit add sourceposition
+-        int k = this.func_220274_q(world.func_180495_p(blockposition));
++        // Paper start
++        final BlockState iblockdata = world.getTypeIfLoaded(blockposition);
++        if (iblockdata == null) {
++            return;
++        }
++        int k = this.func_220274_q(iblockdata);
++        // Paper end
+ 
+         if (random.nextInt(i) < k) {
+-            BlockState iblockdata = world.func_180495_p(blockposition);
++            //IBlockData iblockdata = world.getType(blockposition); // Paper
+ 
+             // CraftBukkit start
+             org.bukkit.block.Block theBlock = world.getWorld().getBlockAt(blockposition.func_177958_n(), blockposition.func_177956_o(), blockposition.func_177952_p());
+@@ -290,7 +297,7 @@ public class FireBlock extends AbstractFireBlock {
+         for (int j = 0; j < i; ++j) {
+             Direction enumdirection = aenumdirection[j];
+ 
+-            if (this.func_196446_i(p_196447_1_.func_180495_p(p_196447_2_.func_177972_a(enumdirection)))) {
++            if (this.func_196446_i(p_196447_1_.getTypeIfLoaded(p_196447_2_.func_177972_a(enumdirection)))) { // Paper - prevent chunk loads
+                 return true;
+             }
+         }
+@@ -308,7 +315,12 @@ public class FireBlock extends AbstractFireBlock {
+ 
+             for (int k = 0; k < j; ++k) {
+                 Direction enumdirection = aenumdirection[k];
+-                BlockState iblockdata = p_176538_1_.func_180495_p(p_176538_2_.func_177972_a(enumdirection));
++                // Paper start
++                BlockState iblockdata = p_176538_1_.getTypeIfLoaded(p_176538_2_.func_177972_a(enumdirection));
++                if (iblockdata == null) {
++                    continue;
++                }
++                // Paper end
+ 
+                 i = Math.max(this.func_220275_r(iblockdata), i);
+             }
+@@ -319,7 +331,7 @@ public class FireBlock extends AbstractFireBlock {
+ 
+     @Override
+     protected boolean func_196446_i(BlockState p_196446_1_) {
+-        return this.func_220275_r(p_196446_1_) > 0;
++        return p_196446_1_ != null && this.func_220275_r(p_196446_1_) > 0;  // Paper - iblockdata can be nullable if chunk is unloaded now
+     }
+ 
+     @Override

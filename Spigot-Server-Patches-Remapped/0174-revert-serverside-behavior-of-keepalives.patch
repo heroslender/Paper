@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sun, 15 Oct 2017 00:29:07 +0100
+Subject: [PATCH] revert serverside behavior of keepalives
+
+This patch intends to bump up the time that a client has to reply to the
+server back to 30 seconds as per pre 1.12.2, which allowed clients
+more than enough time to reply potentially allowing them to be less
+tempermental due to lag spikes on the network thread, e.g. that caused
+by plugins that are interacting with netty.
+
+We also add a system property to allow people to tweak how long the server
+will wait for a reply. There is a compromise here between lower and higher
+values, lower values will mean that dead connections can be closed sooner,
+whereas higher values will make this less sensitive to issues such as spikes
+from networking or during connections flood of chunk packets on slower clients,
+ at the cost of dead connections being kept open for longer.
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index fa5ccfb0c31deba77332e68d6efb3a99718811c5..124024198f3edfe39d1f4d757e379fa18744a5af 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -212,7 +212,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     private final MinecraftServer field_147367_d;
+     public ServerPlayerEntity field_147369_b;
+     private int field_147368_e;
+-    private long field_194402_f; private void setLastPing(long lastPing) { this.field_194402_f = lastPing;}; private long getLastPing() { return this.field_194402_f;}; // Paper - OBFHELPER
++    private long field_194402_f = Util.func_211177_b(); private void setLastPing(long lastPing) { this.field_194402_f = lastPing;}; private long getLastPing() { return this.field_194402_f;}; // Paper - OBFHELPER
+     private boolean field_194403_g; private void setPendingPing(boolean isPending) { this.field_194403_g = isPending;}; private boolean isPendingPing() { return this.field_194403_g;}; // Paper - OBFHELPER
+     private long field_194404_h; private void setKeepAliveID(long keepAliveID) { this.field_194404_h = keepAliveID;}; private long getKeepAliveID() {return this.field_194404_h; };  // Paper - OBFHELPER
+     // CraftBukkit start - multithreaded fields
+@@ -243,6 +243,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     private int field_184346_E;
+     private int field_184347_F;
+     private int field_184348_G;
++    private static final long KEEPALIVE_LIMIT = Long.getLong("paper.playerconnection.keepalive", 30) * 1000; // Paper - provide property to set keepalive limit
+ 
+     public ServerPlayNetHandler(MinecraftServer minecraftserver, NetworkManager networkmanager, ServerPlayerEntity entityplayer) {
+         this.field_147367_d = minecraftserver;
+@@ -324,18 +325,25 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+         }
+ 
+         this.field_147367_d.func_213185_aS().func_76320_a("keepAlive");
+-        long i = Util.func_211177_b();
+-
+-        if (i - this.field_194402_f >= 25000L) { // CraftBukkit
+-            if (this.field_194403_g) {
+-                this.func_194028_b(new TranslationTextComponent("disconnect.timeout"));
+-            } else {
+-                this.field_194403_g = true;
+-                this.field_194402_f = i;
+-                this.field_194404_h = i;
+-                this.func_147359_a(new SKeepAlivePacket(this.field_194404_h));
++        // Paper Start - give clients a longer time to respond to pings as per pre 1.12.2 timings
++        // This should effectively place the keepalive handling back to "as it was" before 1.12.2
++        long currentTime = Util.func_211177_b();
++        long elapsedTime = currentTime - this.getLastPing();
++
++        if (this.isPendingPing()) {
++            if (!this.processedDisconnect && elapsedTime >= KEEPALIVE_LIMIT) { // check keepalive limit, don't fire if already disconnected
++                ServerPlayNetHandler.field_147370_c.warn("{} was kicked due to keepalive timeout!", this.field_147369_b.func_195047_I_()); // more info
++                this.func_194028_b(new TranslationTextComponent("disconnect.timeout", new Object[0]));
++            }
++        } else {
++            if (elapsedTime >= 15000L) { // 15 seconds
++                this.setPendingPing(true);
++                this.setLastPing(currentTime);
++                this.setKeepAliveID(currentTime);
++                this.func_147359_a(new SKeepAlivePacket(this.getKeepAliveID()));
+             }
+         }
++        // Paper end
+ 
+         this.field_147367_d.func_213185_aS().func_76319_b();
+         // CraftBukkit start

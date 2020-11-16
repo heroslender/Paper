@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Tue, 14 Jan 2020 14:59:08 -0800
+Subject: [PATCH] Optimise Chunk#getFluid
+
+Removing the try catch and generally reducing ops should make it
+faster on its own, however removing the try catch makes it
+easier to inline due to code size
+
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 8168e7057d69b7daf4d19300713ba3546441f7a9..59e23075bb80b0ac30181dede6b075d3788ac74c 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -430,25 +430,29 @@ public class Chunk implements IChunk {
+     }
+ 
+     public FluidState func_205751_b(int p_205751_1_, int p_205751_2_, int p_205751_3_) {
+-        try {
+-            if (p_205751_2_ >= 0 && p_205751_2_ >> 4 < this.field_76652_q.length) {
+-                ChunkSection chunksection = this.field_76652_q[p_205751_2_ >> 4];
+-
+-                if (!ChunkSection.func_222628_a(chunksection)) {
+-                    return chunksection.func_206914_b(p_205751_1_ & 15, p_205751_2_ & 15, p_205751_3_ & 15);
++        //try {  // Paper - remove try catch
++        // Paper start - reduce the number of ops in this call
++        int index = p_205751_2_ >> 4;
++            if (index >= 0 && index < this.field_76652_q.length) {
++                ChunkSection chunksection = this.field_76652_q[index];
++
++                if (chunksection != null) {
++                    return chunksection.field_177488_d.func_186015_a((p_205751_2_ & 15) << 8 | (p_205751_3_ & 15) << 4 | p_205751_1_ & 15).func_204520_s();
+                 }
++                // Paper end
+             }
+ 
+             return Fluids.field_204541_a.func_207188_f();
+-        } catch (Throwable throwable) {
+-            CrashReport crashreport = CrashReport.func_85055_a(throwable, "Getting fluid state");
+-            CrashReportCategory crashreportsystemdetails = crashreport.func_85058_a("Block being got");
++        /*} catch (Throwable throwable) { // Paper - remove try catch
++            CrashReport crashreport = CrashReport.a(throwable, "Getting fluid state");
++            CrashReportSystemDetails crashreportsystemdetails = crashreport.a("Block being got");
+ 
+-            crashreportsystemdetails.func_189529_a("Location", () -> {
+-                return CrashReportCategory.func_184876_a(p_205751_1_, p_205751_2_, p_205751_3_);
++            crashreportsystemdetails.a("Location", () -> {
++                return CrashReportSystemDetails.a(i, j, k);
+             });
+             throw new ReportedException(crashreport);
+         }
++         */  // Paper - remove try catch
+     }
+ 
+     // CraftBukkit start
+diff --git a/src/main/java/net/minecraft/world/chunk/ChunkSection.java b/src/main/java/net/minecraft/world/chunk/ChunkSection.java
+index 95bd503034ff5dd62e310d6ecb4721a27d1dd209..2f6a0753a0460e61a48689bfc5a43f370b1b6e0a 100644
+--- a/src/main/java/net/minecraft/world/chunk/ChunkSection.java
++++ b/src/main/java/net/minecraft/world/chunk/ChunkSection.java
+@@ -48,7 +48,7 @@ public class ChunkSection {
+     }
+ 
+     public FluidState func_206914_b(int p_206914_1_, int p_206914_2_, int p_206914_3_) {
+-        return ((BlockState) this.field_177488_d.func_186016_a(p_206914_1_, p_206914_2_, p_206914_3_)).func_204520_s();
++        return ((BlockState) this.field_177488_d.func_186016_a(p_206914_1_, p_206914_2_, p_206914_3_)).func_204520_s(); // Paper - diff on change - we expect this to be effectively just getType(x, y, z).getFluid(). If this changes we need to check other patches that use IBlockData#getFluid.
+     }
+ 
+     public void func_222635_a() {

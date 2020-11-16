@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 10 Jul 2020 13:12:33 -0500
+Subject: [PATCH] Fix SPIGOT-5824 Bukkit world-container is not used
+
+
+diff --git a/src/main/java/net/minecraft/server/Main.java b/src/main/java/net/minecraft/server/Main.java
+index 3d831d80b6236e89da85e330600db3ecb977c7e2..cdfff4015fc8aecead9cd4a2050fabd4a4c1145f 100644
+--- a/src/main/java/net/minecraft/server/Main.java
++++ b/src/main/java/net/minecraft/server/Main.java
+@@ -117,11 +117,20 @@ public class Main {
+                 return;
+             }
+ 
+-            File file = (File) optionset.valueOf("universe"); // CraftBukkit
++            // Paper start - fix SPIGOT-5824
++            File file;
++            File userCacheFile = new File("usercache.json");
++            if (optionset.has("universe")) {
++                file = (File) optionset.valueOf("universe"); // CraftBukkit
++                userCacheFile = new File(file, "usercache.json");
++            } else {
++                file = new File(bukkitConfiguration.getString("settings.world-container", "."));
++            }
++            // Paper end - fix SPIGOT-5824
+             YggdrasilAuthenticationService yggdrasilauthenticationservice = new com.destroystokyo.paper.profile.PaperAuthenticationService(Proxy.NO_PROXY, UUID.randomUUID().toString()); // Paper
+             MinecraftSessionService minecraftsessionservice = yggdrasilauthenticationservice.createMinecraftSessionService();
+             GameProfileRepository gameprofilerepository = yggdrasilauthenticationservice.createProfileRepository();
+-            PlayerProfileCache usercache = new PlayerProfileCache(gameprofilerepository, new File(file, MinecraftServer.field_152367_a.getName()));
++            PlayerProfileCache usercache = new PlayerProfileCache(gameprofilerepository, userCacheFile); // Paper - only move usercache.json into folder if --universe is used, not world-container
+             // CraftBukkit start
+             String s = (String) Optional.ofNullable(optionset.valueOf("world")).orElse(dedicatedserversettings.func_219034_a().field_219021_o);
+             SaveFormat convertable = SaveFormat.func_237269_a_(file.toPath());

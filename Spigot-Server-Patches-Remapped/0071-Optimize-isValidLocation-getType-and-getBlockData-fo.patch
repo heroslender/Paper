@@ -1,0 +1,224 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 3 Mar 2016 02:07:55 -0600
+Subject: [PATCH] Optimize isValidLocation, getType and getBlockData for
+ inlining
+
+Hot methods, so reduce # of instructions for the method.
+
+Move is valid location test to the BlockPosition class so that it can access local variables.
+
+Replace all calls to the new place to the unnecessary forward.
+
+Optimize getType and getBlockData to manually inline and optimize the calls
+
+diff --git a/src/main/java/net/minecraft/util/math/vector/Vector3i.java b/src/main/java/net/minecraft/util/math/vector/Vector3i.java
+index 26bece5bfd0cbe8cf4fac9dd006c48937d083254..6341286ce21348be80f8379e72729a198d62e386 100644
+--- a/src/main/java/net/minecraft/util/math/vector/Vector3i.java
++++ b/src/main/java/net/minecraft/util/math/vector/Vector3i.java
+@@ -24,6 +24,15 @@ public class Vector3i implements Comparable<Vector3i> {
+     private int field_177960_b;public final void setY(final int y) { this.field_177960_b = y; } // Paper - OBFHELPER
+     private int field_177961_c;public final void setZ(final int z) { this.field_177961_c = z; } // Paper - OBFHELPER
+ 
++    // Paper start
++    public boolean isValidLocation() {
++        return func_177958_n() >= -30000000 && func_177952_p() >= -30000000 && func_177958_n() < 30000000 && func_177952_p() < 30000000 && func_177956_o() >= 0 && func_177956_o() < 256;
++    }
++    public boolean isInvalidYLocation() {
++        return field_177960_b < 0 || field_177960_b >= 256;
++    }
++    // Paper end
++
+     public Vector3i(int p_i46007_1_, int p_i46007_2_, int p_i46007_3_) {
+         this.field_177962_a = p_i46007_1_;
+         this.field_177960_b = p_i46007_2_;
+diff --git a/src/main/java/net/minecraft/util/palette/PalettedContainer.java b/src/main/java/net/minecraft/util/palette/PalettedContainer.java
+index 446fa09f0fc174e5076e8a4fd3edc2be006da019..63cd969760b10331d35cb54b0ea2d321bfc27da8 100644
+--- a/src/main/java/net/minecraft/util/palette/PalettedContainer.java
++++ b/src/main/java/net/minecraft/util/palette/PalettedContainer.java
+@@ -133,7 +133,7 @@ public class PalettedContainer<T> implements IResizeCallback<T> {
+     }
+ 
+     public T func_186016_a(int p_186016_1_, int p_186016_2_, int p_186016_3_) {
+-        return this.func_186015_a(func_186011_b(p_186016_1_, p_186016_2_, p_186016_3_));
++        return this.func_186015_a(p_186016_2_ << 8 | p_186016_3_ << 4 | p_186016_1_); // Paper - inline
+     }
+ 
+     protected T func_186015_a(int p_186015_1_) {
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 49965b52dc6aaefbc5c09e56d0c92b115b37dbb3..ee62104cbeba0636b13c0822cf36a92646ff51e9 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -234,7 +234,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     }
+ 
+     public static boolean func_175701_a(BlockPos p_175701_0_) {
+-        return !func_189509_E(p_175701_0_) && func_234934_e_(p_175701_0_);
++        return p_175701_0_.isValidLocation();
+     }
+ 
+     public static boolean func_234935_k_(BlockPos p_234935_0_) {
+@@ -250,7 +250,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     }
+ 
+     public static boolean func_189509_E(BlockPos p_189509_0_) {
+-        return func_217405_b(p_189509_0_.func_177956_o());
++        return p_189509_0_.isInvalidYLocation();
+     }
+ 
+     public static boolean func_217405_b(int p_217405_0_) {
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 5e998d4d2880191868c63c07805ea51e55b0eb92..2300daa6ec869314853d68bda2f12bd7815a71cc 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -348,12 +348,27 @@ public class Chunk implements IChunk {
+         return this.field_76652_q;
+     }
+ 
+-    @Override
++    // Paper start - Optimize getBlockData to reduce instructions
++    public final BlockState getBlockData(BlockPos pos) { return getBlockData(pos.func_177958_n(), pos.func_177956_o(), pos.func_177952_p()); } // Paper
+     public BlockState func_180495_p(BlockPos p_180495_1_) {
+-        int i = p_180495_1_.func_177958_n();
+-        int j = p_180495_1_.func_177956_o();
+-        int k = p_180495_1_.func_177952_p();
++        return this.getBlockData(p_180495_1_.func_177958_n(), p_180495_1_.func_177956_o(), p_180495_1_.func_177952_p());
++    }
+ 
++    public BlockState getType(final int x, final int y, final int z) {
++        return getBlockData(x, y, z);
++    }
++    public final BlockState getBlockData(final int x, final int y, final int z) {
++        // Method body / logic copied from below
++        final int i = y >> 4;
++        if (y < 0 || i >= this.field_76652_q.length || this.field_76652_q[i] == null || this.field_76652_q[i].field_76682_b == 0) {
++            return Blocks.field_150350_a.func_176223_P();
++        }
++        // Inlined ChunkSection.getType() and DataPaletteBlock.a(int,int,int)
++        return this.field_76652_q[i].field_177488_d.func_186015_a((y & 15) << 8 | (z & 15) << 4 | x & 15);
++    }
++
++    public BlockState getBlockData_unused(int i, int j, int k) {
++        // Paper end
+         if (this.field_76637_e.func_234925_Z_()) {
+             BlockState iblockdata = null;
+ 
+@@ -650,7 +665,7 @@ public class Chunk implements IChunk {
+ 
+             // CraftBukkit start
+             // Paper start - Remove invalid mob spawner tile entities
+-        } else if (p_177426_2_ instanceof MobSpawnerTileEntity && !(getBlockData(p_177426_1_.func_177958_n(), p_177426_1_.func_177956_o(), p_177426_1_.func_177952_p()).getBlock() instanceof SpawnerBlock)) {
++        } else if (p_177426_2_ instanceof MobSpawnerTileEntity && !(getBlockData(p_177426_1_.func_177958_n(), p_177426_1_.func_177956_o(), p_177426_1_.func_177952_p()).func_177230_c() instanceof SpawnerBlock)) {
+             this.field_150816_i.remove(p_177426_1_);
+             // Paper end
+         } else {
+diff --git a/src/main/java/net/minecraft/world/chunk/ChunkPrimer.java b/src/main/java/net/minecraft/world/chunk/ChunkPrimer.java
+index ad3f642d9b21e88850ff83c275369caec17a16f7..89904342f800db4dce3e6c15b1aab85dee18e457 100644
+--- a/src/main/java/net/minecraft/world/chunk/ChunkPrimer.java
++++ b/src/main/java/net/minecraft/world/chunk/ChunkPrimer.java
+@@ -115,16 +115,18 @@ public class ChunkPrimer implements IChunk {
+ 
+     @Override
+     public BlockState func_180495_p(BlockPos p_180495_1_) {
+-        int i = p_180495_1_.func_177956_o();
+-
+-        if (World.func_217405_b(i)) {
++        return getType(p_180495_1_.func_177958_n(), p_180495_1_.func_177956_o(), p_180495_1_.func_177952_p());
++    }
++    // Paper start
++    public BlockState getType(final int x, final int y, final int z) {
++        if (y < 0 || y >= 256) {
+             return Blocks.field_201940_ji.func_176223_P();
+         } else {
+-            ChunkSection chunksection = this.func_76587_i()[i >> 4];
+-
+-            return ChunkSection.func_222628_a(chunksection) ? Blocks.field_150350_a.func_176223_P() : chunksection.func_177485_a(p_180495_1_.func_177958_n() & 15, i & 15, p_180495_1_.func_177952_p() & 15);
++            ChunkSection chunksection = this.func_76587_i()[y >> 4];
++            return chunksection == Chunk.EMPTY_CHUNK_SECTION || chunksection.func_76663_a() ? Blocks.field_150350_a.func_176223_P() : chunksection.func_177485_a(x & 15, y & 15, z & 15);
+         }
+     }
++    // Paper end
+ 
+     @Override
+     public FluidState func_204610_c(BlockPos p_204610_1_) {
+diff --git a/src/main/java/net/minecraft/world/chunk/ChunkPrimerWrapper.java b/src/main/java/net/minecraft/world/chunk/ChunkPrimerWrapper.java
+index 5d667903ac439be7dc2986bb5ebf2d2bdada8975..57b7392d9ee6d5861909c2f0083a55b1629c1981 100644
+--- a/src/main/java/net/minecraft/world/chunk/ChunkPrimerWrapper.java
++++ b/src/main/java/net/minecraft/world/chunk/ChunkPrimerWrapper.java
+@@ -44,6 +44,11 @@ public class ChunkPrimerWrapper extends ChunkPrimer {
+     public BlockState func_180495_p(BlockPos p_180495_1_) {
+         return this.field_209220_a.func_180495_p(p_180495_1_);
+     }
++    // Paper start
++    public final BlockState getType(final int x, final int y, final int z) {
++        return this.field_209220_a.getBlockData(x, y, z);
++    }
++    // Paper end
+ 
+     @Override
+     public FluidState func_204610_c(BlockPos p_204610_1_) {
+diff --git a/src/main/java/net/minecraft/world/chunk/ChunkSection.java b/src/main/java/net/minecraft/world/chunk/ChunkSection.java
+index 58cb2bb64104be1d9acbe5e4f3cfb1bf3f5bcaf8..924f22da02faf70a44d651ec686367c6c1068b26 100644
+--- a/src/main/java/net/minecraft/world/chunk/ChunkSection.java
++++ b/src/main/java/net/minecraft/world/chunk/ChunkSection.java
+@@ -16,10 +16,10 @@ public class ChunkSection {
+ 
+     public static final IPalette<BlockState> field_205512_a = new IdentityPalette<>(Block.field_176229_d, Blocks.field_150350_a.func_176223_P());
+     private final int field_76684_a;
+-    private short field_76682_b;
++    short field_76682_b; // Paper - package-private
+     private short field_76683_c;
+     private short field_206918_e;
+-    private final PalettedContainer<BlockState> field_177488_d;
++    final PalettedContainer<BlockState> field_177488_d;
+ 
+     public ChunkSection(int p_i49943_1_) {
+         this(p_i49943_1_, (short) 0, (short) 0, (short) 0);
+@@ -33,8 +33,8 @@ public class ChunkSection {
+         this.field_177488_d = new PalettedContainer<>(ChunkSection.field_205512_a, Block.field_176229_d, NBTUtil::func_190008_d, NBTUtil::func_190009_a, Blocks.field_150350_a.func_176223_P());
+     }
+ 
+-    public BlockState func_177485_a(int p_177485_1_, int p_177485_2_, int p_177485_3_) {
+-        return (BlockState) this.field_177488_d.func_186016_a(p_177485_1_, p_177485_2_, p_177485_3_);
++    public final BlockState func_177485_a(int p_177485_1_, int p_177485_2_, int p_177485_3_) { // Paper
++        return this.field_177488_d.func_186015_a(p_177485_2_ << 8 | p_177485_3_ << 4 | p_177485_1_); // Paper - inline
+     }
+ 
+     public FluidState func_206914_b(int p_206914_1_, int p_206914_2_, int p_206914_3_) {
+diff --git a/src/main/java/net/minecraft/world/chunk/EmptyChunk.java b/src/main/java/net/minecraft/world/chunk/EmptyChunk.java
+index 0eb11893e85166281d8640bf6a1444c3763a6dd6..3d6c706cbf39238cf0cd6d9c1c37fd56fdbf9466 100644
+--- a/src/main/java/net/minecraft/world/chunk/EmptyChunk.java
++++ b/src/main/java/net/minecraft/world/chunk/EmptyChunk.java
+@@ -23,7 +23,7 @@ import net.minecraft.world.server.ChunkHolder;
+ 
+ public class EmptyChunk extends Chunk {
+ 
+-    private static final Biome[] field_201623_e = (Biome[]) Util.func_200696_a((Object) (new Biome[BiomeContainer.field_227049_a_]), (abiomebase) -> {
++    private static final Biome[] field_201623_e = (Biome[]) Util.func_200696_a((new Biome[BiomeContainer.field_227049_a_]), (abiomebase) -> { // Paper - decompile error
+         Arrays.fill(abiomebase, Biomes.field_76772_c);
+     });
+ 
+@@ -31,6 +31,11 @@ public class EmptyChunk extends Chunk {
+         super(world, chunkcoordintpair, new BiomeContainer(EmptyChunk.field_201623_e));
+     }
+ 
++    // Paper start
++    @Override public BlockState getType(int x, int y, int z) {
++        return Blocks.field_201940_ji.func_176223_P();
++    }
++    // Paper end
+     @Override
+     public BlockState func_180495_p(BlockPos p_180495_1_) {
+         return Blocks.field_201940_ji.func_176223_P();
+diff --git a/src/main/java/net/minecraft/world/chunk/IChunk.java b/src/main/java/net/minecraft/world/chunk/IChunk.java
+index 39c613e59395c4255af1a3af080a271a6eb0edc6..903a6f0eb66d21152400db02bf01dc9d0dd0cec7 100644
+--- a/src/main/java/net/minecraft/world/chunk/IChunk.java
++++ b/src/main/java/net/minecraft/world/chunk/IChunk.java
+@@ -28,6 +28,7 @@ import org.apache.logging.log4j.LogManager;
+ 
+ public interface IChunk extends IBlockReader, IStructureReader {
+ 
++    BlockState getType(final int x, final int y, final int z); // Paper
+     @Nullable
+     BlockState func_177436_a(BlockPos p_177436_1_, BlockState p_177436_2_, boolean p_177436_3_);
+ 

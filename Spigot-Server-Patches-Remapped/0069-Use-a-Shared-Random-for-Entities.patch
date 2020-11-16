@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 22 Mar 2016 00:33:47 -0400
+Subject: [PATCH] Use a Shared Random for Entities
+
+Reduces memory usage and provides ensures more randomness, Especially since a lot of garbage entity objects get created.
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 318c831f88a396241a416f266aa571a3e07a9907..2e7283d51ba9a826b04d8e8c53597acc5a05744f 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -147,6 +147,21 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         return tag.func_74764_b("Bukkit.updateLevel") && tag.func_74762_e("Bukkit.updateLevel") >= level;
+     }
+ 
++    // Paper start
++    public static Random SHARED_RANDOM = new Random() {
++        private boolean locked = false;
++        @Override
++        public synchronized void setSeed(long seed) {
++            if (locked) {
++                LogManager.getLogger().error("Ignoring setSeed on Entity.SHARED_RANDOM", new Throwable());
++            } else {
++                super.setSeed(seed);
++                locked = true;
++            }
++        }
++    };
++    // Paper end
++
+     private CraftEntity bukkitEntity;
+ 
+     public CraftEntity getBukkitEntity() {
+@@ -281,7 +296,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         this.field_213328_B = Vector3d.field_186680_a;
+         this.field_70150_b = 1.0F;
+         this.field_191959_ay = 1.0F;
+-        this.field_70146_Z = new Random();
++        this.field_70146_Z = SHARED_RANDOM; // Paper
+         this.field_190534_ay = -this.func_190531_bD();
+         this.field_233554_M_ = new Object2DoubleArrayMap(2);
+         this.field_70148_d = true;

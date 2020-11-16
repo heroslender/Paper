@@ -1,0 +1,179 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 4 Jul 2018 02:10:36 -0400
+Subject: [PATCH] Store reference to current Chunk for Entity and Block
+ Entities
+
+This enables us a fast reference to the entities current chunk instead
+of having to look it up by hashmap lookups.
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 078e6096c8cc62f92f8597f0175aec1f1b4e3e3d..2e0196d34b9582972ad86a1ce3ad71574c8c7eb3 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -103,6 +103,7 @@ import net.minecraft.world.IBlockReader;
+ import net.minecraft.world.IWorld;
+ import net.minecraft.world.IWorldReader;
+ import net.minecraft.world.World;
++import net.minecraft.world.chunk.Chunk;
+ import net.minecraft.world.gen.Heightmap;
+ import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.server.TicketType;
+@@ -266,7 +267,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     public boolean isChunkLoaded() {
+-        return field_70170_p.func_217354_b((int) Math.floor(this.func_226277_ct_()) >> 4, (int) Math.floor(this.func_226281_cx_()) >> 4);
++        return getCurrentChunk() != null;
+     }
+     // CraftBukkit end
+ 
+@@ -1759,6 +1760,23 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     // Paper start
++    java.lang.ref.WeakReference<Chunk> currentChunk = null;
++
++    public void setCurrentChunk(Chunk chunk) {
++        this.currentChunk = chunk != null ? new java.lang.ref.WeakReference<>(chunk) : null;
++    }
++    /**
++     * Returns the entities current registered chunk. If the entity is not added to a chunk yet, it will return null
++     */
++    public Chunk getCurrentChunk() {
++        final Chunk chunk = currentChunk != null ? currentChunk.get() : null;
++        if (chunk != null && chunk.field_76636_d) {
++            return chunk;
++        }
++
++        return !field_70175_ag ? null : ((ServerWorld)field_70170_p).E().getChunkAtIfLoadedMainThreadNoCache(field_70176_ah, field_70164_aj);
++    }
++
+     private ResourceLocation entityKey;
+     private String entityKeyString;
+ 
+diff --git a/src/main/java/net/minecraft/tileentity/TileEntity.java b/src/main/java/net/minecraft/tileentity/TileEntity.java
+index de9f33dfe9e1f94a15e4f94a53cd095e0cd65461..4fe8079efe30eaf53514296b647e4bdf3c0cb83b 100644
+--- a/src/main/java/net/minecraft/tileentity/TileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/TileEntity.java
+@@ -12,6 +12,7 @@ import net.minecraft.util.Rotation;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.registry.Registry;
+ import net.minecraft.world.World;
++import net.minecraft.world.chunk.Chunk;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+ import org.apache.logging.log4j.util.Supplier;
+@@ -62,6 +63,15 @@ public abstract class TileEntity implements KeyedObject { // Paper
+         getMinecraftKey(); // Try to load if it doesn't exists.
+         return tileEntityKeyString;
+     }
++
++    private java.lang.ref.WeakReference<Chunk> currentChunk = null;
++    public Chunk getCurrentChunk() {
++        final Chunk chunk = currentChunk != null ? currentChunk.get() : null;
++        return chunk != null && chunk.field_76636_d ? chunk : null;
++    }
++    public void setCurrentChunk(Chunk chunk) {
++        this.currentChunk = chunk != null ? new java.lang.ref.WeakReference<>(chunk) : null;
++    }
+     // Paper end
+ 
+     @Nullable
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 1d547dcd855b5da26ce3711ef93d88fc4c4f3f3f..fe0fc686ea8ab3349bcb36853cedc17a59c77151 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -94,11 +94,36 @@ public class Chunk implements IChunk {
+         this(world, chunkcoordintpair, biomestorage, UpgradeData.field_196994_a, EmptyTickList.func_205388_a(), EmptyTickList.func_205388_a(), 0L, (ChunkSection[]) null, (Consumer) null);
+     }
+ 
++    // Paper start
++    private class TileEntityHashMap extends java.util.HashMap<BlockPos, TileEntity> {
++        @Override
++        public TileEntity put(BlockPos key, TileEntity value) {
++            TileEntity replaced = super.put(key, value);
++            if (replaced != null) {
++                replaced.setCurrentChunk(null);
++            }
++            if (value != null) {
++                value.setCurrentChunk(Chunk.this);
++            }
++            return replaced;
++        }
++
++        @Override
++        public TileEntity remove(Object key) {
++            TileEntity removed = super.remove(key);
++            if (removed != null) {
++                removed.setCurrentChunk(null);
++            }
++            return removed;
++        }
++    }
++    // Paper end
++
+     public Chunk(World world, ChunkPos chunkcoordintpair, BiomeContainer biomestorage, UpgradeData chunkconverter, ITickList<Block> ticklist, ITickList<Fluid> ticklist1, long i, @Nullable ChunkSection[] achunksection, @Nullable Consumer<Chunk> consumer) {
+         this.field_76652_q = new ChunkSection[16];
+         this.field_201618_i = Maps.newHashMap();
+         this.field_76634_f = Maps.newEnumMap(Heightmap.Type.class);
+-        this.field_150816_i = Maps.newHashMap();
++        this.field_150816_i = new net.minecraft.world.chunk.Chunk.TileEntityHashMap(); // Paper
+         this.field_201619_q = Maps.newHashMap();
+         this.field_201620_r = Maps.newHashMap();
+         this.field_201622_t = new ShortList[16];
+@@ -504,6 +529,7 @@ public class Chunk implements IChunk {
+         }
+ 
+         p_76612_1_.field_70175_ag = true;
++        p_76612_1_.setCurrentChunk(this); // Paper
+         p_76612_1_.field_70176_ah = this.field_212816_F.field_77276_a;
+         p_76612_1_.field_70162_ai = k;
+         p_76612_1_.field_70164_aj = this.field_212816_F.field_77275_b;
+@@ -516,6 +542,7 @@ public class Chunk implements IChunk {
+         ((Heightmap) this.field_76634_f.get(p_201607_1_)).func_202268_a(p_201607_2_);
+     }
+ 
++    public final void removeEntity(Entity entity) { this.func_76622_b(entity); } // Paper - OBFHELPER
+     public void func_76622_b(Entity p_76622_1_) {
+         this.func_76608_a(p_76622_1_, p_76622_1_.field_70162_ai);
+     }
+@@ -529,7 +556,12 @@ public class Chunk implements IChunk {
+             p_76608_2_ = this.field_76645_j.length - 1;
+         }
+ 
+-        this.field_76645_j[p_76608_2_].remove(p_76608_1_);
++        // Paper start
++        if (p_76608_1_.currentChunk != null && p_76608_1_.currentChunk.get() == this) p_76608_1_.setCurrentChunk(null);
++        if (!this.field_76645_j[p_76608_2_].remove(p_76608_1_)) {
++            return;
++        }
++        // Paper end
+         this.entities.remove(p_76608_1_); // Paper
+     }
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+index 4a729639c3d1b7cecad8c5f106d0ad136e158c64..3c474625e5a986228eedf41f06171739e3f8950e 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+@@ -141,6 +141,7 @@ import net.minecraft.util.DamageSource;
+ import net.minecraft.util.math.AxisAlignedBB;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.text.ITextComponent;
++import org.bukkit.Chunk; // Paper
+ import org.bukkit.EntityEffect;
+ import org.bukkit.Location;
+ import org.bukkit.Server;
+@@ -182,6 +183,12 @@ public abstract class CraftEntity implements org.bukkit.entity.Entity {
+         this.entity = entity;
+     }
+ 
++    @Override
++    public Chunk getChunk() {
++        net.minecraft.world.chunk.Chunk currentChunk = entity.getCurrentChunk();
++        return currentChunk != null ? currentChunk.bukkitChunk : getLocation().getChunk();
++    }
++
+     public static CraftEntity getEntity(CraftServer server, Entity entity) {
+         /*
+          * Order is *EXTREMELY* important -- keep it right! =D

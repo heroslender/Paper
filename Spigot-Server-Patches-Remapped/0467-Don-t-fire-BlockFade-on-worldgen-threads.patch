@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 23 Apr 2020 01:36:39 -0400
+Subject: [PATCH] Don't fire BlockFade on worldgen threads
+
+Caused a deadlock
+
+diff --git a/src/main/java/net/minecraft/block/FireBlock.java b/src/main/java/net/minecraft/block/FireBlock.java
+index 4e0e08740fae0690f51e77a28e83e0d6ced8f7d5..73f112a4d8158ce8dfa33e2ed9f03dad59549345 100644
+--- a/src/main/java/net/minecraft/block/FireBlock.java
++++ b/src/main/java/net/minecraft/block/FireBlock.java
+@@ -53,6 +53,7 @@ public class FireBlock extends AbstractFireBlock {
+     @Override
+     public BlockState func_196271_a(BlockState p_196271_1_, Direction p_196271_2_, BlockState p_196271_3_, IWorld p_196271_4_, BlockPos p_196271_5_, BlockPos p_196271_6_) {
+         // CraftBukkit start
++        if (!(p_196271_4_ instanceof ServerWorld)) return this.func_196260_a(p_196271_1_, p_196271_4_, p_196271_5_) ? (BlockState) this.func_235494_a_(p_196271_4_, p_196271_5_, (Integer) p_196271_1_.func_177229_b(FireBlock.field_176543_a)) : Blocks.field_150350_a.func_176223_P(); // Paper - don't fire events in world generation
+         if (!this.func_196260_a(p_196271_1_, p_196271_4_, p_196271_5_)) {
+             // Suppress during worldgen
+             if (!(p_196271_4_ instanceof World)) {
+@@ -68,7 +69,7 @@ public class FireBlock extends AbstractFireBlock {
+                 return blockState.getHandle();
+             }
+         }
+-        return this.func_235494_a_(p_196271_4_, p_196271_5_, (Integer) p_196271_1_.func_177229_b(FireBlock.field_176543_a));
++        return this.func_235494_a_(p_196271_4_, p_196271_5_, (Integer) p_196271_1_.func_177229_b(FireBlock.field_176543_a)); // Paper - diff on change, see "don't fire events in world generation"
+         // CraftBukkit end
+     }
+ 

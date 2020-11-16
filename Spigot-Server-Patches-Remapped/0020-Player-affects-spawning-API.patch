@@ -1,0 +1,160 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jedediah Smith <jedediah@silencegreys.com>
+Date: Tue, 1 Mar 2016 14:47:52 -0600
+Subject: [PATCH] Player affects spawning API
+
+
+diff --git a/src/main/java/net/minecraft/entity/MobEntity.java b/src/main/java/net/minecraft/entity/MobEntity.java
+index ce5160c822d0a2714bd425a16ae233a24f1b7859..0986d1084f5d5d7e72d4dea39c7af035cc1defc4 100644
+--- a/src/main/java/net/minecraft/entity/MobEntity.java
++++ b/src/main/java/net/minecraft/entity/MobEntity.java
+@@ -62,6 +62,7 @@ import net.minecraft.pathfinding.PathNodeType;
+ import net.minecraft.tags.ITag;
+ import net.minecraft.util.ActionResultType;
+ import net.minecraft.util.DamageSource;
++import net.minecraft.util.EntityPredicates;
+ import net.minecraft.util.Hand;
+ import net.minecraft.util.HandSide;
+ import net.minecraft.util.IItemProvider;
+@@ -759,7 +760,7 @@ public abstract class MobEntity extends LivingEntity {
+         if (this.field_70170_p.func_175659_aa() == Difficulty.PEACEFUL && this.func_225511_J_()) {
+             this.func_70106_y();
+         } else if (!this.func_104002_bU() && !this.func_213392_I()) {
+-            PlayerEntity entityhuman = this.field_70170_p.func_217362_a(this, -1.0D);
++            PlayerEntity entityhuman = this.field_70170_p.findNearbyPlayer(this, -1.0D, EntityPredicates.affectsSpawning); // Paper
+ 
+             if (entityhuman != null) {
+                 double d0 = entityhuman.func_70068_e((Entity) this); // CraftBukkit - decompile error
+diff --git a/src/main/java/net/minecraft/entity/monster/SilverfishEntity.java b/src/main/java/net/minecraft/entity/monster/SilverfishEntity.java
+index 8c31fdc3817fad527cefcc1f457f61eee7e65d53..f911192f2d91f33effd80c08f8e26cee6cc0b817 100644
+--- a/src/main/java/net/minecraft/entity/monster/SilverfishEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/SilverfishEntity.java
+@@ -123,7 +123,7 @@ public class SilverfishEntity extends MonsterEntity {
+         if (func_223324_d(p_223331_0_, p_223331_1_, p_223331_2_, p_223331_3_, p_223331_4_)) {
+             PlayerEntity entityhuman = p_223331_1_.func_217366_a((double) p_223331_3_.func_177958_n() + 0.5D, (double) p_223331_3_.func_177956_o() + 0.5D, (double) p_223331_3_.func_177952_p() + 0.5D, 5.0D, true);
+ 
+-            return entityhuman == null;
++            return !(entityhuman != null && !entityhuman.affectsSpawning) && entityhuman == null; // Paper - Affects Spawning API
+         } else {
+             return false;
+         }
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 344d64d042314a854557d780d02595e45b8bba57..0afaf968d562900ea4d03e6013e0afeb060ca8d8 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -161,6 +161,9 @@ public abstract class PlayerEntity extends LivingEntity {
+     private final CooldownTracker field_184832_bU;
+     @Nullable
+     public FishingBobberEntity field_71104_cf;
++    // Paper start
++    public boolean affectsSpawning = true;
++    // Paper end
+ 
+     // CraftBukkit start
+     public boolean fauxSleeping;
+diff --git a/src/main/java/net/minecraft/util/EntityPredicates.java b/src/main/java/net/minecraft/util/EntityPredicates.java
+index 52625a55885f2d4f1692100203b43214064c78b8..149cf6907e8bbd0499a52f7723f1bd5a1099cc1c 100644
+--- a/src/main/java/net/minecraft/util/EntityPredicates.java
++++ b/src/main/java/net/minecraft/util/EntityPredicates.java
+@@ -6,6 +6,7 @@ import javax.annotation.Nullable;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.LivingEntity;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.inventory.IInventory;
+ import net.minecraft.item.ItemStack;
+ import net.minecraft.scoreboard.Team;
+@@ -31,6 +32,12 @@ public final class EntityPredicates {
+         return !entity.func_175149_v();
+     };
+ 
++    // Paper start
++    public static final Predicate<Entity> affectsSpawning = (entity) -> {
++        return !entity.func_175149_v() && entity.func_70089_S() && (entity instanceof ServerPlayerEntity) && ((ServerPlayerEntity) entity).affectsSpawning;
++    };
++    // Paper end
++
+     public static Predicate<Entity> func_188443_a(double p_188443_0_, double p_188443_1_, double p_188443_2_, double p_188443_3_) {
+         double d4 = p_188443_3_ * p_188443_3_;
+ 
+diff --git a/src/main/java/net/minecraft/world/IEntityReader.java b/src/main/java/net/minecraft/world/IEntityReader.java
+index f9c41b1c245f79a9a25e931074c405044e7c4772..229683fd70e83e6aa173d7aa5140c86ef52ad311 100644
+--- a/src/main/java/net/minecraft/world/IEntityReader.java
++++ b/src/main/java/net/minecraft/world/IEntityReader.java
+@@ -84,8 +84,9 @@ public interface IEntityReader {
+         }
+     }
+ 
+-    @Nullable
+-    default PlayerEntity func_190525_a(double p_190525_1_, double p_190525_2_, double p_190525_3_, double p_190525_4_, @Nullable Predicate<Entity> p_190525_5_) {
++    default PlayerEntity findNearbyPlayer(Entity entity, double d0, @Nullable Predicate<Entity> predicate) { return this.findNearbyPlayer(entity.func_226277_ct_(), entity.func_226278_cu_(), entity.func_226281_cx_(), d0, predicate); } // Paper
++    @Nullable default PlayerEntity findNearbyPlayer(double d0, double d1, double d2, double d3, @Nullable Predicate<Entity> predicate) { return func_190525_a(d0, d1, d2, d3, predicate); } // Paper - OBFHELPER
++    @Nullable default PlayerEntity func_190525_a(double p_190525_1_, double p_190525_2_, double p_190525_3_, double p_190525_4_, @Nullable Predicate<Entity> p_190525_5_) { // Paper
+         double d4 = -1.0D;
+         PlayerEntity entityhuman = null;
+         Iterator iterator = this.func_217369_A().iterator();
+@@ -118,6 +119,27 @@ public interface IEntityReader {
+         return this.func_190525_a(p_217366_1_, p_217366_2_, p_217366_3_, p_217366_4_, predicate);
+     }
+ 
++    // Paper end
++    default boolean isAffectsSpawningPlayerNearby(double d0, double d1, double d2, double d3) {
++        Iterator iterator = this.func_217369_A().iterator();
++        double d4;
++        do {
++            PlayerEntity entityhuman;
++            do {
++                if (!iterator.hasNext()) {
++                    return false;
++                }
++
++                entityhuman = (PlayerEntity) iterator.next();
++            } while (!EntityPredicates.affectsSpawning.test(entityhuman));
++
++            d4 = entityhuman.func_70092_e(d0, d1, d2);
++        } while (d3 >= 0.0D && d4 >= d3 * d3);
++
++        return true;
++    }
++    // Paper end
++
+     default boolean func_217358_a(double p_217358_1_, double p_217358_2_, double p_217358_3_, double p_217358_4_) {
+         Iterator iterator = this.func_217369_A().iterator();
+ 
+diff --git a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+index ab15894f9c3fd6e5cfa95bb666fe5ff3d059f0bd..ed45090bdb1848407a511b562e5467fabe92d54f 100644
+--- a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+@@ -69,7 +69,7 @@ public abstract class AbstractSpawner {
+     private boolean func_98279_f() {
+         BlockPos blockposition = this.func_177221_b();
+ 
+-        return this.func_98271_a().func_217358_a((double) blockposition.func_177958_n() + 0.5D, (double) blockposition.func_177956_o() + 0.5D, (double) blockposition.func_177952_p() + 0.5D, (double) this.field_98289_l);
++        return this.func_98271_a().isAffectsSpawningPlayerNearby((double) blockposition.func_177958_n() + 0.5D, (double) blockposition.func_177956_o() + 0.5D, (double) blockposition.func_177952_p() + 0.5D, (double) this.field_98289_l); // Paper
+     }
+ 
+     public void func_98278_g() {
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index dbfc07363eb80af32ecf31fb3ea18b8466867869..4a8f44accba163b7965d41305a42246be9f957cf 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -1689,7 +1689,19 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+     @Override
+     public String getLocale() {
+         return getHandle().locale;
++
++    }
++
++    // Paper start
++    public void setAffectsSpawning(boolean affects) {
++        this.getHandle().affectsSpawning = affects;
++    }
++
++    @Override
++    public boolean getAffectsSpawning() {
++        return this.getHandle().affectsSpawning;
+     }
++    // Paper end
+ 
+     @Override
+     public void updateCommands() {

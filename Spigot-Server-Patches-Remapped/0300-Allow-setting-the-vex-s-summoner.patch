@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 6 Oct 2018 21:47:44 -0500
+Subject: [PATCH] Allow setting the vex's summoner
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/VexEntity.java b/src/main/java/net/minecraft/entity/monster/VexEntity.java
+index cf471f89c3e102d55d10292df104ed1ecc5ac55b..fea69932ee33652814913c703f3ee78bf7e09058 100644
+--- a/src/main/java/net/minecraft/entity/monster/VexEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/VexEntity.java
+@@ -165,6 +165,7 @@ public class VexEntity extends MonsterEntity {
+         this.func_190660_a(1, p_190648_1_);
+     }
+ 
++    public void setOwner(MobEntity entityinsentient) { func_190658_a(entityinsentient); } // Paper - OBFHELPER
+     public void func_190658_a(MobEntity p_190658_1_) {
+         this.field_190665_b = p_190658_1_;
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftVex.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftVex.java
+index 7f1776cb99ebb5e29a1b5e69ced5b99e40cf9ee0..6252fedc827a5dee33fb8f84789ce23eedcffe89 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftVex.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftVex.java
+@@ -23,6 +23,10 @@ public class CraftVex extends CraftMonster implements Vex {
+         MobEntity owner = getHandle().getOwner();
+         return owner != null ? (Mob) owner.getBukkitEntity() : null;
+     }
++
++    public void setSummoner(Mob summoner) {
++        getHandle().setOwner(summoner == null ? null : ((CraftMob) summoner).getHandle());
++    }
+     // Paper end
+ 
+     @Override

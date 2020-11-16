@@ -1,0 +1,159 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 4 Aug 2020 22:24:15 +0200
+Subject: [PATCH] Optimize Pathfinder - Remove Streams / Optimized collections
+
+I utilized the IDE to convert streams to non streams code, so shouldn't
+be any risk of behavior change. Only did minor optimization of the
+generated code set to remove unnecessary things.
+
+I expect us to just drop this patch on next major update and re-apply
+it with the IDE again and re-apply the collections optimization.
+
+Optimize collection by creating a list instead of a set of the key and value.
+
+This lets us get faster foreach iteration, as well as avoids map lookups on
+the values when needed.
+
+diff --git a/src/main/java/net/minecraft/pathfinding/PathFinder.java b/src/main/java/net/minecraft/pathfinding/PathFinder.java
+index 0d96db8fb34406cfe1f9fae5ed3141392dbd7e0b..33e9686504a3f070885de4c051f8127e1b3cd002 100644
+--- a/src/main/java/net/minecraft/pathfinding/PathFinder.java
++++ b/src/main/java/net/minecraft/pathfinding/PathFinder.java
+@@ -33,28 +33,31 @@ public class PathFinder {
+         this.field_75866_b.func_75848_a();
+         this.field_176190_c.func_225578_a_(p_227478_1_, p_227478_2_);
+         PathPoint pathpoint = this.field_176190_c.func_186318_b();
+-        Map<FlaggedPathPoint, BlockPos> map = (Map) p_227478_3_.stream().collect(Collectors.toMap((blockposition) -> {
+-            return this.field_176190_c.func_224768_a((double) blockposition.func_177958_n(), (double) blockposition.func_177956_o(), (double) blockposition.func_177952_p());
+-        }, Function.identity()));
+-        Path pathentity = this.func_227479_a_(pathpoint, map, p_227478_4_, p_227478_5_, p_227478_6_);
++        // Paper start - remove streams - and optimize collection
++        List<Map.Entry<FlaggedPathPoint, BlockPos>> map = Lists.newArrayList();
++        for (BlockPos blockposition : p_227478_3_) {
++            map.add(new java.util.AbstractMap.SimpleEntry<>(this.field_176190_c.func_224768_a((double) blockposition.func_177958_n(), blockposition.func_177956_o(), blockposition.func_177952_p()), blockposition));
++        }
++        // Paper end
++        Path pathentity = this.a(pathpoint, map, p_227478_4_, p_227478_5_, p_227478_6_);
+ 
+         this.field_176190_c.func_176163_a();
+         return pathentity;
+     }
+ 
+     @Nullable
+-    private Path func_227479_a_(PathPoint p_227479_1_, Map<FlaggedPathPoint, BlockPos> p_227479_2_, float p_227479_3_, int p_227479_4_, float p_227479_5_) {
+-        Set<FlaggedPathPoint> set = p_227479_2_.keySet();
++    private Path a(PathPoint pathpoint, List<Map.Entry<FlaggedPathPoint, BlockPos>> list, float f, int i, float f1) { // Paper - optimize collection
++        //Set<PathDestination> set = map.keySet(); // Paper
+ 
+-        p_227479_1_.field_75836_e = 0.0F;
+-        p_227479_1_.field_75833_f = this.func_224776_a(p_227479_1_, set);
+-        p_227479_1_.field_75834_g = p_227479_1_.field_75833_f;
++        pathpoint.field_75836_e = 0.0F;
++        pathpoint.field_75833_f = this.a(pathpoint, list); // Paper - optimize collection
++        pathpoint.field_75834_g = pathpoint.field_75833_f;
+         this.field_75866_b.func_75848_a();
+-        this.field_75866_b.func_75849_a(p_227479_1_);
++        this.field_75866_b.func_75849_a(pathpoint);
+         Set<PathPoint> set1 = ImmutableSet.of();
+         int j = 0;
+-        Set<FlaggedPathPoint> set2 = Sets.newHashSetWithExpectedSize(set.size());
+-        int k = (int) ((float) this.field_215751_d * p_227479_5_);
++        List<Map.Entry<FlaggedPathPoint, BlockPos>> set2 = Lists.newArrayListWithExpectedSize(list.size()); // Paper - optimize collection
++        int k = (int) ((float) this.field_215751_d * f1);
+ 
+         while (!this.field_75866_b.func_75845_e()) {
+             ++j;
+@@ -65,14 +68,15 @@ public class PathFinder {
+             PathPoint pathpoint1 = this.field_75866_b.func_75844_c();
+ 
+             pathpoint1.field_75842_i = true;
+-            Iterator iterator = set.iterator();
+-
+-            while (iterator.hasNext()) {
+-                FlaggedPathPoint pathdestination = (FlaggedPathPoint) iterator.next();
++            // Paper start - optimize collection
++            for (int i1 = 0; i1 < list.size(); i1++) {
++                Map.Entry<FlaggedPathPoint, BlockPos> entry = list.get(i1);
++                FlaggedPathPoint pathdestination = entry.getKey();
+ 
+-                if (pathpoint1.func_224757_c((PathPoint) pathdestination) <= (float) p_227479_4_) {
++                if (pathpoint1.func_224757_c((PathPoint) pathdestination) <= (float) i) {
+                     pathdestination.func_224764_e();
+-                    set2.add(pathdestination);
++                    set2.add(entry);
++                    // Paper end
+                 }
+             }
+ 
+@@ -80,7 +84,7 @@ public class PathFinder {
+                 break;
+             }
+ 
+-            if (pathpoint1.func_75829_a(p_227479_1_) < p_227479_3_) {
++            if (pathpoint1.func_75829_a(pathpoint) < f) {
+                 int l = this.field_176190_c.func_222859_a(this.field_75864_d, pathpoint1);
+ 
+                 for (int i1 = 0; i1 < l; ++i1) {
+@@ -90,10 +94,10 @@ public class PathFinder {
+                     pathpoint2.field_222861_j = pathpoint1.field_222861_j + f2;
+                     float f3 = pathpoint1.field_75836_e + f2 + pathpoint2.field_186286_l;
+ 
+-                    if (pathpoint2.field_222861_j < p_227479_3_ && (!pathpoint2.func_75831_a() || f3 < pathpoint2.field_75836_e)) {
++                    if (pathpoint2.field_222861_j < f && (!pathpoint2.func_75831_a() || f3 < pathpoint2.field_75836_e)) {
+                         pathpoint2.field_75841_h = pathpoint1;
+                         pathpoint2.field_75836_e = f3;
+-                        pathpoint2.field_75833_f = this.func_224776_a(pathpoint2, set) * 1.5F;
++                        pathpoint2.field_75833_f = this.a(pathpoint2, list) * 1.5F; // Paper - list instead of set
+                         if (pathpoint2.func_75831_a()) {
+                             this.field_75866_b.func_75850_a(pathpoint2, pathpoint2.field_75836_e + pathpoint2.field_75833_f);
+                         } else {
+@@ -105,31 +109,32 @@ public class PathFinder {
+             }
+         }
+ 
+-        Optional<Path> optional = !set2.isEmpty() ? set2.stream().map((pathdestination1) -> {
+-            return this.func_224780_a(pathdestination1.func_224763_d(), (BlockPos) p_227479_2_.get(pathdestination1), true);
+-        }).min(Comparator.comparingInt(Path::func_75874_d)) : set.stream().map((pathdestination1) -> {
+-            return this.func_224780_a(pathdestination1.func_224763_d(), (BlockPos) p_227479_2_.get(pathdestination1), false);
+-        }).min(Comparator.comparingDouble(Path::func_224769_l).thenComparingInt(Path::func_75874_d));
+-
+-        if (!optional.isPresent()) {
+-            return null;
+-        } else {
+-            Path pathentity = (Path) optional.get();
+-
+-            return pathentity;
++        // Paper start - remove streams - and optimize collection
++        Path best = null;
++        boolean useSet1 = set2.isEmpty();
++        Comparator<Path> comparator = useSet1 ? Comparator.comparingInt(Path::func_75874_d)
++            : Comparator.comparingDouble(Path::func_224769_l).thenComparingInt(Path::func_75874_d);
++        for (Map.Entry<FlaggedPathPoint, BlockPos> entry : useSet1 ? list : set2) {
++            Path pathEntity = this.func_224780_a(entry.getKey().func_224763_d(), entry.getValue(), !useSet1);
++            if (best == null || comparator.compare(pathEntity, best) < 0)
++                best = pathEntity;
+         }
++        return best;
++        // Paper end
+     }
+ 
+-    private float func_224776_a(PathPoint p_224776_1_, Set<FlaggedPathPoint> p_224776_2_) {
++    private float a(PathPoint pathpoint, List<Map.Entry<FlaggedPathPoint, BlockPos>> list) { // Paper - optimize collection
+         float f = Float.MAX_VALUE;
+ 
+         float f1;
+ 
+-        for (Iterator iterator = p_224776_2_.iterator(); iterator.hasNext(); f = Math.min(f1, f)) {
+-            FlaggedPathPoint pathdestination = (FlaggedPathPoint) iterator.next();
++        // Paper start - optimize collection
++        for (int i = 0, listSize = list.size(); i < listSize; f = Math.min(f1, f), i++) { // Paper
++            FlaggedPathPoint pathdestination = list.get(i).getKey(); // Paper
++            // Paper end
+ 
+-            f1 = p_224776_1_.func_75829_a(pathdestination);
+-            pathdestination.func_224761_a(f1, p_224776_1_);
++            f1 = pathpoint.func_75829_a(pathdestination);
++            pathdestination.func_224761_a(f1, pathpoint);
+         }
+ 
+         return f;

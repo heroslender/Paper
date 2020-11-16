@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 18 Jun 2017 18:17:05 -0500
+Subject: [PATCH] Entity#fromMobSpawner()
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 3fe086a3bf82712666e68c338901b0a870676ee0..15111d219e371df2ebec35729b81158efaeef405 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -277,6 +277,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     public final org.spigotmc.ActivationRange.ActivationType activationType = org.spigotmc.ActivationRange.initializeEntityActivationType(this);
+     public final boolean defaultActivationState;
+     public long activatedTick = Integer.MIN_VALUE;
++    public boolean spawnedViaMobSpawner; // Paper - Yes this name is similar to above, upstream took the better one
+     protected int numCollisions = 0; // Paper
+     public void inactiveTick() { }
+     // Spigot end
+@@ -1671,6 +1672,10 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             if (this.origin != null) {
+                 p_189511_1_.func_218657_a("Paper.Origin", this.createList(origin.getX(), origin.getY(), origin.getZ()));
+             }
++            // Save entity's from mob spawner status
++            if (spawnedViaMobSpawner) {
++                p_189511_1_.func_74757_a("Paper.FromMobSpawner", true);
++            }
+             // Paper end
+             return p_189511_1_;
+         } catch (Throwable throwable) {
+@@ -1793,6 +1798,8 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             if (!originTag.isEmpty()) {
+                 origin = new org.bukkit.Location(field_70170_p.getWorld(), originTag.getDoubleAt(0), originTag.getDoubleAt(1), originTag.getDoubleAt(2));
+             }
++
++            spawnedViaMobSpawner = p_70020_1_.func_74767_n("Paper.FromMobSpawner"); // Restore entity's from mob spawner status
+             // Paper end
+ 
+         } catch (Throwable throwable) {
+diff --git a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+index ec70a3dd7648a9c06eb4cd22ce08801ba16c2e11..8127ef71505dbbea47e00d43299557e86512b782 100644
+--- a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+@@ -160,6 +160,7 @@ public abstract class AbstractSpawner {
+                             }
+                             // Spigot End
+                         }
++                        entity.spawnedViaMobSpawner = true; // Paper
+                         // Spigot Start
+                         if (org.bukkit.craftbukkit.event.CraftEventFactory.callSpawnerSpawnEvent(entity, blockposition).isCancelled()) {
+                             Entity vehicle = entity.func_184187_bx();
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+index 59ea94d0c58043dad85a1db99330fb849c3cc11d..c2e0162d64711f739cae811152c27b457a1b1657 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+@@ -1054,5 +1054,10 @@ public abstract class CraftEntity implements org.bukkit.entity.Entity {
+         Location origin = getHandle().origin;
+         return origin == null ? null : origin.clone();
+     }
++
++    @Override
++    public boolean fromMobSpawner() {
++        return getHandle().spawnedViaMobSpawner;
++    }
+     // Paper end
+ }

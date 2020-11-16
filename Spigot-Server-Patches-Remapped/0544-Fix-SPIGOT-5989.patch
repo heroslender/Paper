@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: JRoy <joshroy126@gmail.com>
+Date: Wed, 15 Jul 2020 21:42:52 -0400
+Subject: [PATCH] Fix SPIGOT-5989
+
+Before this fix, if a player was respawning to a respawn anchor and
+the respawn location was modified away from the anchor with the
+PlayerRespawnEvent, the anchor would still lose some charge.
+This fixes that by checking if the modified spawn location is
+still at a respawn anchor.
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index d03a3f0eb1ff4e077bc3ac7d9327933cc99dd9a2..c9ed8ca0c31d27baa317443c16c3fbf9b9fbf1ef 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -20,6 +20,7 @@ import java.util.Set;
+ import java.util.UUID;
+ import javax.annotation.Nullable;
+ import net.minecraft.advancements.PlayerAdvancements;
++import net.minecraft.block.BlockState;
+ import net.minecraft.block.RespawnAnchorBlock;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.EntityType;
+@@ -838,6 +839,7 @@ public abstract class PlayerList {
+         // Paper start
+         boolean isBedSpawn = false;
+         boolean isRespawn = false;
++        boolean isLocAltered = false; // Paper - Fix SPIGOT-5989
+         // Paper end
+ 
+         // CraftBukkit start - fire PlayerRespawnEvent
+@@ -848,7 +850,7 @@ public abstract class PlayerList {
+                 Optional optional;
+ 
+                 if (blockposition != null) {
+-                    optional = PlayerEntity.func_234567_a_(worldserver1, blockposition, flag1, flag);
++                    optional = PlayerEntity.func_234567_a_(worldserver1, blockposition, flag1, true); // Paper - Fix SPIGOT-5989
+                 } else {
+                     optional = Optional.empty();
+                 }
+@@ -881,7 +883,12 @@ public abstract class PlayerList {
+             }
+             // Spigot End
+ 
+-            location = respawnEvent.getRespawnLocation();
++            // Paper start - Fix SPIGOT-5989
++            if (!location.equals(respawnEvent.getRespawnLocation()) ) {
++                location = respawnEvent.getRespawnLocation();
++                isLocAltered = true;
++            }
++            // Paper end
+             if (!flag) entityplayer.reset(); // SPIGOT-4785
+             isRespawn = true; // Paper
+         } else {
+@@ -919,8 +926,12 @@ public abstract class PlayerList {
+         }
+         // entityplayer1.syncInventory();
+         entityplayer1.func_70606_j(entityplayer1.func_110143_aJ());
+-        if (flag2) {
+-            entityplayer1.field_71135_a.func_147359_a(new SPlaySoundEffectPacket(SoundEvents.field_232818_ms_, SoundCategory.BLOCKS, (double) blockposition.func_177958_n(), (double) blockposition.func_177956_o(), (double) blockposition.func_177952_p(), 1.0F, 1.0F));
++        // Paper start - Fix SPIGOT-5989
++        if (flag2 && !isLocAltered) {
++            BlockState data = worldserver1.func_180495_p(blockposition);
++            worldserver1.func_180501_a(blockposition, data.func_206870_a(RespawnAnchorBlock.field_235559_a_, data.func_177229_b(RespawnAnchorBlock.field_235559_a_) - 1), 3);
++            entityplayer1.field_71135_a.func_147359_a(new SPlaySoundEffectPacket(SoundEvents.field_232818_ms_, SoundCategory.BLOCKS, (double) location.getX(), (double) location.getY(), (double) location.getZ(), 1.0F, 1.0F));
++        // Paper end
+         }
+         // Added from changeDimension
+         func_72385_f(entityplayer); // Update health, etc...

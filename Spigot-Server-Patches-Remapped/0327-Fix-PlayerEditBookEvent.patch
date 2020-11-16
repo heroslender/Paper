@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Michael Himing <mhiming@gmail.com>
+Date: Sun, 16 Dec 2018 13:07:33 +1100
+Subject: [PATCH] Fix PlayerEditBookEvent
+
+- Updating book writing (not signing) mutated the original item, making
+it impossible to properly cancel the event or modify the book meta
+
+- When the event was cancelled, the client's book would keep the
+cancelled writing
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 927beb26bd735abc6ac13185dd2463fe23887394..5e00e78ceacaa54b555bd24818a490452a45376c 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1032,9 +1032,11 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                         itemstack2.func_77983_a("pages", (INBT) nbttaglist);
+                         this.field_147369_b.func_184611_a(p_210156_1_.func_212644_d(), CraftEventFactory.handleEditBookEvent(field_147369_b, enumitemslot, itemstack1, itemstack2)); // CraftBukkit
+                     } else {
+-                        ItemStack old = itemstack1.func_77946_l(); // CraftBukkit
+-                        itemstack1.func_77983_a("pages", (INBT) itemstack.func_77978_p().func_150295_c("pages", 8));
+-                        CraftEventFactory.handleEditBookEvent(field_147369_b, enumitemslot, old, itemstack1); // CraftBukkit
++                        // Paper start - dont mutate players current item, set it from the event
++                        ItemStack newBook = itemstack1.func_77946_l();
++                        newBook.getOrCreateTagAndSet("pages", (INBT)itemstack.func_77978_p().func_150295_c("pages", 8));
++                        this.field_147369_b.func_184201_a(enumitemslot, CraftEventFactory.handleEditBookEvent(field_147369_b, enumitemslot, itemstack1, newBook));
++                        // Paper end
+                     }
+                 }
+ 

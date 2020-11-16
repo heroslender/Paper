@@ -1,0 +1,167 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 22 Sep 2018 00:33:08 -0500
+Subject: [PATCH] Add LivingEntity#getTargetEntity
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index bcb78158c4f8160424566f333b7e8826fe223cd2..9756a946339d85aa8753774df5bd4d7f3ce202b1 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -1516,6 +1516,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         return this.func_174806_f(p_213320_1_ - 90.0F, p_213320_2_);
+     }
+ 
++    public final Vector3d getEyePosition(float partialTicks) { return func_174824_e(partialTicks); } // Paper - OBFHELPER
+     public final Vector3d func_174824_e(float p_174824_1_) {
+         if (p_174824_1_ == 1.0F) {
+             return new Vector3d(this.func_226277_ct_(), this.func_226280_cw_(), this.func_226281_cx_());
+@@ -2147,6 +2148,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         return this.func_184188_bt().size() < 1;
+     }
+ 
++    public final float getCollisionBorderSize() { return func_70111_Y(); } // Paper - OBFHELPER
+     public float func_70111_Y() {
+         return 0.0F;
+     }
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index c1f54c9aaced8e4f61f15ca455cfeb2d6c69a4ab..1d7a5b8a33b9dcee97ec84b3ad01fba95238dedf 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -106,6 +106,7 @@ import net.minecraft.util.SoundEvent;
+ import net.minecraft.util.SoundEvents;
+ import net.minecraft.util.math.AxisAlignedBB;
+ import net.minecraft.util.math.BlockPos;
++import net.minecraft.util.math.EntityRayTraceResult;
+ import net.minecraft.util.math.MathHelper;
+ import net.minecraft.util.math.RayTraceContext;
+ import net.minecraft.util.math.RayTraceResult;
+@@ -3585,6 +3586,37 @@ public abstract class LivingEntity extends Entity {
+         return field_70170_p.func_217299_a(raytrace);
+     }
+ 
++    public EntityRayTraceResult getTargetEntity(int maxDistance) {
++        if (maxDistance < 1 || maxDistance > 120) {
++            throw new IllegalArgumentException("maxDistance must be between 1-120");
++        }
++
++        Vector3d start = this.getEyePosition(1.0F);
++        Vector3d direction = this.func_70040_Z();
++        Vector3d end = start.func_72441_c(direction.field_72450_a * maxDistance, direction.field_72448_b * maxDistance, direction.field_72449_c * maxDistance);
++
++        List<Entity> entityList = field_70170_p.func_175674_a(this, func_174813_aQ().expand(direction.field_72450_a * maxDistance, direction.field_72448_b * maxDistance, direction.field_72449_c * maxDistance).func_72314_b(1.0D, 1.0D, 1.0D), EntityPredicates.notSpectator().and(Entity::func_70067_L));
++
++        double distance = 0.0D;
++        EntityRayTraceResult result = null;
++
++        for (Entity entity : entityList) {
++            AxisAlignedBB aabb = entity.func_174813_aQ().grow((double) entity.getCollisionBorderSize());
++            Optional<Vector3d> rayTraceResult = aabb.calculateIntercept(start, end);
++
++            if (rayTraceResult.isPresent()) {
++                Vector3d rayTrace = rayTraceResult.get();
++                double distanceTo = start.func_72436_e(rayTrace);
++                if (distanceTo < distance || distance == 0.0D) {
++                    result = new EntityRayTraceResult(entity, rayTrace);
++                    distance = distanceTo;
++                }
++            }
++        }
++
++        return result;
++    }
++
+     public int shieldBlockingDelay = field_70170_p.paperConfig.shieldBlockingDelay;
+ 
+     public int getShieldBlockingDelay() {
+diff --git a/src/main/java/net/minecraft/util/EntityPredicates.java b/src/main/java/net/minecraft/util/EntityPredicates.java
+index 740a1ec4a40a7b4a86a48e3a820587ba781ce656..9856d52908fffaff8857484abfb95bf092c8b407 100644
+--- a/src/main/java/net/minecraft/util/EntityPredicates.java
++++ b/src/main/java/net/minecraft/util/EntityPredicates.java
+@@ -26,6 +26,7 @@ public final class EntityPredicates {
+     public static final Predicate<Entity> field_188444_d = (entity) -> {
+         return !(entity instanceof PlayerEntity) || !entity.func_175149_v() && !((PlayerEntity) entity).func_184812_l_();
+     };
++    public static Predicate<Entity> notSpectator() { return field_233583_f_; } // Paper - OBFHELPER
+     public static final Predicate<Entity> field_233583_f_ = (entity) -> {
+         return !(entity instanceof PlayerEntity) || !entity.func_175149_v() && !((PlayerEntity) entity).func_184812_l_() && entity.field_70170_p.func_175659_aa() != Difficulty.PEACEFUL;
+     };
+diff --git a/src/main/java/net/minecraft/util/math/AxisAlignedBB.java b/src/main/java/net/minecraft/util/math/AxisAlignedBB.java
+index 5f14897cfd276554c8b0b388bbca863868791209..54e09d853969498d6696b381d25939a00edb4b0e 100644
+--- a/src/main/java/net/minecraft/util/math/AxisAlignedBB.java
++++ b/src/main/java/net/minecraft/util/math/AxisAlignedBB.java
+@@ -114,6 +114,7 @@ public class AxisAlignedBB {
+         return this.func_72321_a(p_216361_1_.field_72450_a, p_216361_1_.field_72448_b, p_216361_1_.field_72449_c);
+     }
+ 
++    public final AxisAlignedBB expand(double x, double y, double z) { return func_72321_a(x, y, z); } // Paper - OBFHELPER
+     public AxisAlignedBB func_72321_a(double p_72321_1_, double p_72321_2_, double p_72321_3_) {
+         double d3 = this.field_72340_a;
+         double d4 = this.field_72338_b;
+@@ -143,6 +144,12 @@ public class AxisAlignedBB {
+         return new AxisAlignedBB(d3, d4, d5, d6, d7, d8);
+     }
+ 
++    // Paper start
++    public AxisAlignedBB grow(double d0) {
++        return func_72314_b(d0, d0, d0);
++    }
++    // Paper end
++
+     public AxisAlignedBB func_72314_b(double p_72314_1_, double p_72314_2_, double p_72314_3_) {
+         double d3 = this.field_72340_a - p_72314_1_;
+         double d4 = this.field_72338_b - p_72314_2_;
+@@ -202,6 +209,7 @@ public class AxisAlignedBB {
+         return this.field_72340_a < p_186668_4_ && this.field_72336_d > p_186668_1_ && this.field_72338_b < p_186668_5_ && this.field_72337_e > p_186668_2_ && this.field_72339_c < p_186668_6_ && this.field_72334_f > p_186668_3_;
+     }
+ 
++    public final boolean contains(Vector3d vec3d) { return func_72318_a(vec3d); } // Paper - OBFHELPER
+     public boolean func_72318_a(Vector3d p_72318_1_) {
+         return this.func_197744_e(p_72318_1_.field_72450_a, p_72318_1_.field_72448_b, p_72318_1_.field_72449_c);
+     }
+@@ -235,6 +243,7 @@ public class AxisAlignedBB {
+         return this.func_186662_g(-p_186664_1_);
+     }
+ 
++    public final Optional<Vector3d> calculateIntercept(Vector3d vec3d, Vector3d vec3d1) { return func_216365_b(vec3d, vec3d1); } // Paper - OBFHELPER
+     public Optional<Vector3d> func_216365_b(Vector3d p_216365_1_, Vector3d p_216365_2_) {
+         double[] adouble = new double[]{1.0D};
+         double d0 = p_216365_2_.field_72450_a - p_216365_1_.field_72450_a;
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+index b87d3f197c0832ebe63d66b61e1c07ae29b63ead..9feff1cac3f2cb40b3f95d01d75c307a6e65957e 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+@@ -217,6 +217,33 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+             new com.destroystokyo.paper.block.TargetBlockInfo(org.bukkit.craftbukkit.block.CraftBlock.at(getHandle().field_70170_p, ((net.minecraft.util.math.BlockRayTraceResult)rayTrace).func_216350_a()),
+                 net.minecraft.server.MCUtil.toBukkitBlockFace(((net.minecraft.util.math.BlockRayTraceResult)rayTrace).func_216354_b()));
+     }
++
++    public Entity getTargetEntity(int maxDistance, boolean ignoreBlocks) {
++        net.minecraft.util.math.EntityRayTraceResult rayTrace = rayTraceEntity(maxDistance, ignoreBlocks);
++        return rayTrace == null ? null : rayTrace.func_216348_a().getBukkitEntity();
++    }
++
++    public com.destroystokyo.paper.entity.TargetEntityInfo getTargetEntityInfo(int maxDistance, boolean ignoreBlocks) {
++        net.minecraft.util.math.EntityRayTraceResult rayTrace = rayTraceEntity(maxDistance, ignoreBlocks);
++        return rayTrace == null ? null : new com.destroystokyo.paper.entity.TargetEntityInfo(rayTrace.func_216348_a().getBukkitEntity(), new org.bukkit.util.Vector(rayTrace.func_216347_e().field_72450_a, rayTrace.func_216347_e().field_72448_b, rayTrace.func_216347_e().field_72449_c));
++    }
++
++    public net.minecraft.util.math.EntityRayTraceResult rayTraceEntity(int maxDistance, boolean ignoreBlocks) {
++        net.minecraft.util.math.EntityRayTraceResult rayTrace = getHandle().getTargetEntity(maxDistance);
++        if (rayTrace == null) {
++            return null;
++        }
++        if (!ignoreBlocks) {
++            net.minecraft.util.math.RayTraceResult rayTraceBlocks = getHandle().getRayTrace(maxDistance, net.minecraft.util.math.RayTraceContext.FluidMode.NONE);
++            if (rayTraceBlocks != null) {
++                net.minecraft.util.math.vector.Vector3d eye = getHandle().getEyePosition(1.0F);
++                if (eye.func_72436_e(rayTraceBlocks.func_216347_e()) <= eye.func_72436_e(rayTrace.func_216347_e())) {
++                    return null;
++                }
++            }
++        }
++        return rayTrace;
++    }
+     // Paper end
+ 
+     @Override

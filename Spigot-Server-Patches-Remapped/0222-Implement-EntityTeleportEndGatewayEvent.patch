@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sat, 9 Jun 2018 14:08:39 +0200
+Subject: [PATCH] Implement EntityTeleportEndGatewayEvent
+
+
+diff --git a/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java b/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
+index b0c140f59cf2d1b4bc795aa584fcfadd07d644bf..41ab5fc44515c3d142f0ae9b87059a494ed01bcb 100644
+--- a/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
+@@ -186,8 +186,19 @@ public class EndGatewayTileEntity extends EndPortalTileEntity implements ITickab
+ 
+                 }
+                 // CraftBukkit end
++                // Paper start - EntityTeleportEndGatewayEvent - replicated from above
++                org.bukkit.craftbukkit.entity.CraftEntity bukkitEntity = p_195496_1_.getBukkitEntity();
++                org.bukkit.Location location = new Location(field_145850_b.getWorld(), (double) blockposition.func_177958_n() + 0.5D, (double) blockposition.func_177956_o() + 0.5D, (double) blockposition.func_177952_p() + 0.5D);
++                location.setPitch(bukkitEntity.getLocation().getPitch());
++                location.setYaw(bukkitEntity.getLocation().getYaw());
++
++                com.destroystokyo.paper.event.entity.EntityTeleportEndGatewayEvent event = new com.destroystokyo.paper.event.entity.EntityTeleportEndGatewayEvent(bukkitEntity, bukkitEntity.getLocation(), location, new org.bukkit.craftbukkit.block.CraftEndGateway(MCUtil.toLocation(field_145850_b, this.func_174877_v()).getBlock()));
++                if (!event.callEvent()) {
++                    return;
++                }
+ 
+-                entity1.func_223102_j((double) blockposition.func_177958_n() + 0.5D, (double) blockposition.func_177956_o(), (double) blockposition.func_177952_p() + 0.5D);
++                p_195496_1_.func_223102_j(event.getTo().getX(), event.getTo().getY(), event.getTo().getZ());
++                // Paper end - EntityTeleportEndGatewayEvent
+             }
+ 
+             this.func_195490_f();

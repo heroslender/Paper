@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jake Potrebic <jake.m.potrebic@gmail.com>
+Date: Fri, 3 Jul 2020 15:03:33 -0700
+Subject: [PATCH] Improve EntityTargetLivingEntityEvent for 1.16 mobs
+
+CraftBukkit has a bug in their implementation and is incorrectly handling forget
+Also adds more target reasons for why it forgot target.
+
+diff --git a/src/main/java/net/minecraft/entity/ai/brain/task/FindNewAttackTargetTask.java b/src/main/java/net/minecraft/entity/ai/brain/task/FindNewAttackTargetTask.java
+index 97f0f92d23e3143fd626cf8c75a3e75d2c627060..0c765b27f6bd1d90d29cd65b68a39408885e248d 100644
+--- a/src/main/java/net/minecraft/entity/ai/brain/task/FindNewAttackTargetTask.java
++++ b/src/main/java/net/minecraft/entity/ai/brain/task/FindNewAttackTargetTask.java
+@@ -32,15 +32,15 @@ public class FindNewAttackTargetTask<E extends MobEntity> extends Task<E> {
+ 
+     protected void func_212831_a_(ServerWorld p_212831_1_, E p_212831_2_, long p_212831_3_) {
+         if (func_233982_a_((LivingEntity) p_212831_2_)) {
+-            this.func_233987_d_(p_212831_2_);
++            this.d(p_212831_2_, org.bukkit.event.entity.EntityTargetEvent.TargetReason.FORGOT_TARGET); // Paper
+         } else if (this.func_233986_c_(p_212831_2_)) {
+-            this.func_233987_d_(p_212831_2_);
++            this.d(p_212831_2_, org.bukkit.event.entity.EntityTargetEvent.TargetReason.TARGET_DIED); // Paper
+         } else if (this.func_233983_a_(p_212831_2_)) {
+-            this.func_233987_d_(p_212831_2_);
++            this.d(p_212831_2_, org.bukkit.event.entity.EntityTargetEvent.TargetReason.TARGET_OTHER_LEVEL); // Paper
+         } else if (!EntityPredicates.field_233583_f_.test(this.func_233985_b_(p_212831_2_))) {
+-            this.func_233987_d_(p_212831_2_);
++            this.d(p_212831_2_, org.bukkit.event.entity.EntityTargetEvent.TargetReason.TARGET_INVALID); // Paper
+         } else if (this.field_233981_b_.test(this.func_233985_b_(p_212831_2_))) {
+-            this.func_233987_d_(p_212831_2_);
++            this.d(p_212831_2_, org.bukkit.event.entity.EntityTargetEvent.TargetReason.TARGET_INVALID); // Paper
+         }
+     }
+ 
+@@ -64,18 +64,21 @@ public class FindNewAttackTargetTask<E extends MobEntity> extends Task<E> {
+         return optional.isPresent() && !((LivingEntity) optional.get()).func_70089_S();
+     }
+ 
+-    private void func_233987_d_(E p_233987_1_) {
++    private void d(E e0, EntityTargetEvent.TargetReason reason) {
+         // CraftBukkit start
+-        LivingEntity old = p_233987_1_.func_213375_cj().func_218207_c(MemoryModuleType.field_234103_o_).orElse(null);
+-        EntityTargetEvent event = CraftEventFactory.callEntityTargetLivingEvent(p_233987_1_, old, (old != null && !old.func_70089_S()) ? EntityTargetEvent.TargetReason.TARGET_DIED : EntityTargetEvent.TargetReason.FORGOT_TARGET);
++        // Paper start - fix this event
++        //EntityLiving old = e0.getBehaviorController().getMemory(MemoryModuleType.ATTACK_TARGET).orElse(null);
++        EntityTargetEvent event = CraftEventFactory.callEntityTargetLivingEvent(e0, null, reason);
+         if (event.isCancelled()) {
+             return;
+         }
+-        if (event.getTarget() != null) {
+-            p_233987_1_.func_213375_cj().func_218205_a(MemoryModuleType.field_234103_o_, ((CraftLivingEntity) event.getTarget()).getHandle());
++        // comment out, bad logic - bad
++        /*if (event.getTarget() != null) {
++            e0.getBehaviorController().setMemory(MemoryModuleType.ATTACK_TARGET, ((CraftLivingEntity) event.getTarget()).getHandle());
+             return;
+-        }
++        }*/
++        // Paper end
+         // CraftBukkit end
+-        p_233987_1_.func_213375_cj().func_218189_b(MemoryModuleType.field_234103_o_);
++        e0.func_213375_cj().func_218189_b(MemoryModuleType.field_234103_o_);
+     }
+ }

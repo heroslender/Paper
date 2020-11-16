@@ -1,0 +1,89 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Byteflux <byte@byteflux.net>
+Date: Wed, 2 Mar 2016 02:17:54 -0600
+Subject: [PATCH] Generator Settings
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index edf4fa474d32ac20ff85cecfa9f03464a7ecf6ec..fde31f324b3578c65a7d064c466b80ee46b65e03 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -567,4 +567,9 @@ public class PaperWorldConfig {
+     private void perPlayerMobSpawns() {
+         perPlayerMobSpawns = getBoolean("per-player-mob-spawns", false);
+     }
++
++    public boolean generateFlatBedrock;
++    private void generatorSettings() {
++        generateFlatBedrock = getBoolean("generator-settings.flat-bedrock", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/world/chunk/ChunkPrimer.java b/src/main/java/net/minecraft/world/chunk/ChunkPrimer.java
+index f943d70bedddefd9ef4341312f3937c2bfa237ee..6c8f2f45fa2284cdc3fea0f3f315fb803863fee6 100644
+--- a/src/main/java/net/minecraft/world/chunk/ChunkPrimer.java
++++ b/src/main/java/net/minecraft/world/chunk/ChunkPrimer.java
+@@ -66,7 +66,7 @@ public class ChunkPrimer implements IChunk {
+     private long field_209217_s;
+     private final Map<GenerationStage.Carving, BitSet> field_205769_s;
+     private volatile boolean field_217335_u;
+-    private final World world; // Paper - Anti-Xray - Add world
++    final World world; // Paper - Anti-Xray - Add world // Paper - private -> default
+ 
+     // Paper start - Anti-Xray - Add world
+     @Deprecated public ChunkPrimer(ChunkPos chunkcoordintpair, UpgradeData chunkconverter) { this(chunkcoordintpair, chunkconverter, null); } // Notice for updates: Please make sure this constructor isn't used anywhere
+diff --git a/src/main/java/net/minecraft/world/chunk/IChunk.java b/src/main/java/net/minecraft/world/chunk/IChunk.java
+index 903a6f0eb66d21152400db02bf01dc9d0dd0cec7..0386019198efc5d9b59275489d175f7b4005cbcf 100644
+--- a/src/main/java/net/minecraft/world/chunk/IChunk.java
++++ b/src/main/java/net/minecraft/world/chunk/IChunk.java
+@@ -28,6 +28,18 @@ import org.apache.logging.log4j.LogManager;
+ 
+ public interface IChunk extends IBlockReader, IStructureReader {
+ 
++    // Paper start
++    default boolean generateFlatBedrock() {
++        if (this instanceof ChunkPrimer) {
++            return ((ChunkPrimer)this).world.paperConfig.generateFlatBedrock;
++        } else if (this instanceof Chunk) {
++            return ((Chunk)this).field_76637_e.paperConfig.generateFlatBedrock;
++        } else {
++            return false;
++        }
++    }
++    // Paper end
++
+     BlockState getType(final int x, final int y, final int z); // Paper
+     @Nullable
+     BlockState func_177436_a(BlockPos p_177436_1_, BlockState p_177436_2_, boolean p_177436_3_);
+diff --git a/src/main/java/net/minecraft/world/gen/NoiseChunkGenerator.java b/src/main/java/net/minecraft/world/gen/NoiseChunkGenerator.java
+index 6c9382f7f8144dda160239531500face95738d08..0289d0ee90a2f5771cacf60fffdec8f6466a1660 100644
+--- a/src/main/java/net/minecraft/world/gen/NoiseChunkGenerator.java
++++ b/src/main/java/net/minecraft/world/gen/NoiseChunkGenerator.java
+@@ -397,8 +397,8 @@ public final class NoiseChunkGenerator extends ChunkGenerator {
+         BlockPos.Mutable blockposition_mutableblockposition = new BlockPos.Mutable();
+         int i = p_222555_1_.func_76632_l().func_180334_c();
+         int j = p_222555_1_.func_76632_l().func_180333_d();
+-        int k = this.field_236080_h_.func_236118_f_();
+-        int l = this.field_236085_x_ - 1 - this.field_236080_h_.func_236117_e_();
++        int k = this.field_236080_h_.func_236118_f_(); final int floorHeight = k; // Paper
++        int l = this.field_236085_x_ - 1 - this.field_236080_h_.func_236117_e_(); final int roofHeight = l; // Paper
+         boolean flag = true;
+         boolean flag1 = l + 4 >= 0 && l < this.field_236085_x_;
+         boolean flag2 = k + 4 >= 0 && k < this.field_236085_x_;
+@@ -412,7 +412,7 @@ public final class NoiseChunkGenerator extends ChunkGenerator {
+ 
+                 if (flag1) {
+                     for (i1 = 0; i1 < 5; ++i1) {
+-                        if (i1 <= p_222555_2_.nextInt(5)) {
++                        if (i1 <= (p_222555_1_.generateFlatBedrock() ? roofHeight : p_222555_2_.nextInt(5))) { // Paper - Configurable flat bedrock roof
+                             p_222555_1_.func_177436_a(blockposition_mutableblockposition.func_181079_c(blockposition.func_177958_n(), l - i1, blockposition.func_177952_p()), Blocks.field_150357_h.func_176223_P(), false);
+                         }
+                     }
+@@ -420,7 +420,7 @@ public final class NoiseChunkGenerator extends ChunkGenerator {
+ 
+                 if (flag2) {
+                     for (i1 = 4; i1 >= 0; --i1) {
+-                        if (i1 <= p_222555_2_.nextInt(5)) {
++                        if (i1 <= (p_222555_1_.generateFlatBedrock() ? floorHeight : p_222555_2_.nextInt(5))) { // Paper - Configurable flat bedrock floor
+                             p_222555_1_.func_177436_a(blockposition_mutableblockposition.func_181079_c(blockposition.func_177958_n(), k + i1, blockposition.func_177952_p()), Blocks.field_150357_h.func_176223_P(), false);
+                         }
+                     }

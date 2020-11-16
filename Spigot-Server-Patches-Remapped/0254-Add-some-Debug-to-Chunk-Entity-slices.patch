@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 23 Jul 2018 22:44:23 -0400
+Subject: [PATCH] Add some Debug to Chunk Entity slices
+
+If we detect unexpected state, log and try to recover
+
+This should hopefully avoid duplicate entities ever being created
+if the entity was to end up in 2 different chunk slices
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index ef3a5f7988a20f3309527a51b4de3a880c2cd2b1..2aaa67f99065a799eb7ed3aca7e43721b023959c 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -161,6 +161,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             }
+         }
+     };
++    List<Entity> entitySlice = null;
+     // Paper end
+ 
+     public com.destroystokyo.paper.loottable.PaperLootableInventoryData lootableData; // Paper
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 638298a37cad597ea5495ff0d93813ca645cc113..91fb7c227b31d2947de23dcab0fb15e118456422 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -38,6 +38,7 @@ import net.minecraft.fluid.FluidState;
+ import net.minecraft.fluid.Fluids;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.server.MCUtil;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.tileentity.MobSpawnerTileEntity;
+ import net.minecraft.tileentity.TileEntity;
+ import net.minecraft.util.math.AxisAlignedBB;
+@@ -550,6 +551,25 @@ public class Chunk implements IChunk {
+         if (k >= this.field_76645_j.length) {
+             k = this.field_76645_j.length - 1;
+         }
++        // Paper - remove from any old list if its in one
++        List<Entity> nextSlice = this.field_76645_j[k]; // the next list to be added to
++        List<Entity> currentSlice = p_76612_1_.entitySlice;
++        if (nextSlice == currentSlice) {
++            if (World.DEBUG_ENTITIES) MinecraftServer.field_147145_h.warn("Entity was already in this chunk!" + p_76612_1_, new Throwable());
++            return; // ??? silly plugins
++        }
++        if (currentSlice != null && currentSlice.contains(p_76612_1_)) {
++            // Still in an old chunk...
++            if (World.DEBUG_ENTITIES) MinecraftServer.field_147145_h.warn("Entity is still in another chunk!" + p_76612_1_, new Throwable());
++            Chunk chunk = p_76612_1_.getCurrentChunk();
++            if (chunk != null) {
++                chunk.removeEntity(p_76612_1_);
++            } else {
++                removeEntity(p_76612_1_);
++            }
++            currentSlice.remove(p_76612_1_); // Just incase the above did not remove from the previous slice
++        }
++        // Paper end
+ 
+         if (!p_76612_1_.field_70175_ag || p_76612_1_.getCurrentChunk() != this) entityCounts.increment(p_76612_1_.getMinecraftKeyString()); // Paper
+         p_76612_1_.field_70175_ag = true;
+@@ -559,6 +579,7 @@ public class Chunk implements IChunk {
+         p_76612_1_.field_70164_aj = this.field_212816_F.field_77275_b;
+         this.entities.add(p_76612_1_); // Paper - per chunk entity list
+         this.field_76645_j[k].add(p_76612_1_);
++        p_76612_1_.entitySlice = this.field_76645_j[k]; // Paper
+         this.func_76630_e(); // Paper
+     }
+ 
+@@ -583,6 +604,10 @@ public class Chunk implements IChunk {
+ 
+         // Paper start
+         if (p_76608_1_.currentChunk != null && p_76608_1_.currentChunk.get() == this) p_76608_1_.setCurrentChunk(null);
++        if (field_76645_j[p_76608_2_] == p_76608_1_.entitySlice) {
++            p_76608_1_.entitySlice = null;
++            p_76608_1_.field_70175_ag = false;
++        }
+         if (!this.field_76645_j[p_76608_2_].remove(p_76608_1_)) {
+             return;
+         }

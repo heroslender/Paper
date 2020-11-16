@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: zbk <zbk@projectsolaris.net>
+Date: Sun, 26 Apr 2020 23:49:01 -0400
+Subject: [PATCH] Villager Restocks API
+
+
+diff --git a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+index 2b01436fdb99861d9814584c44755d97f3b69a64..56365aad95db3daa4f249c53a70a5daa290c055b 100644
+--- a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
++++ b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+@@ -114,7 +114,7 @@ public class VillagerEntity extends AbstractVillagerEntity implements IReputatio
+     private long field_223362_bL;
+     private int field_213784_bO;
+     private long field_213785_bP;
+-    private int field_223725_bO;
++    private int field_223725_bO; public int getRestocksToday(){ return this.field_223725_bO; } public void setRestocksToday(int restocksToday){ this.field_223725_bO = restocksToday; } // Paper OBFHELPER
+     private long field_223726_bP;
+     private boolean field_234542_bL_;
+     private static final ImmutableList<MemoryModuleType<?>> field_213786_bQ = ImmutableList.of(MemoryModuleType.field_220941_b, MemoryModuleType.field_220942_c, MemoryModuleType.field_234101_d_, MemoryModuleType.field_220943_d, MemoryModuleType.field_220945_f, MemoryModuleType.field_220946_g, MemoryModuleType.field_220947_h, MemoryModuleType.field_220948_i, MemoryModuleType.field_220949_j, MemoryModuleType.field_234102_l_, MemoryModuleType.field_234076_J_, MemoryModuleType.field_220950_k, new MemoryModuleType[]{MemoryModuleType.field_220951_l, MemoryModuleType.field_220952_m, MemoryModuleType.field_220953_n, MemoryModuleType.field_220954_o, MemoryModuleType.field_220955_p, MemoryModuleType.field_225462_q, MemoryModuleType.field_220956_q, MemoryModuleType.field_220957_r, MemoryModuleType.field_220958_s, MemoryModuleType.field_220959_t, MemoryModuleType.field_220944_e, MemoryModuleType.field_220961_v, MemoryModuleType.field_220962_w, MemoryModuleType.field_223021_x, MemoryModuleType.field_223543_y, MemoryModuleType.field_226332_A_, MemoryModuleType.field_223544_z, MemoryModuleType.field_223542_x});
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftVillager.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftVillager.java
+index 6ac95c54144f0bbfe6bb20a3a77e8eee74cb831d..0a1b82b25d8a0449a416cf63527bb9e889fff6fd 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftVillager.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftVillager.java
+@@ -82,6 +82,18 @@ public class CraftVillager extends CraftAbstractVillager implements Villager {
+         getHandle().func_213761_t(experience);
+     }
+ 
++    // Paper start
++    @Override
++    public int getRestocksToday() {
++        return getHandle().getRestocksToday();
++    }
++
++    @Override
++    public void setRestocksToday(int restocksToday) {
++        getHandle().setRestocksToday(restocksToday);
++    }
++    // Paper end
++
+     @Override
+     public boolean sleep(Location location) {
+         Preconditions.checkArgument(location != null, "Location cannot be null");

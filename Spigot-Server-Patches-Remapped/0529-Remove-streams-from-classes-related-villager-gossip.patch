@@ -1,0 +1,92 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: JRoy <joshroy126@gmail.com>
+Date: Wed, 1 Jul 2020 18:01:49 -0400
+Subject: [PATCH] Remove streams from classes related villager gossip
+
+
+diff --git a/src/main/java/net/minecraft/village/GossipManager.java b/src/main/java/net/minecraft/village/GossipManager.java
+index f1d660f1a0e5824cb3f20e5e624077bc4fea6382..b4fe927126e2200c108d5cdb4d997955bfed92fc 100644
+--- a/src/main/java/net/minecraft/village/GossipManager.java
++++ b/src/main/java/net/minecraft/village/GossipManager.java
+@@ -51,8 +51,21 @@ public class GossipManager {
+         });
+     }
+ 
++    // Paper start - Remove streams from reputation
++    private List<GossipManager.GossipEntry> decompress() {
++        List<GossipManager.GossipEntry> list = new it.unimi.dsi.fastutil.objects.ObjectArrayList<>();
++        for (Map.Entry<UUID, GossipManager.Gossips> entry : getReputations().entrySet()) {
++            for (GossipManager.GossipEntry cur : entry.getValue().decompress(entry.getKey())) {
++                if (cur.func_220904_a() != 0)
++                    list.add(cur);
++            }
++        }
++        return list;
++    }
++    // Paper end
++
+     private Collection<GossipManager.GossipEntry> func_220920_a(Random p_220920_1_, int p_220920_2_) {
+-        List<GossipManager.GossipEntry> list = (List) this.func_220911_b().collect(Collectors.toList());
++        List<GossipManager.GossipEntry> list = decompress(); // Paper - Remove streams from reputation
+ 
+         if (list.isEmpty()) {
+             return Collections.emptyList();
+@@ -119,7 +132,7 @@ public class GossipManager {
+     }
+ 
+     public <T> Dynamic<T> func_234058_a_(DynamicOps<T> p_234058_1_) {
+-        return new Dynamic(p_234058_1_, p_234058_1_.createList(this.func_220911_b().map((reputation_b) -> {
++        return new Dynamic(p_234058_1_, p_234058_1_.createList(this.decompress().stream().map((reputation_b) -> {
+             return reputation_b.func_234061_a_(p_234058_1_);
+         }).map(Dynamic::getValue)));
+     }
+@@ -144,18 +157,30 @@ public class GossipManager {
+ 
+     public static class Gossips { // Paper - make public
+ 
+-        private final Object2IntMap<GossipType> field_220900_a;
++        private final Object2IntMap<GossipType> field_220900_a; private Object2IntMap<GossipType> getEntries() { return field_220900_a; } // Paper - OBFHELPER
+ 
+         public Gossips() { // Paper - make public - update CraftVillager setReputation on change
+             this.field_220900_a = new Object2IntOpenHashMap();
+         }
+ 
+         public int func_220896_a(Predicate<GossipType> p_220896_1_) {
+-            return this.field_220900_a.object2IntEntrySet().stream().filter((entry) -> {
+-                return p_220896_1_.test(entry.getKey());
+-            }).mapToInt((entry) -> {
+-                return entry.getIntValue() * ((GossipType) entry.getKey()).field_220932_h;
+-            }).sum();
++            // Paper start - Remove streams from reputation
++            int weight = 0;
++            for (Object2IntMap.Entry<GossipType> entry : getEntries().object2IntEntrySet()) {
++                if (p_220896_1_.test(entry.getKey())) {
++                    weight += entry.getIntValue() * entry.getKey().getWeight();
++                }
++            }
++            return weight;
++        }
++
++        public List<GossipManager.GossipEntry> decompress(UUID uuid) {
++            List<GossipManager.GossipEntry> list = new it.unimi.dsi.fastutil.objects.ObjectArrayList<>();
++            for (Object2IntMap.Entry<GossipType> entry : getEntries().object2IntEntrySet()) {
++                list.add(new GossipManager.GossipEntry(uuid, entry.getKey(), entry.getIntValue()));
++            }
++            return list;
++            // Paper - end
+         }
+ 
+         public Stream<GossipManager.GossipEntry> func_220895_a(UUID p_220895_1_) {
+diff --git a/src/main/java/net/minecraft/village/GossipType.java b/src/main/java/net/minecraft/village/GossipType.java
+index da01a088c84c273d210af55d21de9fe912ed4f31..0e697b5cee4b691b2218efc946a5bbc49cd286a4 100644
+--- a/src/main/java/net/minecraft/village/GossipType.java
++++ b/src/main/java/net/minecraft/village/GossipType.java
+@@ -11,7 +11,7 @@ public enum GossipType {
+     MAJOR_NEGATIVE("major_negative", -5, 100, 10, 10), MINOR_NEGATIVE("minor_negative", -1, 200, 20, 20), MINOR_POSITIVE("minor_positive", 1, 200, 1, 5), MAJOR_POSITIVE("major_positive", 5, 100, 0, 100), TRADING("trading", 1, 25, 2, 20);
+ 
+     public final String field_220931_g;
+-    public final int field_220932_h;
++    public final int field_220932_h; public int getWeight() { return field_220932_h; } // Paper - OBFHELPER
+     public final int field_220933_i;
+     public final int field_220934_j;
+     public final int field_220935_k;

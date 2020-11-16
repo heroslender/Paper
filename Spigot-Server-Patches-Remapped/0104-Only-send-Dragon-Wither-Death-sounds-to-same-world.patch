@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 31 May 2016 22:53:50 -0400
+Subject: [PATCH] Only send Dragon/Wither Death sounds to same world
+
+Also fix view distance lookup
+
+diff --git a/src/main/java/net/minecraft/entity/boss/WitherEntity.java b/src/main/java/net/minecraft/entity/boss/WitherEntity.java
+index 0bd07cde7c8841a6c372bfbba38d3af7a214f3a4..84fae39220a9d06b9e9842f45087b8cf0ac8f381 100644
+--- a/src/main/java/net/minecraft/entity/boss/WitherEntity.java
++++ b/src/main/java/net/minecraft/entity/boss/WitherEntity.java
+@@ -38,7 +38,6 @@ import net.minecraft.network.play.server.SPlaySoundEventPacket;
+ import net.minecraft.particles.ParticleTypes;
+ import net.minecraft.potion.EffectInstance;
+ import net.minecraft.potion.Effects;
+-import net.minecraft.server.MinecraftServer;
+ import net.minecraft.tags.BlockTags;
+ import net.minecraft.util.DamageSource;
+ import net.minecraft.util.IItemProvider;
+@@ -54,7 +53,6 @@ import net.minecraft.world.Explosion;
+ import net.minecraft.world.GameRules;
+ import net.minecraft.world.World;
+ import net.minecraft.world.server.ServerBossInfo;
+-import net.minecraft.world.server.ServerWorld;
+ // CraftBukkit start
+ import org.bukkit.craftbukkit.event.CraftEventFactory;
+ import org.bukkit.event.entity.EntityRegainHealthEvent;
+@@ -257,8 +255,9 @@ public class WitherEntity extends MonsterEntity implements IRangedAttackMob {
+                 if (!this.func_174814_R()) {
+                     // CraftBukkit start - Use relative location for far away sounds
+                     // this.world.b(1023, new BlockPosition(this), 0);
+-                    int viewDistance = ((ServerWorld) this.field_70170_p).getServer().getViewDistance() * 16;
+-                    for (ServerPlayerEntity player : (List<ServerPlayerEntity>) MinecraftServer.getServer().func_184103_al().field_72404_b) {
++                    //int viewDistance = ((WorldServer) this.world).getServer().getViewDistance() * 16; // Paper - updated to use worlds actual view distance incase we have to uncomment this due to removal of player view distance API
++                    for (ServerPlayerEntity player : (List<ServerPlayerEntity>)this.field_70170_p.func_217369_A()) {
++                        final int viewDistance = player.getViewDistance(); // TODO apply view distance api patch
+                         double deltaX = this.func_226277_ct_() - player.func_226277_ct_();
+                         double deltaZ = this.func_226281_cx_() - player.func_226281_cx_();
+                         double distanceSquared = deltaX * deltaX + deltaZ * deltaZ;
+diff --git a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+index 2cfb827019edd80eebf902b61767914458b65234..7002e489dbf9fdd79485ee34736acc81ca8cc952 100644
+--- a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
++++ b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+@@ -36,7 +36,6 @@ import net.minecraft.pathfinding.Path;
+ import net.minecraft.pathfinding.PathHeap;
+ import net.minecraft.pathfinding.PathPoint;
+ import net.minecraft.potion.EffectInstance;
+-import net.minecraft.server.MinecraftServer;
+ import net.minecraft.tags.BlockTags;
+ import net.minecraft.tileentity.TileEntity;
+ import net.minecraft.util.DamageSource;
+@@ -622,8 +621,9 @@ public class EnderDragonEntity extends MobEntity implements IMob {
+             if (this.field_70995_bG == 1 && !this.func_174814_R()) {
+                 // CraftBukkit start - Use relative location for far away sounds
+                 // this.world.b(1028, this.getChunkCoordinates(), 0);
+-                int viewDistance = ((ServerWorld) this.field_70170_p).getServer().getViewDistance() * 16;
+-                for (ServerPlayerEntity player : (List<ServerPlayerEntity>) MinecraftServer.getServer().func_184103_al().field_72404_b) {
++                //int viewDistance = ((WorldServer) this.world).getServer().getViewDistance() * 16; // Paper - updated to use worlds actual view distance incase we have to uncomment this due to removal of player view distance API
++                for (ServerPlayerEntity player : (List<ServerPlayerEntity>) ((ServerWorld)field_70170_p).func_217369_A()) {
++                    final int viewDistance = player.getViewDistance(); // TODO apply view distance api patch
+                     double deltaX = this.func_226277_ct_() - player.func_226277_ct_();
+                     double deltaZ = this.func_226281_cx_() - player.func_226281_cx_();
+                     double distanceSquared = deltaX * deltaX + deltaZ * deltaZ;

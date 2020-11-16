@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alfie Cleveland <alfeh@me.com>
+Date: Fri, 25 Nov 2016 13:22:40 +0000
+Subject: [PATCH] Optimise removeQueue
+
+
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index 4ba133ac3352bad3a3b9662887552b846401f3d2..2e6cd7f7bd7b6af6ea9aaa5c692297748347e6aa 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -25,7 +25,6 @@ import net.minecraft.network.login.server.SEncryptionRequestPacket;
+ import net.minecraft.network.login.server.SLoginSuccessPacket;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.CryptManager;
+-import net.minecraft.util.DefaultUncaughtExceptionHandler;
+ import net.minecraft.util.text.ITextComponent;
+ import net.minecraft.util.text.StringTextComponent;
+ import net.minecraft.util.text.TranslationTextComponent;
+@@ -112,6 +111,12 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+ 
+     }
+ 
++    // Paper start - Cache authenticator threads
++    private static final AtomicInteger threadId = new AtomicInteger(0);
++    private static final java.util.concurrent.ExecutorService authenticatorPool = java.util.concurrent.Executors.newCachedThreadPool(
++            r -> new Thread(r, "User Authenticator #" + threadId.incrementAndGet())
++    );
++    // Paper end
+     // Spigot start
+     public void initUUID()
+     {
+@@ -190,8 +195,8 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+             this.field_147333_a.func_179290_a(new SEncryptionRequestPacket("", this.field_147327_f.func_71250_E().getPublic(), this.field_147330_e));
+         } else {
+             // Spigot start
+-            new Thread("User Authenticator #" + ServerLoginNetHandler.field_147331_b.incrementAndGet()) {
+-
++            // Paper start - Cache authenticator threads
++            authenticatorPool.execute(new Runnable() {
+                 @Override
+                 public void run() {
+                     try {
+@@ -202,7 +207,8 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+                         field_147327_f.server.getLogger().log(java.util.logging.Level.WARNING, "Exception verifying " + field_147337_i.getName(), ex);
+                     }
+                 }
+-            }.start();
++            });
++            // Paper end
+             // Spigot end
+         }
+ 
+@@ -219,7 +225,8 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+             this.field_147335_k = p_147315_1_.func_149300_a(privatekey);
+             this.field_147328_g = ServerLoginNetHandler.State.AUTHENTICATING;
+             this.field_147333_a.func_150727_a(this.field_147335_k);
+-            Thread thread = new Thread("User Authenticator #" + ServerLoginNetHandler.field_147331_b.incrementAndGet()) {
++            // Paper start - Cache authenticator threads
++            authenticatorPool.execute(new Runnable() {
+                 public void run() {
+                     GameProfile gameprofile = ServerLoginNetHandler.this.field_147337_i;
+ 
+@@ -266,10 +273,8 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+ 
+                     return ServerLoginNetHandler.this.field_147327_f.func_190518_ac() && socketaddress instanceof InetSocketAddress ? ((InetSocketAddress) socketaddress).getAddress() : null;
+                 }
+-            };
+-
+-            thread.setUncaughtExceptionHandler(new DefaultUncaughtExceptionHandler(ServerLoginNetHandler.field_147332_c));
+-            thread.start();
++            });
++            // Paper end
+         }
+     }
+ 

@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: pkt77 <parkerkt77@gmail.com>
+Date: Fri, 10 Nov 2017 23:46:34 -0500
+Subject: [PATCH] Add PlayerArmorChangeEvent
+
+
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 61abb88e2dc6f20e0408059a17137f301d0a49a9..091a3994a0b9bf35a6c256ebaeed1dcd7ca54a8f 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -1,5 +1,6 @@
+ package net.minecraft.entity;
+ 
++import com.destroystokyo.paper.event.player.PlayerArmorChangeEvent; // Paper
+ import com.google.common.base.Objects;
+ import com.google.common.collect.ImmutableList;
+ import com.google.common.collect.ImmutableMap;
+@@ -2614,6 +2615,13 @@ public abstract class LivingEntity extends Entity {
+             ItemStack itemstack1 = this.func_184582_a(enumitemslot);
+ 
+             if (!ItemStack.func_77989_b(itemstack1, itemstack)) {
++                // Paper start - PlayerArmorChangeEvent
++                if (this instanceof ServerPlayerEntity && enumitemslot.getType() == EquipmentSlotType.Group.ARMOR) {
++                    final org.bukkit.inventory.ItemStack oldItem = CraftItemStack.asBukkitCopy(itemstack);
++                    final org.bukkit.inventory.ItemStack newItem = CraftItemStack.asBukkitCopy(itemstack1);
++                    new PlayerArmorChangeEvent((Player) this.getBukkitEntity(), PlayerArmorChangeEvent.SlotType.valueOf(enumitemslot.name()), oldItem, newItem).callEvent();
++                }
++                // Paper end
+                 if (map == null) {
+                     map = Maps.newEnumMap(EquipmentSlotType.class);
+                 }
+diff --git a/src/main/java/net/minecraft/inventory/EquipmentSlotType.java b/src/main/java/net/minecraft/inventory/EquipmentSlotType.java
+index f79a2270b5de860be11845b9b7aa74275d856985..783c18a6ec63c40d53adb7d9faac516b617c969f 100644
+--- a/src/main/java/net/minecraft/inventory/EquipmentSlotType.java
++++ b/src/main/java/net/minecraft/inventory/EquipmentSlotType.java
+@@ -16,6 +16,7 @@ public enum EquipmentSlotType {
+         this.field_188465_j = s;
+     }
+ 
++    public EquipmentSlotType.Group getType() { return this.func_188453_a(); } // Paper - OBFHELPER
+     public EquipmentSlotType.Group func_188453_a() {
+         return this.field_188462_g;
+     }

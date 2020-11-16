@@ -1,0 +1,148 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: egg82 <phantom_zero@ymail.com>
+Date: Tue, 7 Aug 2018 01:24:23 -0600
+Subject: [PATCH] Use ConcurrentHashMap in JsonList
+
+This is specifically aimed at fixing #471
+
+Using a ConcurrentHashMap because thread safety
+The performance benefit of Map over ConcurrentMap is negligabe at best in this scenaio, as most operations will be get and not add or remove
+Even without considering the use-case the benefits are still negligable
+
+Original ideas for the system included an expiration policy and/or handler
+The simpler solution was to use a computeIfPresent in the get method
+This will simultaneously have an O(1) lookup time and automatically expire any values
+Since the get method (nor other similar methods) don't seem to have a critical need to flush the map to disk at any of these points further processing is simply wasteful
+Meaning the original function expired values unrelated to the current value without actually having any explicit need to
+
+The h method was heavily modified to be much more efficient in its processing
+Also instead of being called on every get, it's now called just before a save
+This will eliminate stale values being flushed to disk
+
+Modified isEmpty to use the isEmpty() method instead of the slightly confusing size() < 1
+The point of this is readability, but does have a side-benefit of a small microptimization
+
+Finally, added a couple obfhelpers for the modified code
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index ae2e5b21f340d39f2dbbbf26d4c435b7630f59cc..19be61bc0ab9d2bf13d3c7b82ce6225071083dc4 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -610,7 +610,7 @@ public abstract class PlayerList {
+         } else if (!this.isWhitelisted(gameprofile, event)) { // Paper
+             chatmessage = new TranslationTextComponent("multiplayer.disconnect.not_whitelisted");
+             //event.disallow(PlayerLoginEvent.Result.KICK_WHITELIST, org.spigotmc.SpigotConfig.whitelistMessage); // Spigot // Paper - moved to isWhitelisted
+-        } else if (func_72363_f().func_152708_a(socketaddress) && !func_72363_f().func_152709_b(socketaddress).func_73682_e()) {
++        } else if (func_72363_f().func_152708_a(socketaddress) && func_72363_f().func_152709_b(socketaddress) != null && !func_72363_f().func_152709_b(socketaddress).func_73682_e()) { // Paper - fix NPE with temp ip bans
+             IPBanEntry ipbanentry = this.field_72413_h.func_152709_b(socketaddress);
+ 
+             chatmessage = new TranslationTextComponent("multiplayer.disconnect.banned_ip.reason", new Object[]{ipbanentry.func_73686_f()});
+diff --git a/src/main/java/net/minecraft/server/management/UserList.java b/src/main/java/net/minecraft/server/management/UserList.java
+index 882507a45b90a35eef29ebb4b0d96459a41a4851..e4fd205e5f7652ae43aca1592887ee70bbce3c37 100644
+--- a/src/main/java/net/minecraft/server/management/UserList.java
++++ b/src/main/java/net/minecraft/server/management/UserList.java
+@@ -12,6 +12,8 @@ import java.io.BufferedReader;
+ import java.io.BufferedWriter;
+ import java.io.File;
+ import java.io.IOException;
++import java.lang.reflect.ParameterizedType; // Paper
++import java.lang.reflect.Type; // Paper
+ import java.nio.charset.StandardCharsets;
+ import java.util.Collection;
+ import java.util.Iterator;
+@@ -28,7 +30,22 @@ public abstract class UserList<K, V extends UserListEntry<K>> {
+     protected static final Logger field_152693_a = LogManager.getLogger();
+     private static final Gson field_232645_b_ = (new GsonBuilder()).setPrettyPrinting().create();
+     private final File field_152695_c;
+-    private final Map<String, V> field_152696_d = Maps.newHashMap();
++    // Paper - replace HashMap is ConcurrentHashMap
++    private final Map<String, V> field_152696_d = Maps.newConcurrentMap(); private final Map<String, V> getBackingMap() { return this.field_152696_d; } // Paper - OBFHELPER
++    private boolean e = true;
++    private static final ParameterizedType f = new ParameterizedType() {
++        public Type[] getActualTypeArguments() {
++            return new Type[]{UserListEntry.class};
++        }
++
++        public Type getRawType() {
++            return List.class;
++        }
++
++        public Type getOwnerType() {
++            return null;
++        }
++    };
+ 
+     public UserList(File p_i1144_1_) {
+         this.field_152695_c = p_i1144_1_;
+@@ -51,8 +68,13 @@ public abstract class UserList<K, V extends UserListEntry<K>> {
+ 
+     @Nullable
+     public V func_152683_b(K p_152683_1_) {
+-        this.func_152680_h();
+-        return (V) this.field_152696_d.get(this.func_152681_a(p_152683_1_)); // CraftBukkit - fix decompile error
++        // Paper start
++        // this.g();
++        // return (V) this.d.get(this.a(k0)); // CraftBukkit - fix decompile error
++        return (V) this.getBackingMap().computeIfPresent(this.getMappingKey(p_152683_1_), (k, v) -> {
++            return v.func_73682_e() ? null : v;
++        });
++        // Paper end
+     }
+ 
+     public void func_152684_c(K p_152684_1_) {
+@@ -81,9 +103,11 @@ public abstract class UserList<K, V extends UserListEntry<K>> {
+     // CraftBukkit end
+ 
+     public boolean func_152690_d() {
+-        return this.field_152696_d.size() < 1;
++        // return this.d.size() < 1; // Paper
++        return this.getBackingMap().isEmpty(); // Paper - readability is the goal. As an aside, isEmpty() uses only sumCount() and a comparison. size() uses sumCount(), casts, and boolean logic
+     }
+ 
++    protected final String getMappingKey(K k0) { return func_152681_a(k0); } // Paper - OBFHELPER
+     protected String func_152681_a(K p_152681_1_) {
+         return p_152681_1_.toString();
+     }
+@@ -92,15 +116,16 @@ public abstract class UserList<K, V extends UserListEntry<K>> {
+         return this.field_152696_d.containsKey(this.func_152681_a(p_152692_1_));
+     }
+ 
++    private void removeStaleEntries() { func_152680_h(); } // Paper - OBFHELPER
+     private void func_152680_h() {
+-        List<K> list = Lists.newArrayList();
+-        Iterator iterator = this.field_152696_d.values().iterator();
++        /*List<K> list = Lists.newArrayList();
++        Iterator iterator = this.d.values().iterator();
+ 
+         while (iterator.hasNext()) {
+             V v0 = (V) iterator.next(); // CraftBukkit - decompile error
+ 
+-            if (v0.func_73682_e()) {
+-                list.add(v0.func_152640_f());
++            if (v0.hasExpired()) {
++                list.add(v0.getKey());
+             }
+         }
+ 
+@@ -109,9 +134,11 @@ public abstract class UserList<K, V extends UserListEntry<K>> {
+         while (iterator.hasNext()) {
+             K k0 = (K) iterator.next(); // CraftBukkit - decompile error
+ 
+-            this.field_152696_d.remove(this.func_152681_a(k0));
+-        }
++            this.d.remove(this.a(k0));
++        }*/
+ 
++        this.getBackingMap().values().removeIf(UserListEntry::func_73682_e);
++        // Paper end
+     }
+ 
+     protected abstract UserListEntry<K> func_152682_a(JsonObject p_152682_1_);
+@@ -121,6 +148,7 @@ public abstract class UserList<K, V extends UserListEntry<K>> {
+     }
+ 
+     public void func_152678_f() throws IOException {
++        this.removeStaleEntries(); // Paper - remove expired values before saving
+         JsonArray jsonarray = new JsonArray();
+ 
+         this.field_152696_d.values().stream().map((jsonlistentry) -> {

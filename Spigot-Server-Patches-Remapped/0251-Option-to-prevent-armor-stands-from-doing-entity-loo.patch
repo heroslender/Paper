@@ -1,0 +1,178 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hugo Manrique <hugmanrique@gmail.com>
+Date: Mon, 23 Jul 2018 12:57:39 +0200
+Subject: [PATCH] Option to prevent armor stands from doing entity lookups
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index d6a3d882e375ac5a2b6ec8920532db615f4fe4ef..14bb9d843f05058cae5cc64de8149d2c97264f1a 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -383,4 +383,9 @@ public class PaperWorldConfig {
+             log("Bed Search Radius: " + bedSearchRadius);
+         }
+     }
++
++    public boolean armorStandEntityLookups = true;
++    private void armorStandEntityLookups() {
++        armorStandEntityLookups = getBoolean("armor-stands-do-collision-entity-lookups", true);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index b3ded538f45057d4fe9c4752f4c9f8194b4eefef..2cfc1a9cfd4b09300aa7842c07b3961ecc997cd0 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -645,7 +645,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     private boolean func_174809_b(AxisAlignedBB p_174809_1_) {
+-        return this.field_70170_p.func_226665_a__(this, p_174809_1_) && !this.field_70170_p.func_72953_d(p_174809_1_);
++        return this.field_70170_p.a_(this, p_174809_1_) && !this.field_70170_p.func_72953_d(p_174809_1_);
+     }
+ 
+     public void func_230245_c_(boolean p_230245_1_) {
+@@ -2025,7 +2025,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     protected boolean func_213298_c(net.minecraft.entity.Pose p_213298_1_) {
+-        return this.field_70170_p.func_226665_a__(this, this.func_213321_d(p_213298_1_).func_186664_h(1.0E-7D));
++        return this.field_70170_p.a_(this, this.func_213321_d(p_213298_1_).func_186664_h(1.0E-7D));
+     }
+ 
+     public void func_184226_ay() {
+diff --git a/src/main/java/net/minecraft/entity/monster/GhastEntity.java b/src/main/java/net/minecraft/entity/monster/GhastEntity.java
+index 44e6653e7808ca22f8ab9439bcea89fcdb842b40..15fdeba6402ffb9e92c60375c6024126b4ebf3ea 100644
+--- a/src/main/java/net/minecraft/entity/monster/GhastEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/GhastEntity.java
+@@ -319,7 +319,7 @@ public class GhastEntity extends FlyingEntity implements IMob {
+ 
+             for (int j = 1; j < p_220673_2_; ++j) {
+                 axisalignedbb = axisalignedbb.func_191194_a(p_220673_1_);
+-                if (!this.field_179927_g.field_70170_p.func_226665_a__(this.field_179927_g, axisalignedbb)) {
++                if (!this.field_179927_g.field_70170_p.a_(this.field_179927_g, axisalignedbb)) {
+                     return false;
+                 }
+             }
+diff --git a/src/main/java/net/minecraft/entity/monster/ShulkerEntity.java b/src/main/java/net/minecraft/entity/monster/ShulkerEntity.java
+index 7e70daf85c48c71c470d1925156c3ed7bd1faa00..c20ed5485a3e249e07830175c0c8fa00b21734cd 100644
+--- a/src/main/java/net/minecraft/entity/monster/ShulkerEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/ShulkerEntity.java
+@@ -310,7 +310,7 @@ public class ShulkerEntity extends GolemEntity implements IMob {
+     }
+ 
+     private boolean func_234298_a_(BlockPos p_234298_1_, Direction p_234298_2_) {
+-        return this.field_70170_p.func_234929_a_(p_234298_1_.func_177972_a(p_234298_2_), (Entity) this, p_234298_2_.func_176734_d()) && this.field_70170_p.func_226665_a__(this, ShulkerAABBHelper.func_233539_a_(p_234298_1_, p_234298_2_.func_176734_d()));
++        return this.field_70170_p.func_234929_a_(p_234298_1_.func_177972_a(p_234298_2_), (Entity) this, p_234298_2_.func_176734_d()) && this.field_70170_p.a_(this, ShulkerAABBHelper.func_233539_a_(p_234298_1_, p_234298_2_.func_176734_d()));
+     }
+ 
+     protected boolean func_184689_o() {
+@@ -320,7 +320,7 @@ public class ShulkerEntity extends GolemEntity implements IMob {
+             for (int i = 0; i < 5; ++i) {
+                 BlockPos blockposition1 = blockposition.func_177982_a(8 - this.field_70146_Z.nextInt(17), 8 - this.field_70146_Z.nextInt(17), 8 - this.field_70146_Z.nextInt(17));
+ 
+-                if (blockposition1.func_177956_o() > 0 && this.field_70170_p.func_175623_d(blockposition1) && this.field_70170_p.func_175723_af().func_177746_a(blockposition1) && this.field_70170_p.func_226665_a__(this, new AxisAlignedBB(blockposition1))) {
++                if (blockposition1.func_177956_o() > 0 && this.field_70170_p.func_175623_d(blockposition1) && this.field_70170_p.func_175723_af().func_177746_a(blockposition1) && this.field_70170_p.a_(this, new AxisAlignedBB(blockposition1))) {
+                     Direction enumdirection = this.func_234299_g_(blockposition1);
+ 
+                     if (enumdirection != null) {
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 301427c6764264480dd56ccafe3087bc90e6911c..6c4795f0ef918eb72fe67d31155b339fb68fcb53 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -1059,7 +1059,7 @@ public abstract class PlayerEntity extends LivingEntity {
+             double d1 = p_225514_1_.field_72449_c;
+             double d2 = 0.05D;
+ 
+-            while (d0 != 0.0D && this.field_70170_p.func_226665_a__(this, this.func_174813_aQ().func_72317_d(d0, (double) (-this.field_70138_W), 0.0D))) {
++            while (d0 != 0.0D && this.field_70170_p.a_(this, this.func_174813_aQ().func_72317_d(d0, (double) (-this.field_70138_W), 0.0D))) {
+                 if (d0 < 0.05D && d0 >= -0.05D) {
+                     d0 = 0.0D;
+                 } else if (d0 > 0.0D) {
+@@ -1069,7 +1069,7 @@ public abstract class PlayerEntity extends LivingEntity {
+                 }
+             }
+ 
+-            while (d1 != 0.0D && this.field_70170_p.func_226665_a__(this, this.func_174813_aQ().func_72317_d(0.0D, (double) (-this.field_70138_W), d1))) {
++            while (d1 != 0.0D && this.field_70170_p.a_(this, this.func_174813_aQ().func_72317_d(0.0D, (double) (-this.field_70138_W), d1))) {
+                 if (d1 < 0.05D && d1 >= -0.05D) {
+                     d1 = 0.0D;
+                 } else if (d1 > 0.0D) {
+@@ -1079,7 +1079,7 @@ public abstract class PlayerEntity extends LivingEntity {
+                 }
+             }
+ 
+-            while (d0 != 0.0D && d1 != 0.0D && this.field_70170_p.func_226665_a__(this, this.func_174813_aQ().func_72317_d(d0, (double) (-this.field_70138_W), d1))) {
++            while (d0 != 0.0D && d1 != 0.0D && this.field_70170_p.a_(this, this.func_174813_aQ().func_72317_d(d0, (double) (-this.field_70138_W), d1))) {
+                 if (d0 < 0.05D && d0 >= -0.05D) {
+                     d0 = 0.0D;
+                 } else if (d0 > 0.0D) {
+diff --git a/src/main/java/net/minecraft/item/BoatItem.java b/src/main/java/net/minecraft/item/BoatItem.java
+index 856bd9f12219063e43e51680d1b45dcd2b752be9..25386b1080228c580bf41dda9e977b5a0a9944e8 100644
+--- a/src/main/java/net/minecraft/item/BoatItem.java
++++ b/src/main/java/net/minecraft/item/BoatItem.java
+@@ -66,7 +66,7 @@ public class BoatItem extends Item {
+ 
+                 entityboat.func_184458_a(this.field_185057_a);
+                 entityboat.field_70177_z = p_77659_2_.field_70177_z;
+-                if (!p_77659_1_.func_226665_a__(entityboat, entityboat.func_174813_aQ().func_186662_g(-0.1D))) {
++                if (!p_77659_1_.a_(entityboat, entityboat.func_174813_aQ().func_186662_g(-0.1D))) {
+                     return ActionResult.func_226251_d_(itemstack);
+                 } else {
+                     if (!p_77659_1_.field_72995_K) {
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index d34bad12d68bcd809722baa167544ca3e77f2d51..04d1cc1eb93f46de82a15bbeb2ffc5e5c136f65c 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -497,7 +497,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                     return;
+                 }
+ 
+-                boolean flag = worldserver.func_226665_a__(entity, entity.func_174813_aQ().func_186664_h(0.0625D));
++                boolean flag = worldserver.a_(entity, entity.func_174813_aQ().func_186664_h(0.0625D));
+ 
+                 d6 = d3 - this.field_184359_v;
+                 d7 = d4 - this.field_184360_w - 1.0E-6D;
+@@ -523,7 +523,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+                 entity.func_70080_a(d3, d4, d5, f, f1);
+                 field_147369_b.func_70080_a(d3, d4, d5, this.field_147369_b.field_70177_z, this.field_147369_b.field_70125_A); // CraftBukkit
+-                boolean flag2 = worldserver.func_226665_a__(entity, entity.func_174813_aQ().func_186664_h(0.0625D));
++                boolean flag2 = worldserver.a_(entity, entity.func_174813_aQ().func_186664_h(0.0625D));
+ 
+                 if (flag && (flag1 || !flag2)) {
+                     entity.func_70080_a(d0, d1, d2, f, f1);
+@@ -1170,7 +1170,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                             }
+ 
+                             this.field_147369_b.func_70080_a(d4, d5, d6, f, f1);
+-                            if (!this.field_147369_b.field_70145_X && !this.field_147369_b.func_70608_bn() && (flag1 && worldserver.func_226665_a__(this.field_147369_b, axisalignedbb) || this.func_241163_a_((IWorldReader) worldserver, axisalignedbb))) {
++                            if (!this.field_147369_b.field_70145_X && !this.field_147369_b.func_70608_bn() && (flag1 && worldserver.a_(this.field_147369_b, axisalignedbb) || this.func_241163_a_((IWorldReader) worldserver, axisalignedbb))) {
+                                 this.func_147364_a(d0, d1, d2, f, f1);
+                             } else {
+                                 // CraftBukkit start - fire PlayerMoveEvent
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index c1cb8d45bb2aa8e49bfeee655ba350eab511dc76..29ad03eac51f001f6e9dd91aa3e300fccd02f81b 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -26,6 +26,7 @@ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.crash.ReportedException;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.EntityType;
++import net.minecraft.entity.item.ArmorStandEntity;
+ import net.minecraft.entity.item.ItemEntity;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.fluid.FluidState;
+@@ -891,6 +892,13 @@ public abstract class World implements IWorld, AutoCloseable {
+             // Paper end
+         }
+     }
++    // Paper start - Prevent armor stands from doing entity lookups
++    @Override
++    public boolean a_(@Nullable Entity entity, AxisAlignedBB axisAlignedBB) {
++        if (entity instanceof ArmorStandEntity && !entity.field_70170_p.paperConfig.armorStandEntityLookups) return false;
++        return IWorld.super.func_226665_a__(entity, axisAlignedBB);
++    }
++    // Paper end
+ 
+     public Explosion func_217385_a(@Nullable Entity p_217385_1_, double p_217385_2_, double p_217385_3_, double p_217385_4_, float p_217385_5_, Explosion.Mode p_217385_6_) {
+         return this.func_230546_a_(p_217385_1_, (DamageSource) null, (IExplosionContext) null, p_217385_2_, p_217385_3_, p_217385_4_, p_217385_5_, false, p_217385_6_);

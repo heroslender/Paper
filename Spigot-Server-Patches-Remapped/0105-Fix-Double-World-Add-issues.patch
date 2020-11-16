@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 21 Jun 2016 22:54:34 -0400
+Subject: [PATCH] Fix Double World Add issues
+
+Vanilla will double add Spider Jockeys to the world, so ignore already added.
+
+Also add debug if something else tries to, and abort before world gets bad state
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 5f5eace8e56779b7dcdaf4af5d2e9590c1c11462..7fb37cf3001ebdfacc0688b9fc3f4c4f4290b217 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1020,6 +1020,7 @@ public class ServerWorld extends World implements ISeedReader {
+     // CraftBukkit start
+     private boolean addEntity0(Entity entity, CreatureSpawnEvent.SpawnReason spawnReason) {
+         org.spigotmc.AsyncCatcher.catchOp("entity add"); // Spigot
++        if (entity.valid) { MinecraftServer.field_147145_h.error("Attempted Double World add on " + entity, new Throwable()); return true; } // Paper
+         if (entity.field_70128_L) {
+             // WorldServer.LOGGER.warn("Tried to add entity {} but it was marked as removed already", EntityTypes.getName(entity.getEntityType())); // CraftBukkit
+             return false;

@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 19 Jul 2018 01:05:00 -0400
+Subject: [PATCH] Don't change the Entity Random seed for squids
+
+
+diff --git a/src/main/java/net/minecraft/entity/passive/SquidEntity.java b/src/main/java/net/minecraft/entity/passive/SquidEntity.java
+index 019f726be34c7f88108ecb0142d9f159cc437ddb..010d122406351abe64d824fa14e53d2c0ce1eac6 100644
+--- a/src/main/java/net/minecraft/entity/passive/SquidEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/SquidEntity.java
+@@ -47,7 +47,7 @@ public class SquidEntity extends WaterMobEntity {
+ 
+     public SquidEntity(EntityType<? extends SquidEntity> entitytypes, World world) {
+         super(entitytypes, world);
+-        this.field_70146_Z.setSeed((long) this.func_145782_y());
++        //this.random.setSeed((long) this.getId()); // Paper
+         this.field_70864_bA = 1.0F / (this.field_70146_Z.nextFloat() + 1.0F) * 0.2F;
+     }
+ 

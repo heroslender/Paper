@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 24 Mar 2019 18:09:20 -0400
+Subject: [PATCH] don't go below 0 for pickupDelay, breaks picking up items
+
+vanilla checks for == 0
+
+diff --git a/src/main/java/net/minecraft/entity/item/ItemEntity.java b/src/main/java/net/minecraft/entity/item/ItemEntity.java
+index 22eecf2af58c8c1e73e83064099d394660c9794f..87a04ab8c9bbcceec13b4d2f2e62a82735487df6 100644
+--- a/src/main/java/net/minecraft/entity/item/ItemEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ItemEntity.java
+@@ -86,6 +86,7 @@ public class ItemEntity extends Entity {
+             // CraftBukkit start - Use wall time for pickup and despawn timers
+             int elapsedTicks = MinecraftServer.currentTick - this.lastTick;
+             if (this.field_145804_b != 32767) this.field_145804_b -= elapsedTicks;
++            this.field_145804_b = Math.max(0, this.field_145804_b); // Paper - don't go below 0
+             if (this.field_70292_b != -32768) this.field_70292_b += elapsedTicks;
+             this.lastTick = MinecraftServer.currentTick;
+             // CraftBukkit end
+@@ -173,6 +174,7 @@ public class ItemEntity extends Entity {
+         // CraftBukkit start - Use wall time for pickup and despawn timers
+         int elapsedTicks = MinecraftServer.currentTick - this.lastTick;
+         if (this.field_145804_b != 32767) this.field_145804_b -= elapsedTicks;
++        this.field_145804_b = Math.max(0, this.field_145804_b); // Paper - don't go below 0
+         if (this.field_70292_b != -32768) this.field_70292_b += elapsedTicks;
+         this.lastTick = MinecraftServer.currentTick;
+         // CraftBukkit end

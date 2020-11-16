@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sat, 10 Nov 2018 05:15:21 +0000
+Subject: [PATCH] Fix SpongeAbsortEvent handling
+
+Only process drops when the block is actually going to be removed
+
+diff --git a/src/main/java/net/minecraft/block/Block.java b/src/main/java/net/minecraft/block/Block.java
+index 1c4a7b58c8c1bec78e59bdf8f8c41a64494f0d48..889bba1e02d62439ad309cfb804dd675981eeab0 100644
+--- a/src/main/java/net/minecraft/block/Block.java
++++ b/src/main/java/net/minecraft/block/Block.java
+@@ -234,7 +234,7 @@ public class Block extends AbstractBlock implements IItemProvider {
+ 
+         p_220075_0_.func_215706_a(p_220075_1_, p_220075_2_, ItemStack.field_190927_a);
+     }
+-
++    public static void dropNaturally(BlockState iblockdata, World world, BlockPos blockposition, @Nullable TileEntity tileentity) { func_220059_a(iblockdata, world, blockposition, tileentity); }
+     public static void func_220059_a(BlockState p_220059_0_, World p_220059_1_, BlockPos p_220059_2_, @Nullable TileEntity p_220059_3_) {
+         if (p_220059_1_ instanceof ServerWorld) {
+             func_220070_a(p_220059_0_, (ServerWorld) p_220059_1_, p_220059_2_, p_220059_3_).forEach((itemstack) -> {
+diff --git a/src/main/java/net/minecraft/block/SpongeBlock.java b/src/main/java/net/minecraft/block/SpongeBlock.java
+index 703d7e0d299f0c4c46e7b1c367f71ce51dbe0919..10a910ab3617f7e6a2c12a19b41772c93fe7b13b 100644
+--- a/src/main/java/net/minecraft/block/SpongeBlock.java
++++ b/src/main/java/net/minecraft/block/SpongeBlock.java
+@@ -125,8 +125,11 @@ public class SpongeBlock extends Block {
+                         // NOP
+                     } else if (material == Material.field_203243_f || material == Material.field_204868_h) {
+                         TileEntity tileentity = iblockdata.func_177230_c().func_235695_q_() ? p_176312_1_.func_175625_s(blockposition2) : null;
+-
+-                        func_220059_a(iblockdata, p_176312_1_, blockposition2, tileentity);
++                        // Paper start
++                        if (block.getHandle().func_185904_a() == Material.field_151579_a) {
++                            dropNaturally(iblockdata, p_176312_1_, blockposition2, tileentity);
++                        }
++                        // Paper end
+                     }
+                 }
+                 p_176312_1_.func_180501_a(blockposition2, block.getHandle(), block.getFlag());

@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 4 Jul 2018 15:30:22 -0400
+Subject: [PATCH] Vex#getSummoner API
+
+Get's the NPC that summoned this Vex
+
+diff --git a/src/main/java/net/minecraft/entity/monster/VexEntity.java b/src/main/java/net/minecraft/entity/monster/VexEntity.java
+index f72878e10a9e89c50c4cb8028fa5e47d86278fbd..cf471f89c3e102d55d10292df104ed1ecc5ac55b 100644
+--- a/src/main/java/net/minecraft/entity/monster/VexEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/VexEntity.java
+@@ -124,6 +124,7 @@ public class VexEntity extends MonsterEntity {
+ 
+     }
+ 
++    public MobEntity getOwner() { return func_190645_o(); } // Paper - OBFHELPER
+     public MobEntity func_190645_o() {
+         return this.field_190665_b;
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftVex.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftVex.java
+index 67da38c67cc2d2a6798958b13e540655f7fdd798..7f1776cb99ebb5e29a1b5e69ced5b99e40cf9ee0 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftVex.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftVex.java
+@@ -1,8 +1,10 @@
+ package org.bukkit.craftbukkit.entity;
+ 
++import net.minecraft.entity.MobEntity;
+ import net.minecraft.entity.monster.VexEntity;
+ import org.bukkit.craftbukkit.CraftServer;
+ import org.bukkit.entity.EntityType;
++import org.bukkit.entity.Mob;
+ import org.bukkit.entity.Vex;
+ 
+ public class CraftVex extends CraftMonster implements Vex {
+@@ -16,6 +18,13 @@ public class CraftVex extends CraftMonster implements Vex {
+         return (VexEntity) super.getHandle();
+     }
+ 
++    // Paper start
++    public Mob getSummoner() {
++        MobEntity owner = getHandle().getOwner();
++        return owner != null ? (Mob) owner.getBukkitEntity() : null;
++    }
++    // Paper end
++
+     @Override
+     public String toString() {
+         return "CraftVex";

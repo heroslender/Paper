@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 7 Oct 2018 00:54:21 -0500
+Subject: [PATCH] Add sun related API
+
+
+diff --git a/src/main/java/net/minecraft/entity/MobEntity.java b/src/main/java/net/minecraft/entity/MobEntity.java
+index 8443be1ed6b785bb457b8e54056933277ae6d671..b37db45378a9315dafe72e5b5863ca41a64a2056 100644
+--- a/src/main/java/net/minecraft/entity/MobEntity.java
++++ b/src/main/java/net/minecraft/entity/MobEntity.java
+@@ -1573,6 +1573,7 @@ public abstract class MobEntity extends LivingEntity {
+ 
+     }
+ 
++    public boolean isInDaylight() { return this.func_204609_dp(); } // Paper - OBFHELPER
+     protected boolean func_204609_dp() {
+         if (this.field_70170_p.func_72935_r() && !this.field_70170_p.field_72995_K) {
+             float f = this.func_70013_c();
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index de5e075267d38b1c6309dcc4b16a68ad85aed1ab..a40b5378e6c00ce702ffff335b0cd0811f5018b2 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -866,6 +866,13 @@ public class CraftWorld implements World {
+         }
+     }
+ 
++    // Paper start
++    @Override
++    public boolean isDayTime() {
++        return getHandle().func_72935_r();
++    }
++    // Paper end
++
+     @Override
+     public boolean createExplosion(double x, double y, double z, float power) {
+         return createExplosion(x, y, z, power, false, true);
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftMob.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftMob.java
+index a0261d39ce7fd4d3db8c7d6c1ef034f787b21880..d3d709cc6520510875a6b7f14ab429e5461b5683 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftMob.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftMob.java
+@@ -78,4 +78,11 @@ public abstract class CraftMob extends CraftLivingEntity implements Mob {
+     public long getSeed() {
+         return getHandle().field_184653_bB;
+     }
++
++    // Paper start
++    @Override
++    public boolean isInDaylight() {
++        return getHandle().isInDaylight();
++    }
++    // Paper end
+ }

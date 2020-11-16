@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 21 Sep 2016 23:48:39 -0400
+Subject: [PATCH] Auto fix bad Y levels on player login
+
+Bring down to a saner Y level if super high, as this can cause the server to crash
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index e4e629ea3bf0ed17f350b8874d9f7ff14970beb5..da6d4c93de34256782576b6310802daf53807651 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -324,6 +324,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     @Override
+     public void func_70037_a(CompoundNBT p_70037_1_) {
+         super.func_70037_a(p_70037_1_);
++        if (this.func_226278_cu_() > 300) this.func_226288_n_(func_226277_ct_(), 257, func_226281_cx_()); // Paper - bring down to a saner Y level if out of world
+         if (p_70037_1_.func_150297_b("playerGameType", 99)) {
+             if (this.func_184102_h().func_104056_am()) {
+                 this.field_71134_c.func_241820_a(this.func_184102_h().func_71265_f(), GameType.NOT_SET);

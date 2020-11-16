@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Lukasz Derlatka <toranktto@gmail.com>
+Date: Mon, 11 Nov 2019 16:08:13 +0100
+Subject: [PATCH] Fix AssertionError when player hand set to empty type
+
+Fixes an AssertionError when setting the player's item in hand to null or a new ItemStack of Air in PlayerInteractEvent
+Fixes GH-2718
+
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 960be5aa2c2f3790c3c7f2a7d31f71557937b9af..158175e8b573329dd2dd4670b55f3858aa8c19e0 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -2131,6 +2131,7 @@ public abstract class LivingEntity extends Entity {
+         return p_233634_1_.test(this.func_184614_ca().func_77973_b()) || p_233634_1_.test(this.func_184592_cb().func_77973_b());
+     }
+ 
++    public final ItemStack getItemInHand(Hand enumhand) { return this.func_184586_b(enumhand); } // Paper - OBFHELPER
+     public ItemStack func_184586_b(Hand p_184586_1_) {
+         if (p_184586_1_ == Hand.MAIN_HAND) {
+             return this.func_184582_a(EquipmentSlotType.MAINHAND);
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index ac559ec82cdb8ca6b23ec4802d3441230beceda3..f5ac1ee89118c99bd51c68bf05248d654edafcc5 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1620,6 +1620,10 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                 this.field_147369_b.getBukkitEntity().updateInventory(); // SPIGOT-2524
+                 return;
+             }
++            // Paper start
++            itemstack = this.field_147369_b.getItemInHand(enumhand);
++            if (itemstack.func_190926_b()) return;
++            // Paper end
+             ActionResultType enuminteractionresult = this.field_147369_b.field_71134_c.func_187250_a(this.field_147369_b, worldserver, itemstack, enumhand);
+ 
+             if (enuminteractionresult.func_226247_b_()) {

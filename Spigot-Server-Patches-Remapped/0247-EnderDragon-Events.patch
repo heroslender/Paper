@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 21 Jul 2018 01:51:27 -0500
+Subject: [PATCH] EnderDragon Events
+
+
+diff --git a/src/main/java/net/minecraft/entity/boss/dragon/phase/FlamingSittingPhase.java b/src/main/java/net/minecraft/entity/boss/dragon/phase/FlamingSittingPhase.java
+index ca1a068b9d3dab6024e5d947b82d4589abeffe8c..028e9636ec2be1eff03777be5649280392131902 100644
+--- a/src/main/java/net/minecraft/entity/boss/dragon/phase/FlamingSittingPhase.java
++++ b/src/main/java/net/minecraft/entity/boss/dragon/phase/FlamingSittingPhase.java
+@@ -80,7 +80,11 @@ public class FlamingSittingPhase extends SittingPhase {
+             this.field_188666_d.func_184486_b(200);
+             this.field_188666_d.func_195059_a(ParticleTypes.field_197616_i);
+             this.field_188666_d.func_184496_a(new EffectInstance(Effects.field_76433_i));
++            if (new com.destroystokyo.paper.event.entity.EnderDragonFlameEvent((org.bukkit.entity.EnderDragon) this.field_188661_a.getBukkitEntity(), (org.bukkit.entity.AreaEffectCloud) this.field_188666_d.getBukkitEntity()).callEvent()) { // Paper
+             this.field_188661_a.field_70170_p.func_217376_c(this.field_188666_d);
++            } else {
++                this.removeAreaEffect();
++            }
+         }
+ 
+     }
+@@ -91,8 +95,8 @@ public class FlamingSittingPhase extends SittingPhase {
+         ++this.field_188665_c;
+     }
+ 
+-    @Override
+-    public void func_188658_e() {
++    public final void removeAreaEffect() { this.func_188658_e(); } // Paper - OBFHELPER
++    @Override public void func_188658_e() {
+         if (this.field_188666_d != null) {
+             this.field_188666_d.func_70106_y();
+             this.field_188666_d = null;
+diff --git a/src/main/java/net/minecraft/entity/boss/dragon/phase/StrafePlayerPhase.java b/src/main/java/net/minecraft/entity/boss/dragon/phase/StrafePlayerPhase.java
+index b3a8ba783ef7370eeac28e451e1755b2849ce3e6..ad75f331a6b3623eba0afdb0317e1397dc82fb56 100644
+--- a/src/main/java/net/minecraft/entity/boss/dragon/phase/StrafePlayerPhase.java
++++ b/src/main/java/net/minecraft/entity/boss/dragon/phase/StrafePlayerPhase.java
+@@ -81,7 +81,9 @@ public class StrafePlayerPhase extends Phase {
+                         DragonFireballEntity entitydragonfireball = new DragonFireballEntity(this.field_188661_a.field_70170_p, this.field_188661_a, d9, d10, d11);
+ 
+                         entitydragonfireball.func_70012_b(d6, d7, d8, 0.0F, 0.0F);
++                        if (new com.destroystokyo.paper.event.entity.EnderDragonShootFireballEvent((org.bukkit.entity.EnderDragon) field_188661_a.getBukkitEntity(), (org.bukkit.entity.DragonFireball) entitydragonfireball.getBukkitEntity()).callEvent()) // Paper
+                         this.field_188661_a.field_70170_p.func_217376_c(entitydragonfireball);
++                        else entitydragonfireball.func_70106_y(); // Paper
+                         this.field_188690_c = 0;
+                         if (this.field_188691_d != null) {
+                             while (!this.field_188691_d.func_75879_b()) {
+diff --git a/src/main/java/net/minecraft/entity/projectile/DragonFireballEntity.java b/src/main/java/net/minecraft/entity/projectile/DragonFireballEntity.java
+index c54b732eee2034557862428c871578ae42b9b4b4..8b6aeee1ab5b28370336868106fe7fc44dd22f1c 100644
+--- a/src/main/java/net/minecraft/entity/projectile/DragonFireballEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/DragonFireballEntity.java
+@@ -58,8 +58,10 @@ public class DragonFireballEntity extends DamagingProjectileEntity {
+                     }
+                 }
+ 
++                if (new com.destroystokyo.paper.event.entity.EnderDragonFireballHitEvent((org.bukkit.entity.DragonFireball) this.getBukkitEntity(), list.stream().map(LivingEntity::getBukkitLivingEntity).collect(java.util.stream.Collectors.toList()), (org.bukkit.entity.AreaEffectCloud) entityareaeffectcloud.getBukkitEntity()).callEvent()) { // Paper
+                 this.field_70170_p.func_217379_c(2006, this.func_233580_cy_(), this.func_174814_R() ? -1 : 1);
+                 this.field_70170_p.func_217376_c(entityareaeffectcloud);
++                } else entityareaeffectcloud.func_70106_y(); // Paper
+                 this.func_70106_y();
+             }
+ 

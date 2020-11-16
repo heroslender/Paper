@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Sat, 16 Jul 2016 19:11:17 -0500
+Subject: [PATCH] Don't lookup game profiles that have no UUID and no name
+
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerProfileCache.java b/src/main/java/net/minecraft/server/management/PlayerProfileCache.java
+index 2949b5f6551ab78a278ec92ad539871334f52a58..0d8c3b8e8fad800e048ecafe2cedad1b88b0184f 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerProfileCache.java
++++ b/src/main/java/net/minecraft/server/management/PlayerProfileCache.java
+@@ -78,7 +78,7 @@ public class PlayerProfileCache {
+         };
+ 
+         p_187319_0_.findProfilesByNames(new String[]{p_187319_1_}, Agent.MINECRAFT, profilelookupcallback);
+-        if (!func_187321_d() && agameprofile[0] == null) {
++        if (!func_187321_d() && agameprofile[0] == null && !org.apache.commons.lang3.StringUtils.isBlank(p_187319_1_)) { // Paper - Don't lookup a profile with a blank name
+             UUID uuid = PlayerEntity.func_146094_a(new GameProfile((UUID) null, p_187319_1_));
+             GameProfile gameprofile = new GameProfile(uuid, p_187319_1_);
+ 

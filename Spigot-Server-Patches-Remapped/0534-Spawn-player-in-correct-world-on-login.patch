@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Wyatt Childers <wchilders@nearce.com>
+Date: Fri, 3 Jul 2020 14:57:05 -0400
+Subject: [PATCH] Spawn player in correct world on login
+
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index b44c3964d90cad3fd53892165226ca723e841456..d03a3f0eb1ff4e077bc3ac7d9327933cc99dd9a2 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -191,7 +191,18 @@ public abstract class PlayerList {
+         }String lastKnownName = s; // Paper
+         // CraftBukkit end
+ 
+-        if (nbttagcompound != null) {
++        // Paper start - move logic in Entity to here, to use bukkit supplied world UUID.
++        if (nbttagcompound != null && nbttagcompound.func_74764_b("WorldUUIDMost") && nbttagcompound.func_74764_b("WorldUUIDLeast")) {
++            UUID uid = new UUID(nbttagcompound.func_74763_f("WorldUUIDMost"), nbttagcompound.func_74763_f("WorldUUIDLeast"));
++            org.bukkit.World bWorld = Bukkit.getServer().getWorld(uid);
++            if (bWorld != null) {
++                resourcekey = ((CraftWorld) bWorld).getHandle().func_234923_W_();
++            } else {
++                resourcekey = World.field_234918_g_;
++            }
++        } else if (nbttagcompound != null) {
++            // Vanilla migration support
++            // Paper end
+             DataResult dataresult = DimensionType.func_236025_a_(new Dynamic(NBTDynamicOps.field_210820_a, nbttagcompound.func_74781_a("Dimension")));
+             Logger logger = PlayerList.field_148546_d;
+ 

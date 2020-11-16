@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Mon, 6 Apr 2020 17:39:25 -0700
+Subject: [PATCH] Reduce memory footprint of NBTTagCompound
+
+Fastutil maps are going to have a lower memory footprint - which
+is important because we clone chunk data after reading it for safety.
+So, reduce the impact of the clone on GC.
+
+diff --git a/src/main/java/net/minecraft/nbt/CompoundNBT.java b/src/main/java/net/minecraft/nbt/CompoundNBT.java
+index a0bf35dcf0762ac693cc0863dd960b7cf14ff004..81c865105b7cdd8461c30774aa716864dc709ccf 100644
+--- a/src/main/java/net/minecraft/nbt/CompoundNBT.java
++++ b/src/main/java/net/minecraft/nbt/CompoundNBT.java
+@@ -47,7 +47,7 @@ public class CompoundNBT implements INBT {
+             if (p_225649_2_ > 512) {
+                 throw new RuntimeException("Tried to read NBT tag with too high complexity, depth > 512");
+             } else {
+-                HashMap hashmap = Maps.newHashMap();
++                it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<String, INBT> hashmap = new it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<>(8, 0.8f); // Paper - reduce memory footprint of NBTTagCompound
+ 
+                 byte b0;
+ 
+@@ -83,7 +83,7 @@ public class CompoundNBT implements INBT {
+     }
+ 
+     public CompoundNBT() {
+-        this(Maps.newHashMap());
++        this(new it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<>(8, 0.8f)); // Paper - reduce memory footprint of NBTTagCompound
+     }
+ 
+     @Override
+@@ -415,9 +415,17 @@ public class CompoundNBT implements INBT {
+ 
+     @Override
+     public CompoundNBT func_74737_b() {
+-        Map<String, INBT> map = Maps.newHashMap(Maps.transformValues(this.field_74784_a, INBT::func_74737_b));
++        // Paper start - reduce memory footprint of NBTTagCompound
++        it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<String, INBT> ret = new it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<>(this.field_74784_a.size(), 0.8f);
+ 
+-        return new CompoundNBT(map);
++        Iterator<Map.Entry<String, INBT>> iterator = (this.field_74784_a instanceof it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap) ? ((it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap)this.field_74784_a).object2ObjectEntrySet().fastIterator() : this.field_74784_a.entrySet().iterator();
++        while (iterator.hasNext()) {
++            Map.Entry<String, INBT> entry = iterator.next();
++            ret.put(entry.getKey(), entry.getValue().func_74737_b());
++        }
++
++        return new CompoundNBT(ret);
++        // Paper end - reduce memory footprint of NBTTagCompound
+     }
+ 
+     public boolean equals(Object object) {

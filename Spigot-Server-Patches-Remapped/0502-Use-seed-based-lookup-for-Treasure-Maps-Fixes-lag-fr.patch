@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 7 Jun 2020 19:25:13 -0400
+Subject: [PATCH] Use seed based lookup for Treasure Maps - Fixes lag from
+ carto/sunken maps
+
+
+diff --git a/src/main/java/net/minecraft/item/FilledMapItem.java b/src/main/java/net/minecraft/item/FilledMapItem.java
+index b944cf7975975e49f4bc4da839a75175695f8144..72c7ea9ece8fa0f25eca291d9caec67f15d07978 100644
+--- a/src/main/java/net/minecraft/item/FilledMapItem.java
++++ b/src/main/java/net/minecraft/item/FilledMapItem.java
+@@ -251,7 +251,7 @@ public class FilledMapItem extends AbstractMapItem {
+ 
+                 for (l = 0; l < 128 * i; ++l) {
+                     for (i1 = 0; i1 < 128 * i; ++i1) {
+-                        abiomebase[l * 128 * i + i1] = p_226642_0_.func_226691_t_(new BlockPos((j / i - 64) * i + i1, 0, (k / i - 64) * i + l));
++                        abiomebase[l * 128 * i + i1] = p_226642_0_.getBiomeBySeed((j / i - 64) * i + i1, 0, (k / i - 64) * i + l); // Paper
+                     }
+                 }
+ 
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index c44fce22ac1b98ac40030d2e5c437b171b6dfaae..9afd513d9bfb81e7495fe2c823ee69f941459062 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -407,8 +407,8 @@ public class ServerWorld extends World implements ISeedReader {
+         this.field_241103_E_.func_76069_a(p_241113_4_);
+     }
+ 
+-    @Override
+-    public Biome func_225604_a_(int p_225604_1_, int p_225604_2_, int p_225604_3_) {
++    public Biome getBiomeBySeed(int i, int j, int k) { return func_225604_a_(i, j, k); } // Paper - OBFHELPER
++    @Override public Biome func_225604_a_(int p_225604_1_, int p_225604_2_, int p_225604_3_) {
+         return this.E().func_201711_g().func_202090_b().func_225526_b_(p_225604_1_, p_225604_2_, p_225604_3_);
+     }
+ 

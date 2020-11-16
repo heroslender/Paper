@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: chickeneer <emcchickeneer@gmail.com>
+Date: Fri, 5 Jun 2020 20:02:04 -0500
+Subject: [PATCH] Fix villager trading demand - MC-163962
+
+Prevent demand from going negative and tending to negative infinity
+
+diff --git a/src/main/java/net/minecraft/item/MerchantOffer.java b/src/main/java/net/minecraft/item/MerchantOffer.java
+index 28324b5269f4f553c6ede3177373e80263de3195..56ee74b1d3d35932863cad545b44f683b3b0fcf9 100644
+--- a/src/main/java/net/minecraft/item/MerchantOffer.java
++++ b/src/main/java/net/minecraft/item/MerchantOffer.java
+@@ -107,7 +107,7 @@ public class MerchantOffer {
+     }
+ 
+     public void func_222222_e() {
+-        this.field_222230_h = this.field_222230_h + this.field_222226_d - (this.field_222227_e - this.field_222226_d);
++        this.field_222230_h = Math.max(0, this.field_222230_h + this.field_222226_d - (this.field_222227_e - this.field_222226_d)); // Paper
+     }
+ 
+     public ItemStack func_222206_f() {

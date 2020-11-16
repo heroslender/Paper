@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Byteflux <byte@byteflux.net>
+Date: Tue, 1 Mar 2016 15:08:03 -0600
+Subject: [PATCH] Remove invalid mob spawner tile entities
+
+
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 25bc54587003db4eb7f2c88edd5d46975bf18d10..e62cc18e1f1fb96c297d1cfaf31b03c6d4cceb1e 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -24,6 +24,7 @@ import net.minecraft.block.BlockState;
+ import net.minecraft.block.Blocks;
+ import net.minecraft.block.ContainerBlock;
+ import net.minecraft.block.ITileEntityProvider;
++import net.minecraft.block.SpawnerBlock;
+ import net.minecraft.crash.CrashReport;
+ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.crash.ReportedException;
+@@ -36,6 +37,7 @@ import net.minecraft.fluid.FluidState;
+ import net.minecraft.fluid.Fluids;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.server.MCUtil;
++import net.minecraft.tileentity.MobSpawnerTileEntity;
+ import net.minecraft.tileentity.TileEntity;
+ import net.minecraft.util.math.AxisAlignedBB;
+ import net.minecraft.util.math.BlockPos;
+@@ -646,6 +648,10 @@ public class Chunk implements IChunk {
+             }
+ 
+             // CraftBukkit start
++            // Paper start - Remove invalid mob spawner tile entities
++        } else if (p_177426_2_ instanceof MobSpawnerTileEntity && !(getBlockData(p_177426_1_.func_177958_n(), p_177426_1_.func_177956_o(), p_177426_1_.func_177952_p()).getBlock() instanceof SpawnerBlock)) {
++            this.field_150816_i.remove(p_177426_1_);
++            // Paper end
+         } else {
+             System.out.println("Attempted to place a tile entity (" + p_177426_2_ + ") at " + p_177426_2_.field_174879_c.func_177958_n() + "," + p_177426_2_.field_174879_c.func_177956_o() + "," + p_177426_2_.field_174879_c.func_177952_p()
+                 + " (" + func_180495_p(p_177426_1_) + ") where there was no entity tile!");

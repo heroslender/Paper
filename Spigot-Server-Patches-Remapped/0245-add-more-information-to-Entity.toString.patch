@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 19 Jul 2018 01:13:28 -0400
+Subject: [PATCH] add more information to Entity.toString()
+
+UUID, ticks lived, valid, dead
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 15111d219e371df2ebec35729b81158efaeef405..3442a35c9c10d727855eaed92af2f6cb14a51e2d 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -2524,7 +2524,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     public String toString() {
+-        return String.format(Locale.ROOT, "%s['%s'/%d, l='%s', x=%.2f, y=%.2f, z=%.2f]", this.getClass().getSimpleName(), this.func_200200_C_().getString(), this.field_145783_c, this.field_70170_p == null ? "~NULL~" : this.field_70170_p.toString(), this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_());
++        return String.format(Locale.ROOT, "%s['%s'/%d, uuid='%s', l='%s', x=%.2f, y=%.2f, z=%.2f, cx=%d, cz=%d, tl=%d, v=%b, d=%b]", new Object[] { this.getClass().getSimpleName(), this.func_200200_C_().getString(), Integer.valueOf(this.field_145783_c), this.field_96093_i.toString(), this.field_70170_p == null ? "~NULL~" : this.field_70170_p.toString(), Double.valueOf(this.func_226277_ct_()), Double.valueOf(this.func_226278_cu_()), Double.valueOf(this.func_226281_cx_()), field_70176_ah, field_70164_aj, this.field_70173_aa, this.valid, this.field_70128_L}); // Paper - add more information
+     }
+ 
+     public boolean func_180431_b(DamageSource p_180431_1_) {

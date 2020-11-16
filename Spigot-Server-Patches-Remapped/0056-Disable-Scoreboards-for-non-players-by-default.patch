@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 8 Mar 2016 23:25:45 -0500
+Subject: [PATCH] Disable Scoreboards for non players by default
+
+Entities collision is checking for scoreboards setting.
+This is very heavy to do map lookups for every collision to check
+this setting.
+
+So avoid looking up scoreboards and short circuit to the "not on a team"
+logic which is most likely to be true.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index abbf59bb91021821876a8960e8f77fac24457ec4..04430aae52205ee167662004e45c145b9d2e8bed 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -203,4 +203,9 @@ public class PaperWorldConfig {
+     private void disableTeleportationSuffocationCheck() {
+         disableTeleportationSuffocationCheck = getBoolean("disable-teleportation-suffocation-check", false);
+     }
++
++    public boolean nonPlayerEntitiesOnScoreboards = false;
++    private void nonPlayerEntitiesOnScoreboards() {
++        nonPlayerEntitiesOnScoreboards = getBoolean("allow-non-player-entities-on-scoreboards", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 7a260cf403c9ec5f42aca84de68cf2256131849f..318c831f88a396241a416f266aa571a3e07a9907 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -2290,6 +2290,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+ 
+     @Nullable
+     public Team func_96124_cp() {
++        if (!this.field_70170_p.paperConfig.nonPlayerEntitiesOnScoreboards && !(this instanceof PlayerEntity)) { return null; } // Paper
+         return this.field_70170_p.func_96441_U().func_96509_i(this.func_195047_I_());
+     }
+ 
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index db64f76aa5fd7a1d88136dedb6142524bec2cc82..face53b3fad458e7d63ff84dc3a54c3a69ae90e6 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -734,6 +734,7 @@ public abstract class LivingEntity extends Entity {
+         if (p_70037_1_.func_150297_b("Team", 8)) {
+             String s = p_70037_1_.func_74779_i("Team");
+             ScorePlayerTeam scoreboardteam = this.field_70170_p.func_96441_U().func_96508_e(s);
++            if (!field_70170_p.paperConfig.nonPlayerEntitiesOnScoreboards && !(this instanceof PlayerEntity)) { scoreboardteam = null; } // Paper
+             boolean flag = scoreboardteam != null && this.field_70170_p.func_96441_U().func_197901_a(this.func_189512_bd(), scoreboardteam);
+ 
+             if (!flag) {

@@ -1,0 +1,301 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrew Steinborn <git@steinborn.me>
+Date: Mon, 8 Oct 2018 14:36:14 -0400
+Subject: [PATCH] Add Velocity IP Forwarding Support
+
+While Velocity supports BungeeCord-style IP forwarding, it is not secure. Users
+have a lot of problems setting up firewalls or setting up plugins like IPWhitelist.
+Further, the BungeeCord IP forwarding protocol still retains essentially its original
+form, when there is brand new support for custom login plugin messages in 1.13.
+
+Velocity's modern IP forwarding uses an HMAC-SHA256 code to ensure authenticity
+of messages, is packed into a binary format that is smaller than BungeeCord's
+forwarding, and is integrated into the Minecraft login process by using the 1.13
+login plugin message packet.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index d5c97bb6503c9bfafd819dd62397b9decd515df5..478856f190a8d0177dee39dab4692fc54f9c8ed4 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -8,6 +8,7 @@ import java.io.IOException;
+ import java.lang.reflect.InvocationTargetException;
+ import java.lang.reflect.Method;
+ import java.lang.reflect.Modifier;
++import java.nio.charset.StandardCharsets;
+ import java.util.HashMap;
+ import java.util.List;
+ import java.util.Map;
+@@ -244,7 +245,7 @@ public class PaperConfig {
+     }
+ 
+     public static boolean isProxyOnlineMode() {
+-        return Bukkit.getOnlineMode() || (SpigotConfig.bungee && bungeeOnlineMode);
++        return Bukkit.getOnlineMode() || (SpigotConfig.bungee && bungeeOnlineMode) || (velocitySupport && velocityOnlineMode);
+     }
+ 
+     public static int packetInSpamThreshold = 300;
+@@ -316,4 +317,21 @@ public class PaperConfig {
+         }
+         tabSpamLimit = getInt("settings.spam-limiter.tab-spam-limit", tabSpamLimit);
+     }
++
++    public static boolean velocitySupport;
++    public static boolean velocityOnlineMode;
++    public static byte[] velocitySecretKey;
++    private static void velocitySupport() {
++        velocitySupport = getBoolean("settings.velocity-support.enabled", false);
++        velocityOnlineMode = getBoolean("settings.velocity-support.online-mode", false);
++        String secret = getString("settings.velocity-support.secret", "");
++        if (!TimingsManager.hiddenConfigs.contains("settings.velocity-support.secret")) {
++            TimingsManager.hiddenConfigs.add("settings.velocity-support.secret");
++        }
++        if (velocitySupport && secret.isEmpty()) {
++            fatal("Velocity support is enabled, but no secret key was specified. A secret key is required!");
++        } else {
++            velocitySecretKey = secret.getBytes(StandardCharsets.UTF_8);
++        }
++    }
+ }
+diff --git a/src/main/java/com/destroystokyo/paper/proxy/VelocityProxy.java b/src/main/java/com/destroystokyo/paper/proxy/VelocityProxy.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..e46382b271bcbf7e0f054e0cbba0232ca1b66bd3
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/proxy/VelocityProxy.java
+@@ -0,0 +1,66 @@
++package com.destroystokyo.paper.proxy;
++
++import com.destroystokyo.paper.PaperConfig;
++import com.google.common.net.InetAddresses;
++import com.mojang.authlib.GameProfile;
++import com.mojang.authlib.properties.Property;
++import java.net.InetAddress;
++import java.security.InvalidKeyException;
++import java.security.MessageDigest;
++import java.security.NoSuchAlgorithmException;
++
++import javax.crypto.Mac;
++import javax.crypto.spec.SecretKeySpec;
++import net.minecraft.network.PacketBuffer;
++import net.minecraft.util.ResourceLocation;
++
++public class VelocityProxy {
++    private static final int SUPPORTED_FORWARDING_VERSION = 1;
++    public static final ResourceLocation PLAYER_INFO_CHANNEL = new ResourceLocation("velocity", "player_info");
++
++    public static boolean checkIntegrity(final PacketBuffer buf) {
++        final byte[] signature = new byte[32];
++        buf.readBytes(signature);
++
++        final byte[] data = new byte[buf.readableBytes()];
++        buf.getBytes(buf.readerIndex(), data);
++
++        try {
++            final Mac mac = Mac.getInstance("HmacSHA256");
++            mac.init(new SecretKeySpec(PaperConfig.velocitySecretKey, "HmacSHA256"));
++            final byte[] mySignature = mac.doFinal(data);
++            if (!MessageDigest.isEqual(signature, mySignature)) {
++                return false;
++            }
++        } catch (final InvalidKeyException | NoSuchAlgorithmException e) {
++            throw new AssertionError(e);
++        }
++
++        int version = buf.readVarInt();
++        if (version != SUPPORTED_FORWARDING_VERSION) {
++            throw new IllegalStateException("Unsupported forwarding version " + version + ", wanted " + SUPPORTED_FORWARDING_VERSION);
++        }
++
++        return true;
++    }
++
++    public static InetAddress readAddress(final PacketBuffer buf) {
++        return InetAddresses.forString(buf.readUTF(Short.MAX_VALUE));
++    }
++
++    public static GameProfile createProfile(final PacketBuffer buf) {
++        final GameProfile profile = new GameProfile(buf.readUUID(), buf.readUTF(16));
++        readProperties(buf, profile);
++        return profile;
++    }
++
++    private static void readProperties(final PacketBuffer buf, final GameProfile profile) {
++        final int properties = buf.readVarInt();
++        for (int i1 = 0; i1 < properties; i1++) {
++            final String name = buf.readUTF(Short.MAX_VALUE);
++            final String value = buf.readUTF(Short.MAX_VALUE);
++            final String signature = buf.readBoolean() ? buf.readUTF(Short.MAX_VALUE) : null;
++            profile.getProperties().put(name, new Property(name, value, signature));
++        }
++    }
++}
+diff --git a/src/main/java/net/minecraft/network/PacketBuffer.java b/src/main/java/net/minecraft/network/PacketBuffer.java
+index a10f8d1976236f5cc28c78ab66315d09409a1045..ebb5146ee224f2950c7b9422d6378961881b94fb 100644
+--- a/src/main/java/net/minecraft/network/PacketBuffer.java
++++ b/src/main/java/net/minecraft/network/PacketBuffer.java
+@@ -177,6 +177,7 @@ public class PacketBuffer extends ByteBuf {
+         return this.func_150787_b(p_179249_1_.ordinal());
+     }
+ 
++    public int readVarInt() { return func_150792_a(); } // Paper - OBFHELPER
+     public int func_150792_a() {
+         int i = 0;
+         int j = 0;
+@@ -217,6 +218,7 @@ public class PacketBuffer extends ByteBuf {
+         return this;
+     }
+ 
++    public UUID readUUID() { return func_179253_g(); } // Paper - OBFHELPER
+     public UUID func_179253_g() {
+         return new UUID(this.readLong(), this.readLong());
+     }
+@@ -334,6 +336,7 @@ public class PacketBuffer extends ByteBuf {
+         }
+     }
+ 
++    public String readUTF(int maxLength) { return this.func_150789_c(maxLength); } // Paper - OBFHELPER
+     public String func_150789_c(int p_150789_1_) {
+         int j = this.func_150792_a();
+ 
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index b5cf92447a3741dc9340ac6a6f8d5d1404625e9d..d481c5beb3fb98af829f098cf9e103c079024f84 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -18,9 +18,11 @@ import javax.crypto.SecretKey;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.network.NetworkManager;
++import net.minecraft.network.PacketBuffer;
+ import net.minecraft.network.login.client.CCustomPayloadLoginPacket;
+ import net.minecraft.network.login.client.CEncryptionResponsePacket;
+ import net.minecraft.network.login.client.CLoginStartPacket;
++import net.minecraft.network.login.server.SCustomPayloadLoginPacket;
+ import net.minecraft.network.login.server.SDisconnectLoginPacket;
+ import net.minecraft.network.login.server.SEnableCompressionPacket;
+ import net.minecraft.network.login.server.SEncryptionRequestPacket;
+@@ -40,6 +42,7 @@ import org.bukkit.craftbukkit.util.Waitable;
+ import org.bukkit.event.player.AsyncPlayerPreLoginEvent;
+ import org.bukkit.event.player.PlayerPreLoginEvent;
+ // CraftBukkit end
++import io.netty.buffer.Unpooled; // Paper
+ 
+ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+ 
+@@ -56,6 +59,7 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+     private SecretKey field_147335_k;
+     private ServerPlayerEntity field_181025_l;
+     public String hostname = ""; // CraftBukkit - add field
++    private int velocityLoginMessageId = -1; // Paper - Velocity support
+ 
+     public ServerLoginNetHandler(MinecraftServer minecraftserver, NetworkManager networkmanager) {
+         this.field_147328_g = ServerLoginNetHandler.State.HELLO;
+@@ -207,6 +211,14 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+             this.field_147328_g = ServerLoginNetHandler.State.KEY;
+             this.field_147333_a.func_179290_a(new SEncryptionRequestPacket("", this.field_147327_f.func_71250_E().getPublic(), this.field_147330_e));
+         } else {
++            // Paper start - Velocity support
++            if (com.destroystokyo.paper.PaperConfig.velocitySupport) {
++                this.velocityLoginMessageId = java.util.concurrent.ThreadLocalRandom.current().nextInt();
++                SCustomPayloadLoginPacket packet = new SCustomPayloadLoginPacket(this.velocityLoginMessageId, com.destroystokyo.paper.proxy.VelocityProxy.PLAYER_INFO_CHANNEL, new PacketBuffer(Unpooled.EMPTY_BUFFER));
++                this.field_147333_a.func_179290_a(packet);
++                return;
++            }
++            // Paper end
+             // Spigot start
+             // Paper start - Cache authenticator threads
+             authenticatorPool.execute(new Runnable() {
+@@ -299,6 +311,12 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+     public class LoginHandler {
+ 
+         public void fireEvents() throws Exception {
++                            // Paper start - Velocity support
++                            if (ServerLoginNetHandler.this.velocityLoginMessageId == -1 && com.destroystokyo.paper.PaperConfig.velocitySupport) {
++                                disconnect("This server requires you to connect with Velocity.");
++                                return;
++                            }
++                            // Paper end
+                             String playerName = field_147337_i.getName();
+                             java.net.InetAddress address = ((java.net.InetSocketAddress) field_147333_a.func_74430_c()).getAddress();
+                             java.util.UUID uniqueId = field_147337_i.getId();
+@@ -346,6 +364,35 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+     // Spigot end
+ 
+     public void func_209526_a(CCustomPayloadLoginPacket p_209526_1_) {
++        // Paper start - Velocity support
++        if (com.destroystokyo.paper.PaperConfig.velocitySupport && p_209526_1_.getId() == this.velocityLoginMessageId) {
++            PacketBuffer buf = p_209526_1_.getBuf();
++            if (buf == null) {
++                this.disconnect("This server requires you to connect with Velocity.");
++                return;
++            }
++
++            if (!com.destroystokyo.paper.proxy.VelocityProxy.checkIntegrity(buf)) {
++                this.disconnect("Unable to verify player details");
++                return;
++            }
++
++            this.field_147333_a.field_150743_l = new java.net.InetSocketAddress(com.destroystokyo.paper.proxy.VelocityProxy.readAddress(buf), ((java.net.InetSocketAddress) this.field_147333_a.func_74430_c()).getPort());
++
++            this.setGameProfile(com.destroystokyo.paper.proxy.VelocityProxy.createProfile(buf));
++
++            // Proceed with login
++            authenticatorPool.execute(() -> {
++                try {
++                    new LoginHandler().fireEvents();
++                } catch (Exception ex) {
++                    disconnect("Failed to verify username!");
++                    field_147327_f.server.getLogger().log(java.util.logging.Level.WARNING, "Exception verifying " + field_147337_i.getName(), ex);
++                }
++            });
++            return;
++        }
++        // Paper end
+         this.func_194026_b(new TranslationTextComponent("multiplayer.disconnect.unexpected_query_response"));
+     }
+ 
+diff --git a/src/main/java/net/minecraft/network/login/client/CCustomPayloadLoginPacket.java b/src/main/java/net/minecraft/network/login/client/CCustomPayloadLoginPacket.java
+index f0a18416cf9a009cb6dace5f49626d953f6e0aa8..eb8b65ee0d63fa7a562ec9fd4f175e1adaa60880 100644
+--- a/src/main/java/net/minecraft/network/login/client/CCustomPayloadLoginPacket.java
++++ b/src/main/java/net/minecraft/network/login/client/CCustomPayloadLoginPacket.java
+@@ -7,8 +7,8 @@ import net.minecraft.network.login.IServerLoginNetHandler;
+ 
+ public class CCustomPayloadLoginPacket implements IPacket<IServerLoginNetHandler> {
+ 
+-    private int field_209922_a;
+-    private PacketBuffer field_209923_b;
++    private int field_209922_a; public int getId() { return field_209922_a; } // Paper - OBFHELPER
++    private PacketBuffer field_209923_b; public PacketBuffer getBuf() { return field_209923_b; } // Paper - OBFHELPER
+ 
+     public CCustomPayloadLoginPacket() {}
+ 
+diff --git a/src/main/java/net/minecraft/network/login/server/SCustomPayloadLoginPacket.java b/src/main/java/net/minecraft/network/login/server/SCustomPayloadLoginPacket.java
+index 9e482304e91e78e5c8d7eb5202c449f43d67ceaf..33e55d9b8fb51b6e8eb6c0cbab9e05b895e08426 100644
+--- a/src/main/java/net/minecraft/network/login/server/SCustomPayloadLoginPacket.java
++++ b/src/main/java/net/minecraft/network/login/server/SCustomPayloadLoginPacket.java
+@@ -14,6 +14,14 @@ public class SCustomPayloadLoginPacket implements IPacket<IClientLoginNetHandler
+ 
+     public SCustomPayloadLoginPacket() {}
+ 
++    // Paper start
++    public SCustomPayloadLoginPacket(int id, ResourceLocation channel, PacketBuffer buf) {
++        this.field_209919_a = id;
++        this.field_209920_b = channel;
++        this.field_209921_c = buf;
++    }
++    // Paper end
++
+     @Override
+     public void func_148837_a(PacketBuffer p_148837_1_) throws IOException {
+         this.field_209919_a = p_148837_1_.func_150792_a();
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 7a6efa1d4f032a713238929cd6ea5da775970fe2..16960179998908c2c38da291faccdf6d078f7c4f 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -675,7 +675,7 @@ public final class CraftServer implements Server {
+     @Override
+     public long getConnectionThrottle() {
+         // Spigot Start - Automatically set connection throttle for bungee configurations
+-        if (org.spigotmc.SpigotConfig.bungee) {
++        if (org.spigotmc.SpigotConfig.bungee || com.destroystokyo.paper.PaperConfig.velocitySupport) { // Paper - Velocity support
+             return -1;
+         } else {
+             return this.configuration.getInt("settings.connection-throttle");

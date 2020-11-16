@@ -1,0 +1,127 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 26 Jul 2018 00:11:12 -0400
+Subject: [PATCH] Prevent Saving Bad entities to chunks
+
+See https://github.com/PaperMC/Paper/issues/1223
+
+Minecraft is saving invalid entities to the chunk files.
+
+Avoid saving bad data, and also make improvements to handle
+loading these chunks. Any invalid entity will be instant killed,
+so lets avoid adding it to the world...
+
+This lets us be safer about the dupe UUID resolver too, as now
+we can ignore instant killed entities and avoid risk of duplicating
+an invalid entity.
+
+This should reduce log occurrences of dupe uuid messages.
+
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+index f8149cad69082ad604a74f9111a063548f608ee0..c07898e5b9d760df36fdaa8ec662c431e1b22a37 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+@@ -19,6 +19,7 @@ import javax.annotation.Nullable;
+ import net.minecraft.block.Block;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.EntityType;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.fluid.Fluid;
+ import net.minecraft.fluid.Fluids;
+ import net.minecraft.nbt.CompoundNBT;
+@@ -343,6 +344,7 @@ public class ChunkSerializer {
+         nbttagcompound1.func_218657_a("TileEntities", nbttaglist1);
+         ListNBT nbttaglist2 = new ListNBT();
+ 
++        java.util.List<Entity> toUpdate = new java.util.ArrayList<>(); // Paper
+         if (p_222645_1_.func_201589_g().func_202129_d() == ChunkStatus.Type.LEVELCHUNK) {
+             Chunk chunk = (Chunk) p_222645_1_;
+ 
+@@ -354,13 +356,28 @@ public class ChunkSerializer {
+                 while (iterator1.hasNext()) {
+                     Entity entity = (Entity) iterator1.next();
+                     CompoundNBT nbttagcompound4 = new CompoundNBT();
+-
++                    // Paper start
++                    if ((int) Math.floor(entity.func_226277_ct_()) >> 4 != chunk.func_76632_l().field_77276_a || (int) Math.floor(entity.func_226281_cx_()) >> 4 != chunk.func_76632_l().field_77275_b) {
++                        toUpdate.add(entity);
++                        continue;
++                    }
++                    if (entity.field_70128_L || hasPlayerPassenger(entity)) {
++                        continue;
++                    }
++                    // Paper end
+                     if (entity.func_70039_c(nbttagcompound4)) {
+                         chunk.func_177409_g(true);
+                         nbttaglist2.add(nbttagcompound4);
+                     }
+                 }
+             }
++
++            // Paper start - move entities to the correct chunk
++            for (Entity entity : toUpdate) {
++                p_222645_0_.func_217464_b(entity);
++            }
++            // Paper end
++
+         } else {
+             ChunkPrimer protochunk = (ChunkPrimer) p_222645_1_;
+ 
+@@ -419,6 +436,19 @@ public class ChunkSerializer {
+         nbttagcompound1.func_218657_a("Structures", func_222649_a(chunkcoordintpair, p_222645_1_.func_201609_c(), p_222645_1_.func_201604_d()));
+         return nbttagcompound;
+     }
++    // Paper start - this is saved with the player
++    private static boolean hasPlayerPassenger(Entity entity) {
++        for (Entity passenger : entity.field_184244_h) {
++            if (passenger instanceof ServerPlayerEntity) {
++                return true;
++            }
++            if (hasPlayerPassenger(passenger)) {
++                return true;
++            }
++        }
++        return false;
++    }
++    // Paper end
+ 
+     public static ChunkStatus.Type func_222651_a(@Nullable CompoundNBT p_222651_0_) {
+         if (p_222651_0_ != null) {
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 6d8f73bf875c7aa73b733f8a9026f0b3ff754c1a..b98d46c17f04deda90a92db552431bfc58867a2e 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1101,6 +1101,7 @@ public class ServerWorld extends World implements ISeedReader {
+         List[] aentityslice = p_217466_1_.getEntitySlices(); // Spigot
+         int i = aentityslice.length;
+ 
++        java.util.List<Entity> toMoveChunks = new java.util.ArrayList<>(); // Paper
+         for (int j = 0; j < i; ++j) {
+             List<Entity> entityslice = aentityslice[j]; // Spigot
+             Iterator iterator = entityslice.iterator();
+@@ -1113,11 +1114,25 @@ public class ServerWorld extends World implements ISeedReader {
+                         throw (IllegalStateException) Util.func_229757_c_(new IllegalStateException("Removing entity while ticking!"));
+                     }
+ 
++                    // Paper start - move out entities that shouldn't be in this chunk before it unloads
++                    if (!entity.field_70128_L && (int) Math.floor(entity.func_226277_ct_()) >> 4 != p_217466_1_.func_76632_l().field_77276_a || (int) Math.floor(entity.func_226281_cx_()) >> 4 != p_217466_1_.func_76632_l().field_77275_b) {
++                        toMoveChunks.add(entity);
++                        continue;
++                    }
++                    // Paper end
++
+                     this.field_217498_x.remove(entity.func_145782_y());
+                     this.func_217484_g(entity);
++
++                    if (entity.field_70128_L) iterator.remove(); // Paper - don't save dead entities during unload
+                 }
+             }
+         }
++        // Paper start - move out entities that shouldn't be in this chunk before it unloads
++        for (Entity entity : toMoveChunks) {
++            this.func_217464_b(entity);
++        }
++        // Paper end
+ 
+     }
+ 

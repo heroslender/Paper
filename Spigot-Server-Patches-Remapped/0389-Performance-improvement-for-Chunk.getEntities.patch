@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: wea_ondara <wea_ondara@alpenblock.net>
+Date: Thu, 10 Oct 2019 11:29:42 +0200
+Subject: [PATCH] Performance improvement for Chunk.getEntities
+
+This patch aims to reduce performance cost used by collecting the
+entities of a chunk. Previously the entitySlices were copied into an
+extra array with List.toArray() with is a costly and unneccessary
+operation. This patch will reduce the load of plugins which for example
+implement custom moblimits and depend on Chunk.getEntities().
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftChunk.java b/src/main/java/org/bukkit/craftbukkit/CraftChunk.java
+index 04ace2cc1e88e3c86cd556b1e7257893999a513c..ec3d16b52a81601fb682cf3d2d7026c2257595ad 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftChunk.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftChunk.java
+@@ -112,14 +112,14 @@ public class CraftChunk implements Chunk {
+         Entity[] entities = new Entity[count];
+ 
+         for (int i = 0; i < 16; i++) {
+-
+-            for (Object obj : chunk.field_76645_j[i].toArray()) {
+-                if (!(obj instanceof net.minecraft.entity.Entity)) {
++            // Paper start - speed up (was with chunk.entitySlices[i].toArray() and cast checks which costs a lot of performance if called often)
++            for (net.minecraft.entity.Entity entity : chunk.field_76645_j[i]) {
++                if (entity == null) {
+                     continue;
+                 }
+-
+-                entities[index++] = ((net.minecraft.entity.Entity) obj).getBukkitEntity();
++                entities[index++] = entity.getBukkitEntity();
+             }
++            // Paper end
+         }
+ 
+         return entities;

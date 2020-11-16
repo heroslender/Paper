@@ -1,0 +1,269 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 15 Feb 2019 01:08:19 -0500
+Subject: [PATCH] Allow Saving of Oversized Chunks
+
+The Minecraft World Region File format has a hard cap of 1MB per chunk.
+This is due to the fact that the header of the file format only allocates
+a single byte for sector count, meaning a maximum of 256 sectors, at 4k per sector.
+
+This limit can be reached fairly easily with books, resulting in the chunk being unable
+to save to the world. Worse off, is that nothing printed when this occured, and silently
+performed a chunk rollback on next load.
+
+This leads to security risk with duplication and is being actively exploited.
+
+This patch catches the too large scenario, falls back and moves any large Entity
+or Tile Entity into a new compound, and this compound is saved into a different file.
+
+On Chunk Load, we check for oversized status, and if so, we load the extra file and
+merge the Entities and Tile Entities from the oversized chunk back into the level to
+then be loaded as normal.
+
+Once a chunk is returned back to normal size, the oversized flag will clear, and no
+extra data file will exist.
+
+This fix maintains compatability with all existing Anvil Region Format tools as it
+does not alter the save format. They will just not know about the extra entities.
+
+This fix also maintains compatability if someone switches server jars to one without
+this fix, as the data will remain in the oversized file. Once the server returns
+to a jar with this fix, the data will be restored.
+
+diff --git a/src/main/java/net/minecraft/nbt/CompressedStreamTools.java b/src/main/java/net/minecraft/nbt/CompressedStreamTools.java
+index cd90f5306391f526da6e4980fd9af324d921310d..8d4d7f20d51e664444f30ad6f27d3113ab5fedd6 100644
+--- a/src/main/java/net/minecraft/nbt/CompressedStreamTools.java
++++ b/src/main/java/net/minecraft/nbt/CompressedStreamTools.java
+@@ -73,6 +73,7 @@ public class CompressedStreamTools {
+ 
+     }
+ 
++    public static CompoundNBT readNBT(DataInputStream datainputstream) throws IOException { return func_74794_a(datainputstream); } // Paper - OBFHELPER
+     public static CompoundNBT func_74794_a(DataInputStream p_74794_0_) throws IOException {
+         return func_152456_a((DataInput) p_74794_0_, NBTSizeTracker.field_152451_a);
+     }
+@@ -93,6 +94,7 @@ public class CompressedStreamTools {
+         }
+     }
+ 
++    public static void writeNBT(CompoundNBT nbttagcompound, DataOutput dataoutput) throws IOException { func_74800_a(nbttagcompound, dataoutput); } // Paper - OBFHELPER
+     public static void func_74800_a(CompoundNBT p_74800_0_, DataOutput p_74800_1_) throws IOException {
+         func_150663_a((INBT) p_74800_0_, p_74800_1_);
+     }
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java b/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
+index dc21fd64e0c46394bc8679a6520b24233ec6ea92..8ab1085ad5e8625ab38fbf33e5130bd91185f750 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
+@@ -17,7 +17,11 @@ import java.nio.file.Files;
+ import java.nio.file.LinkOption;
+ import java.nio.file.StandardCopyOption;
+ import java.nio.file.StandardOpenOption;
++import java.util.zip.InflaterInputStream; // Paper
++
+ import javax.annotation.Nullable;
++import net.minecraft.nbt.CompoundNBT;
++import net.minecraft.nbt.CompressedStreamTools;
+ import net.minecraft.util.Util;
+ import net.minecraft.util.math.ChunkPos;
+ import org.apache.logging.log4j.LogManager;
+@@ -34,13 +38,16 @@ public class RegionFile implements AutoCloseable {
+     private final IntBuffer field_76716_d;
+     private final IntBuffer field_227127_h_;
+     private final RegionBitmap field_227128_i_;
++    public final File file;
+ 
+     public RegionFile(File p_i231893_1_, File p_i231893_2_, boolean p_i231893_3_) throws IOException {
+         this(p_i231893_1_.toPath(), p_i231893_2_.toPath(), RegionFileVersion.field_227159_b_, p_i231893_3_);
+     }
+ 
+     public RegionFile(java.nio.file.Path java_nio_file_path, java.nio.file.Path java_nio_file_path1, RegionFileVersion regionfilecompression, boolean flag) throws IOException {
++        this.file = java_nio_file_path.toFile(); // Paper
+         this.field_227126_f_ = ByteBuffer.allocateDirect(8192);
++        initOversizedState();
+         this.field_227128_i_ = new RegionBitmap();
+         this.field_227125_e_ = regionfilecompression;
+         if (!Files.isDirectory(java_nio_file_path1, new LinkOption[0])) {
+@@ -391,6 +398,74 @@ public class RegionFile implements AutoCloseable {
+         void run() throws IOException;
+     }
+ 
++    private final byte[] oversized = new byte[1024];
++    private int oversizedCount = 0;
++
++    private synchronized void initOversizedState() throws IOException {
++        File metaFile = getOversizedMetaFile();
++        if (metaFile.exists()) {
++            final byte[] read = java.nio.file.Files.readAllBytes(metaFile.toPath());
++            System.arraycopy(read, 0, oversized, 0, oversized.length);
++            for (byte temp : oversized) {
++                oversizedCount += temp;
++            }
++        }
++    }
++
++    private static int getChunkIndex(int x, int z) {
++        return (x & 31) + (z & 31) * 32;
++    }
++    synchronized boolean isOversized(int x, int z) {
++        return this.oversized[getChunkIndex(x, z)] == 1;
++    }
++    synchronized void setOversized(int x, int z, boolean oversized) throws IOException {
++        final int offset = getChunkIndex(x, z);
++        boolean previous = this.oversized[offset] == 1;
++        this.oversized[offset] = (byte) (oversized ? 1 : 0);
++        if (!previous && oversized) {
++            oversizedCount++;
++        } else if (!oversized && previous) {
++            oversizedCount--;
++        }
++        if (previous && !oversized) {
++            File oversizedFile = getOversizedFile(x, z);
++            if (oversizedFile.exists()) {
++                oversizedFile.delete();
++            }
++        }
++        if (oversizedCount > 0) {
++            if (previous != oversized) {
++                writeOversizedMeta();
++            }
++        } else if (previous) {
++            File oversizedMetaFile = getOversizedMetaFile();
++            if (oversizedMetaFile.exists()) {
++                oversizedMetaFile.delete();
++            }
++        }
++    }
++
++    private void writeOversizedMeta() throws IOException {
++        java.nio.file.Files.write(getOversizedMetaFile().toPath(), oversized);
++    }
++
++    private File getOversizedMetaFile() {
++        return new File(this.file.getParentFile(), this.file.getName().replaceAll("\\.mca$", "") + ".oversized.nbt");
++    }
++
++    private File getOversizedFile(int x, int z) {
++        return new File(this.file.getParentFile(), this.file.getName().replaceAll("\\.mca$", "") + "_oversized_" + x + "_" + z + ".nbt");
++    }
++
++    synchronized CompoundNBT getOversizedData(int x, int z) throws IOException {
++        File file = getOversizedFile(x, z);
++        try (DataInputStream out = new DataInputStream(new BufferedInputStream(new InflaterInputStream(new java.io.FileInputStream(file))))) {
++            return CompressedStreamTools.readNBT(out);
++        }
++
++    }
++    // Paper end
++
+     class ChunkBuffer extends ByteArrayOutputStream {
+ 
+         private final ChunkPos field_222659_b;
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java b/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java
+index 956900277f952210090fdf09293a77b02dbbda41..51ed13955c653d7dcaf88b51163660f0496eb811 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java
+@@ -10,6 +10,8 @@ import java.io.IOException;
+ import javax.annotation.Nullable;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.CompressedStreamTools;
++import net.minecraft.nbt.INBT;
++import net.minecraft.nbt.ListNBT;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.math.ChunkPos;
+ 
+@@ -48,6 +50,74 @@ public final class RegionFileCache implements AutoCloseable {
+         }
+     }
+ 
++    // Paper start
++    private static void printOversizedLog(String msg, File file, int x, int z) {
++        org.apache.logging.log4j.LogManager.getLogger().fatal(msg + " (" + file.toString().replaceAll(".+[\\\\/]", "") + " - " + x + "," + z + ") Go clean it up to remove this message. /minecraft:tp " + (x<<4)+" 128 "+(z<<4) + " - DO NOT REPORT THIS TO PAPER - You may ask for help on Discord, but do not file an issue. These error messages can not be removed.");
++    }
++
++    private static final int DEFAULT_SIZE_THRESHOLD = 1024 * 8;
++    private static final int OVERZEALOUS_TOTAL_THRESHOLD = 1024 * 64;
++    private static final int OVERZEALOUS_THRESHOLD = 1024;
++    private static int SIZE_THRESHOLD = DEFAULT_SIZE_THRESHOLD;
++    private static void resetFilterThresholds() {
++        SIZE_THRESHOLD = Math.max(1024 * 4, Integer.getInteger("Paper.FilterThreshhold", DEFAULT_SIZE_THRESHOLD));
++    }
++    static {
++        resetFilterThresholds();
++    }
++
++    static boolean isOverzealous() {
++        return SIZE_THRESHOLD == OVERZEALOUS_THRESHOLD;
++    }
++
++
++    private static CompoundNBT readOversizedChunk(RegionFile regionfile, ChunkPos chunkCoordinate) throws IOException {
++        synchronized (regionfile) {
++            try (DataInputStream datainputstream = regionfile.getReadStream(chunkCoordinate)) {
++                CompoundNBT oversizedData = regionfile.getOversizedData(chunkCoordinate.field_77276_a, chunkCoordinate.field_77275_b);
++                CompoundNBT chunk = CompressedStreamTools.readNBT(datainputstream);
++                if (oversizedData == null) {
++                    return chunk;
++                }
++                CompoundNBT oversizedLevel = oversizedData.func_74775_l("Level");
++                CompoundNBT level = chunk.func_74775_l("Level");
++
++                mergeChunkList(level, oversizedLevel, "Entities");
++                mergeChunkList(level, oversizedLevel, "TileEntities");
++
++                chunk.func_218657_a("Level", level);
++
++                return chunk;
++            } catch (Throwable throwable) {
++                throwable.printStackTrace();
++                throw throwable;
++            }
++        }
++    }
++
++    private static void mergeChunkList(CompoundNBT level, CompoundNBT oversizedLevel, String key) {
++        ListNBT levelList = level.func_150295_c(key, 10);
++        ListNBT oversizedList = oversizedLevel.func_150295_c(key, 10);
++
++        if (!oversizedList.isEmpty()) {
++            levelList.addAll(oversizedList);
++            level.func_218657_a(key, levelList);
++        }
++    }
++
++    private static int getNBTSize(INBT nbtBase) {
++        DataOutputStream test = new DataOutputStream(new org.apache.commons.io.output.NullOutputStream());
++        try {
++            nbtBase.func_74734_a(test);
++            return test.size();
++        } catch (IOException e) {
++            e.printStackTrace();
++            return 0;
++        }
++    }
++
++    // Paper End
++
+     @Nullable
+     public CompoundNBT func_219099_e(ChunkPos p_219099_1_) throws IOException {
+         // CraftBukkit start - SPIGOT-5680: There's no good reason to preemptively create files on read, save that for writing
+@@ -57,6 +127,12 @@ public final class RegionFileCache implements AutoCloseable {
+         }
+         // CraftBukkit end
+         DataInputStream datainputstream = regionfile.func_222666_a(p_219099_1_);
++        // Paper start
++        if (regionfile.isOversized(p_219099_1_.field_77276_a, p_219099_1_.field_77275_b)) {
++            printOversizedLog("Loading Oversized Chunk!", regionfile.file, p_219099_1_.field_77276_a, p_219099_1_.field_77275_b);
++            return readOversizedChunk(regionfile, p_219099_1_);
++        }
++        // Paper end
+         Throwable throwable = null;
+ 
+         CompoundNBT nbttagcompound;
+@@ -97,6 +173,7 @@ public final class RegionFileCache implements AutoCloseable {
+ 
+         try {
+             CompressedStreamTools.func_74800_a(p_219100_2_, (DataOutput) dataoutputstream);
++            regionfile.setOversized(p_219100_1_.field_77276_a, p_219100_1_.field_77275_b, false); // We don't do this anymore
+         } catch (Throwable throwable1) {
+             throwable = throwable1;
+             throw throwable1;

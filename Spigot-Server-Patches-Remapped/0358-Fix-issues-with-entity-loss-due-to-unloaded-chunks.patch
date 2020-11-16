@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 28 Sep 2018 21:49:53 -0400
+Subject: [PATCH] Fix issues with entity loss due to unloaded chunks
+
+Vanilla has risk of losing entities by causing them to be
+removed from all chunks if they try to move into an unloaded chunk.
+
+This pretty much means high chance this entity will be lost in this
+scenario.
+
+There is another case that adding an entity to the world can fail if
+the chunk isn't loaded.
+
+Lots of the server is designed around addEntity never expecting to fail
+for these reasons, nor is it really logical.
+
+This change ensures the chunks are always loaded when entities are
+added to the world, or a valid entity moves between chunks.
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 1ad5d55b2f3e57c171675e97f160bfd8a4974d13..e8a735013f48a4ad006a658ac66f09abc0da267d 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -836,11 +836,18 @@ public class ServerWorld extends World implements ISeedReader {
+             int k = MathHelper.func_76128_c(p_217464_1_.func_226281_cx_() / 16.0D);
+ 
+             if (!p_217464_1_.field_70175_ag || p_217464_1_.field_70176_ah != i || p_217464_1_.field_70162_ai != j || p_217464_1_.field_70164_aj != k) {
++                // Paper start - remove entity if its in a chunk more correctly.
++                Chunk currentChunk = p_217464_1_.getCurrentChunk();
++                if (currentChunk != null) {
++                    currentChunk.removeEntity(p_217464_1_);
++                }
++                // Paper end
++
+                 if (p_217464_1_.field_70175_ag && this.func_217354_b(p_217464_1_.field_70176_ah, p_217464_1_.field_70164_aj)) {
+                     this.func_212866_a_(p_217464_1_.field_70176_ah, p_217464_1_.field_70164_aj).func_76608_a(p_217464_1_, p_217464_1_.field_70162_ai);
+                 }
+ 
+-                if (!p_217464_1_.func_233577_ch_() && !this.func_217354_b(i, k)) {
++                if (!p_217464_1_.valid && !p_217464_1_.func_233577_ch_() && !this.func_217354_b(i, k)) { // Paper - always load chunks to register valid entities location
+                     if (p_217464_1_.field_70175_ag) {
+                         ServerWorld.field_147491_a.warn("Entity {} left loaded chunk area", p_217464_1_);
+                     }
+@@ -1055,7 +1062,7 @@ public class ServerWorld extends World implements ISeedReader {
+                 return false;
+             }
+             // CraftBukkit end
+-            IChunk ichunkaccess = this.func_217353_a(MathHelper.func_76128_c(entity.func_226277_ct_() / 16.0D), MathHelper.func_76128_c(entity.func_226281_cx_() / 16.0D), ChunkStatus.field_222617_m, entity.field_98038_p);
++            IChunk ichunkaccess = this.func_217353_a(MathHelper.func_76128_c(entity.func_226277_ct_() / 16.0D), MathHelper.func_76128_c(entity.func_226281_cx_() / 16.0D), ChunkStatus.field_222617_m, true); // Paper - always load chunks for entity adds
+ 
+             if (!(ichunkaccess instanceof Chunk)) {
+                 return false;

@@ -1,0 +1,152 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Phoenix616 <mail@moep.tv>
+Date: Sat, 1 Feb 2020 16:50:39 +0100
+Subject: [PATCH] Pillager patrol spawn settings and per player options
+
+This adds config options for defining the spawn chance, spawn delay and
+spawn start day as well as toggles for handling the spawn delay and
+start day per player. (Based on the time played statistic)
+When not per player it will use the Vanilla mechanic of one delay per
+world and the world age for the start day.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index f888fc1c5ef4212f81ed936da6485abadc336407..b987399ca3786a30f87c98658e8bf04d4aa2e2da 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -579,10 +579,21 @@ public class PaperWorldConfig {
+     }
+ 
+     public boolean disablePillagerPatrols = false;
++    public double patrolSpawnChance = 0.2;
++    public boolean patrolPerPlayerDelay = false;
++    public int patrolDelay = 12000;
++    public boolean patrolPerPlayerStart = false;
++    public int patrolStartDay = 5;
+     private void pillagerSettings() {
+         disablePillagerPatrols = getBoolean("game-mechanics.disable-pillager-patrols", disablePillagerPatrols);
++        patrolSpawnChance = getDouble("game-mechanics.pillager-patrols.spawn-chance", patrolSpawnChance);
++        patrolPerPlayerDelay = getBoolean("game-mechanics.pillager-patrols.spawn-delay.per-player", patrolPerPlayerDelay);
++        patrolDelay = getInt("game-mechanics.pillager-patrols.spawn-delay.ticks", patrolDelay);
++        patrolPerPlayerStart = getBoolean("game-mechanics.pillager-patrols.start.per-player", patrolPerPlayerStart);
++        patrolStartDay = getInt("game-mechanics.pillager-patrols.start.day", patrolStartDay);
+     }
+ 
++
+     public boolean entitiesTargetWithFollowRange = false;
+     private void entitiesTargetWithFollowRange() {
+         entitiesTargetWithFollowRange = getBoolean("entities-target-with-follow-range", entitiesTargetWithFollowRange);
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 9d0b4f028c2a3cf2f424e8863f377ba734169048..a6ec1f516345d04ced88cd6917adbbf4dd3913d0 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -204,6 +204,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public boolean field_71136_j;
+     private int containerUpdateDelay; // Paper
+     public long loginTime; // Paper
++    public int patrolSpawnDelay; // Paper - per player patrol spawns
+     // Paper start - cancellable death event
+     public boolean queueHealthUpdatePacket = false;
+     public net.minecraft.network.play.server.SUpdateHealthPacket queuedHealthUpdatePacket;
+diff --git a/src/main/java/net/minecraft/stats/StatType.java b/src/main/java/net/minecraft/stats/StatType.java
+index 9b4a82d43eb031954eb951cd8a44117aaefe9f92..7e2854b27ffe2fe94a27574bd367fa4f7eeb5f57 100644
+--- a/src/main/java/net/minecraft/stats/StatType.java
++++ b/src/main/java/net/minecraft/stats/StatType.java
+@@ -28,6 +28,7 @@ public class StatType<T> implements Iterable<Stat<T>> {
+         return this.field_199083_b.values().iterator();
+     }
+ 
++    public final Stat<T> get(T t) { return this.func_199076_b(t); }; // Paper - OBFHELPER
+     public Stat<T> func_199076_b(T p_199076_1_) {
+         return this.func_199077_a(p_199076_1_, IStatFormatter.field_223218_b_);
+     }
+diff --git a/src/main/java/net/minecraft/world/spawner/PatrolSpawner.java b/src/main/java/net/minecraft/world/spawner/PatrolSpawner.java
+index f548487da853b7875967c3c9db1f59367ca734fe..261aded41c3ca36b83ba9c2e5df1248201b35d01 100644
+--- a/src/main/java/net/minecraft/world/spawner/PatrolSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/PatrolSpawner.java
+@@ -6,8 +6,9 @@ import net.minecraft.entity.EntityType;
+ import net.minecraft.entity.ILivingEntityData;
+ import net.minecraft.entity.SpawnReason;
+ import net.minecraft.entity.monster.PatrollerEntity;
+-import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.nbt.CompoundNBT;
++import net.minecraft.stats.Stats;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.world.GameRules;
+ import net.minecraft.world.IBlockReader;
+@@ -18,13 +19,13 @@ import net.minecraft.world.server.ServerWorld;
+ 
+ public class PatrolSpawner implements ISpecialSpawner {
+ 
+-    private int field_222698_b;
++    private int field_222698_b;private int getSpawnDelay() { return field_222698_b; } private void setSpawnDelay(int spawnDelay) { this.field_222698_b = spawnDelay; } // Paper - OBFHELPER
+ 
+     public PatrolSpawner() {}
+ 
+     @Override
+     public int func_230253_a_(ServerWorld p_230253_1_, boolean p_230253_2_, boolean p_230253_3_) {
+-        if (p_230253_1_.paperConfig.disablePillagerPatrols) return 0; // Paper
++        if (p_230253_1_.paperConfig.disablePillagerPatrols || p_230253_1_.paperConfig.patrolSpawnChance == 0) return 0; // Paper
+         if (!p_230253_2_) {
+             return 0;
+         } else if (!p_230253_1_.func_82736_K().func_223586_b(GameRules.field_230127_D_)) {
+@@ -32,23 +33,51 @@ public class PatrolSpawner implements ISpecialSpawner {
+         } else {
+             Random random = p_230253_1_.field_73012_v;
+ 
+-            --this.field_222698_b;
+-            if (this.field_222698_b > 0) {
++            // Paper start - Patrol settings
++            // Random player selection moved up for per player spawning and configuration
++            int j = p_230253_1_.func_217369_A().size();
++            if (j < 1) {
+                 return 0;
++            }
++
++            ServerPlayerEntity entityhuman = p_230253_1_.func_217369_A().get(random.nextInt(j));
++            if (entityhuman.func_175149_v()) {
++                return 0;
++            }
++
++            int patrolSpawnDelay;
++            if (p_230253_1_.paperConfig.patrolPerPlayerDelay) {
++                --entityhuman.patrolSpawnDelay;
++                patrolSpawnDelay = entityhuman.patrolSpawnDelay;
+             } else {
+-                this.field_222698_b += 12000 + random.nextInt(1200);
+-                long i = p_230253_1_.func_72820_D() / 24000L;
++                setSpawnDelay(getSpawnDelay() - 1);
++                patrolSpawnDelay = getSpawnDelay();
++            }
++
++            if (patrolSpawnDelay > 0) {
++                return 0;
++            } else {
++                long days;
++                if (p_230253_1_.paperConfig.patrolPerPlayerStart) {
++                    days = entityhuman.func_147099_x().func_77444_a(Stats.field_199092_j.get(Stats.field_188097_g)) / 24000L; // PLAY_ONE_MINUTE is actually counting in ticks, a misnomer by Mojang
++                } else {
++                    days = p_230253_1_.func_72820_D() / 24000L;
++                }
++                if (p_230253_1_.paperConfig.patrolPerPlayerDelay) {
++                    entityhuman.patrolSpawnDelay += p_230253_1_.paperConfig.patrolDelay + random.nextInt(1200);
++                } else {
++                    setSpawnDelay(getSpawnDelay() + p_230253_1_.paperConfig.patrolDelay + random.nextInt(1200));
++                }
+ 
+-                if (i >= 5L && p_230253_1_.func_72935_r()) {
+-                    if (random.nextInt(5) != 0) {
++                if (days >= p_230253_1_.paperConfig.patrolStartDay && p_230253_1_.func_72935_r()) {
++                    if (random.nextDouble() >= p_230253_1_.paperConfig.patrolSpawnChance) {
++                        // Paper end
+                         return 0;
+                     } else {
+-                        int j = p_230253_1_.func_217369_A().size();
+ 
+                         if (j < 1) {
+                             return 0;
+                         } else {
+-                            PlayerEntity entityhuman = (PlayerEntity) p_230253_1_.func_217369_A().get(random.nextInt(j));
+ 
+                             if (entityhuman.func_175149_v()) {
+                                 return 0;

@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Wed, 2 Mar 2016 00:32:25 -0600
+Subject: [PATCH] Always tick falling blocks
+
+
+diff --git a/src/main/java/org/spigotmc/ActivationRange.java b/src/main/java/org/spigotmc/ActivationRange.java
+index ea84fe667a07992fa8e04d8b8983711f5cf492a4..a8cacc64f88b85e7b7c06e9235d3c6476b1833fd 100644
+--- a/src/main/java/org/spigotmc/ActivationRange.java
++++ b/src/main/java/org/spigotmc/ActivationRange.java
+@@ -10,6 +10,7 @@ import net.minecraft.entity.boss.dragon.EnderDragonEntity;
+ import net.minecraft.entity.boss.dragon.EnderDragonPartEntity;
+ import net.minecraft.entity.effect.LightningBoltEntity;
+ import net.minecraft.entity.item.EnderCrystalEntity;
++import net.minecraft.entity.item.FallingBlockEntity;
+ import net.minecraft.entity.item.TNTEntity;
+ import net.minecraft.entity.merchant.villager.VillagerEntity;
+ import net.minecraft.entity.monster.AbstractRaiderEntity;
+@@ -92,6 +93,7 @@ public class ActivationRange
+                 || entity instanceof DamagingProjectileEntity
+                 || entity instanceof LightningBoltEntity
+                 || entity instanceof TNTEntity
++                || entity instanceof FallingBlockEntity // Paper - Always tick falling blocks
+                 || entity instanceof EnderCrystalEntity
+                 || entity instanceof FireworkRocketEntity
+                 || entity instanceof TridentEntity )

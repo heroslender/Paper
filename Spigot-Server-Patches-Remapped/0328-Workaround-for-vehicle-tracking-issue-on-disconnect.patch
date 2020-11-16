@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: connorhartley <vectrixu+gh@gmail.com>
+Date: Mon, 7 Jan 2019 14:43:48 -0600
+Subject: [PATCH] Workaround for vehicle tracking issue on disconnect
+
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index dac2407e061e19c0256d71b9e8d32418770765d5..66f0eb3fd2e7fd1e66862df3e52d699b5b1749f5 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -1519,6 +1519,13 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public void func_71123_m() {
+         this.field_193109_cv = true;
+         this.func_184226_ay();
++
++        // Paper start - Workaround an issue where the vehicle doesn't track the passenger disconnection dismount.
++        if (this.func_184218_aH() && this.func_184187_bx() instanceof ServerPlayerEntity) {
++            this.func_184210_p();
++        }
++        // Paper end
++
+         if (this.func_70608_bn()) {
+             this.func_225652_a_(true, false);
+         }

@@ -1,0 +1,115 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 15 Jun 2018 00:30:32 -0400
+Subject: [PATCH] Configurable Alternative LootPool Luck Formula
+
+Rewrites the Vanilla luck application formula so that luck can be
+applied to items that do not have any quality defined.
+
+See: https://luckformula.emc.gs for data and details
+-----------
+
+The rough summary is:
+My goal was that in a pool, when luck was applied, the pool
+rebalances so the percentages for bigger items is
+lowered and smaller items is boosted.
+
+Do this by boosting and then reducing the weight value,
+so that larger numbers are penalized more than smaller numbers.
+resulting in a larger reduction of entries for more common
+items than the reduction on small weights,
+giving smaller weights more of a chance
+
+-----------
+
+This work kind of obsoletes quality, but quality would be useful
+for 2 items with same weight that you want luck to impact
+in varying directions.
+
+Fishing still falls into that as the weights are closer, so luck
+will invalidate junk more.
+
+This change will result in some major changes to fishing formulas.
+
+-----------
+
+I would love to see this change in Vanilla, so Mojang please pull :)
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index f22bed69f690f6e4754b87dd61cebe9c6627b12d..c8a7d8092a2849b62a8d83d7970756fd76100025 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -280,4 +280,12 @@ public class PaperConfig {
+                     "such as inventories, experience points, advancements and the like will not be saved when they log out.");
+         }
+     }
++
++    public static boolean useAlternativeLuckFormula = false;
++    private static void useAlternativeLuckFormula() {
++        useAlternativeLuckFormula = getBoolean("settings.use-alternative-luck-formula", false);
++        if (useAlternativeLuckFormula) {
++            Bukkit.getLogger().log(Level.INFO, "Using Aikar's Alternative Luck Formula to apply Luck attribute to all loot pool calculations. See https://luckformula.emc.gs");
++        }
++    }
+ }
+diff --git a/src/main/java/net/minecraft/loot/StandaloneLootEntry.java b/src/main/java/net/minecraft/loot/StandaloneLootEntry.java
+index 0bc0f35bfe411ad58929044ec23ad2ee020e9855..0397574628272a47857ca73c9cbf7076ef28fe7c 100644
+--- a/src/main/java/net/minecraft/loot/StandaloneLootEntry.java
++++ b/src/main/java/net/minecraft/loot/StandaloneLootEntry.java
+@@ -12,13 +12,12 @@ import net.minecraft.loot.conditions.ILootCondition;
+ import net.minecraft.loot.functions.ILootFunction;
+ import net.minecraft.loot.functions.LootFunctionManager;
+ import net.minecraft.util.JSONUtils;
+-import net.minecraft.util.math.MathHelper;
+ import org.apache.commons.lang3.ArrayUtils;
+ 
+ public abstract class StandaloneLootEntry extends LootEntry {
+ 
+-    protected final int field_216158_e;
+-    protected final int field_216159_f;
++    protected final int field_216158_e; public int getWeight() { return field_216158_e; } // Paper - OBFHELPER
++    protected final int field_216159_f; public int getQuality() { return field_216159_f; } // Paper - OBFHELPER
+     protected final ILootFunction[] field_216160_g;
+     private final BiFunction<ItemStack, LootContext, ItemStack> field_216157_c;
+     private final ILootGenerator field_216161_h = new StandaloneLootEntry.Generator() {
+@@ -149,11 +148,38 @@ public abstract class StandaloneLootEntry extends LootEntry {
+ 
+     public abstract class Generator implements ILootGenerator {
+ 
+-        protected Generator() {}
++        protected Generator() {
++        }
+ 
+         @Override
+         public int func_186361_a(float p_186361_1_) {
+-            return Math.max(MathHelper.func_76141_d((float) StandaloneLootEntry.this.field_216158_e + (float) StandaloneLootEntry.this.field_216159_f * p_186361_1_), 0);
++            // Paper start - Offer an alternative loot formula to refactor how luck bonus applies
++            // SEE: https://luckformula.emc.gs for details and data
++            if (lastLuck != null && lastLuck == p_186361_1_) {
++                return lastWeight;
++            }
++            // This is vanilla
++            float qualityModifer = (float) getQuality() * p_186361_1_;
++            double baseWeight = (getWeight() + qualityModifer);
++            if (com.destroystokyo.paper.PaperConfig.useAlternativeLuckFormula) {
++                // Random boost to avoid losing precision in the final int cast on return
++                final int weightBoost = 100;
++                baseWeight *= weightBoost;
++                // If we have vanilla 1, bump that down to 0 so nothing is is impacted
++                // vanilla 3 = 300, 200 basis = impact 2%
++                // =($B2*(($B2-100)/100/100))
++                double impacted = baseWeight * ((baseWeight - weightBoost) / weightBoost / 100);
++                // =($B$7/100)
++                float luckModifier = Math.min(100, p_186361_1_ * 10) / 100;
++                // =B2 - (C2 *($B$7/100))
++                baseWeight = Math.ceil(baseWeight - (impacted * luckModifier));
++            }
++            lastLuck = p_186361_1_;
++            lastWeight = (int) Math.max(0, Math.floor(baseWeight));
++            return lastWeight;
+         }
+     }
++    private Float lastLuck = null;
++    private int lastWeight = 0;
++    // Paper end
+ }

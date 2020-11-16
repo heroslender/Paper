@@ -1,0 +1,147 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 22 Nov 2016 00:40:42 -0500
+Subject: [PATCH] Fix client rendering skulls from same user
+
+See: https://github.com/PaperMC/Paper/issues/1304
+
+Changes the UUID sent to client to be based on either
+the texture payload, or random.
+
+This allows the client to render multiple skull textures from the same user,
+for when different skins were used when skull was made.
+
+diff --git a/src/main/java/net/minecraft/item/ItemStack.java b/src/main/java/net/minecraft/item/ItemStack.java
+index d97f818d23a1d8dbf647bf0648bc0a64d37a11b0..df326273efeab3b2bb2170d39707806acd5be8d1 100644
+--- a/src/main/java/net/minecraft/item/ItemStack.java
++++ b/src/main/java/net/minecraft/item/ItemStack.java
+@@ -113,7 +113,7 @@ public final class ItemStack {
+     private int field_77992_b;
+     @Deprecated
+     private Item field_151002_e;
+-    private CompoundNBT field_77990_d;
++    CompoundNBT field_77990_d; // Paper -> package private
+     private boolean field_190928_g;
+     private Entity field_234693_k_;
+     private CachedBlockInfo field_179552_h;
+diff --git a/src/main/java/net/minecraft/network/PacketBuffer.java b/src/main/java/net/minecraft/network/PacketBuffer.java
+index 62ac92f4ea7cba43c1129cc94ed0e556b2045fd6..a10f8d1976236f5cc28c78ab66315d09409a1045 100644
+--- a/src/main/java/net/minecraft/network/PacketBuffer.java
++++ b/src/main/java/net/minecraft/network/PacketBuffer.java
+@@ -32,6 +32,7 @@ import net.minecraft.nbt.CompressedStreamTools;
+ import net.minecraft.nbt.INBT;
+ import net.minecraft.nbt.NBTDynamicOps;
+ import net.minecraft.nbt.NBTSizeTracker;
++import net.minecraft.tileentity.SkullTileEntity;
+ import net.minecraft.util.Direction;
+ import net.minecraft.util.ResourceLocation;
+ import net.minecraft.util.math.BlockPos;
+@@ -286,9 +287,18 @@ public class PacketBuffer extends ByteBuf {
+             if (item.func_77645_m() || item.func_77651_p()) {
+                 // Spigot start - filter
+                 p_150788_1_ = p_150788_1_.func_77946_l();
+-                CraftItemStack.setItemMeta(p_150788_1_, CraftItemStack.getItemMeta(p_150788_1_));
++                //CraftItemStack.setItemMeta(itemstack, CraftItemStack.getItemMeta(itemstack)); // Paper - This is no longer needed due to NBT being supported
+                 // Spigot end
+                 nbttagcompound = p_150788_1_.func_77978_p();
++                // Paper start
++                if (nbttagcompound != null && nbttagcompound.func_150297_b("SkullOwner", 10)) {
++                    CompoundNBT owner = nbttagcompound.func_74775_l("SkullOwner");
++                    if (owner.hasUUID("Id")) {
++                        nbttagcompound.setUUID("SkullOwnerOrig", owner.getUUID("Id"));
++                        SkullTileEntity.sanitizeUUID(owner);
++                    }
++                }
++                // Paper end
+             }
+ 
+             this.func_150786_a(nbttagcompound);
+@@ -308,7 +318,16 @@ public class PacketBuffer extends ByteBuf {
+             itemstack.func_77982_d(this.func_150793_b());
+             // CraftBukkit start
+             if (itemstack.func_77978_p() != null) {
+-                CraftItemStack.setItemMeta(itemstack, CraftItemStack.getItemMeta(itemstack));
++                // Paper start - Fix skulls of same owner - restore orig ID since we changed it on send to client
++                if (itemstack.field_77990_d.func_74764_b("SkullOwnerOrig")) {
++                    CompoundNBT owner = itemstack.field_77990_d.func_74775_l("SkullOwner");
++                    if (itemstack.field_77990_d.func_74764_b("SkullOwnerOrig")) {
++                        owner.field_74784_a.put("Id", itemstack.field_77990_d.field_74784_a.get("SkullOwnerOrig"));
++                        itemstack.field_77990_d.func_82580_o("SkullOwnerOrig");
++                    }
++                }
++                // Paper end
++                // CraftItemStack.setItemMeta(itemstack, CraftItemStack.getItemMeta(itemstack)); // Paper - This is no longer needed due to NBT being supported
+             }
+             // CraftBukkit end
+             return itemstack;
+diff --git a/src/main/java/net/minecraft/network/play/server/SChunkDataPacket.java b/src/main/java/net/minecraft/network/play/server/SChunkDataPacket.java
+index 6a0bb6a11ebcdd3b2ab769181a2c127793ecb8c0..cfd70ed8195922fcd9c372fa423a8934d8813052 100644
+--- a/src/main/java/net/minecraft/network/play/server/SChunkDataPacket.java
++++ b/src/main/java/net/minecraft/network/play/server/SChunkDataPacket.java
+@@ -13,6 +13,7 @@ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.LongArrayNBT;
+ import net.minecraft.network.IPacket;
+ import net.minecraft.network.PacketBuffer;
++import net.minecraft.tileentity.SkullTileEntity;
+ import net.minecraft.tileentity.TileEntity;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.ChunkPos;
+@@ -72,6 +73,7 @@ public class SChunkDataPacket implements IPacket<IClientPlayNetHandler> {
+ 
+             if (this.func_149274_i() || (i & 1 << j) != 0) {
+                 CompoundNBT nbttagcompound = tileentity.func_189517_E_();
++                if (tileentity instanceof SkullTileEntity) { SkullTileEntity.sanitizeTileEntityUUID(nbttagcompound); } // Paper
+ 
+                 this.field_189557_e.add(nbttagcompound);
+             }
+diff --git a/src/main/java/net/minecraft/tileentity/SkullTileEntity.java b/src/main/java/net/minecraft/tileentity/SkullTileEntity.java
+index 13e44c02d88cd17fcd1459db1ff480a98e7ca1c6..d3fa390d4fa38d4b669210ab8aaa79d1174dc251 100644
+--- a/src/main/java/net/minecraft/tileentity/SkullTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/SkullTileEntity.java
+@@ -10,6 +10,7 @@ import net.minecraft.block.BlockState;
+ import net.minecraft.block.Blocks;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.nbt.CompoundNBT;
++import net.minecraft.nbt.ListNBT;
+ import net.minecraft.nbt.NBTUtil;
+ import net.minecraft.network.play.server.SUpdateTileEntityPacket;
+ import net.minecraft.server.MinecraftServer;
+@@ -153,9 +154,37 @@ public class SkullTileEntity extends TileEntity /*implements ITickable*/ { // Pa
+     @Nullable
+     @Override
+     public SUpdateTileEntityPacket func_189518_D_() {
+-        return new SUpdateTileEntityPacket(this.field_174879_c, 4, this.func_189517_E_());
++        return new SUpdateTileEntityPacket(this.field_174879_c, 4, sanitizeTileEntityUUID(this.func_189517_E_())); // Paper
+     }
+ 
++    // Paper start
++    static CompoundNBT sanitizeTileEntityUUID(CompoundNBT cmp) {
++        CompoundNBT owner = cmp.func_74775_l("Owner");
++        if (!owner.isEmpty()) {
++            sanitizeUUID(owner);
++        }
++        return cmp;
++    }
++
++    static void sanitizeUUID(CompoundNBT owner) {
++        CompoundNBT properties = owner.func_74775_l("Properties");
++        ListNBT list = null;
++        if (!properties.isEmpty()) {
++            list = properties.func_150295_c("textures", 10);
++        }
++
++        if (list != null && !list.isEmpty()) {
++            String textures = ((CompoundNBT)list.get(0)).func_74779_i("Value");
++            if (textures != null && textures.length() > 3) {
++                UUID uuid = UUID.nameUUIDFromBytes(textures.getBytes());
++                owner.setUUID("Id", uuid);
++                return;
++            }
++        }
++        owner.setUUID("Id", UUID.randomUUID());
++    }
++    // Paper end
++
+     @Override
+     public CompoundNBT func_189517_E_() {
+         return this.func_189515_b(new CompoundNBT());

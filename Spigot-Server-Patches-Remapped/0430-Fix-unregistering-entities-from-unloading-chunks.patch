@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 31 Mar 2020 03:01:45 -0400
+Subject: [PATCH] Fix unregistering entities from unloading chunks
+
+CraftBukkit caused a regression here by making unloading chunks not
+have a ticket added and returning unloaded future.
+
+This caused entities who were killed in same tick their chunk is unloading
+to not be able to be removed from the chunk.
+
+This then results in dead entities lingering in the Chunk.
+
+Combine that with a buggy detail of the previous implementation of
+the Dupe UUID patch, then this was the likely source of the "Ghost entities"
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 950d8cb8db82301edc893b9df57fb0e1f51e54b4..0798653c9e5d35c15a2644020697c190b55138fa 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1492,9 +1492,9 @@ public class ServerWorld extends World implements ISeedReader {
+     }
+ 
+     private void func_217454_n(Entity p_217454_1_) {
+-        IChunk ichunkaccess = this.func_217353_a(p_217454_1_.field_70176_ah, p_217454_1_.field_70164_aj, ChunkStatus.field_222617_m, false);
++        Chunk ichunkaccess = p_217454_1_.getCurrentChunk(); // Paper - getChunkAt(x,z,full,false) is broken by CraftBukkit as it won't return an unloading chunk. Use our current chunk reference as this points to what chunk they need to be removed from anyways
+ 
+-        if (ichunkaccess instanceof Chunk) {
++        if (ichunkaccess != null) { // Paper
+             ((Chunk) ichunkaccess).func_76622_b(p_217454_1_);
+         }
+ 

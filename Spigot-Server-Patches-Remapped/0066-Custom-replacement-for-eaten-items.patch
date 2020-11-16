@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jedediah Smith <jedediah@silencegreys.com>
+Date: Sun, 21 Jun 2015 15:07:20 -0400
+Subject: [PATCH] Custom replacement for eaten items
+
+
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index face53b3fad458e7d63ff84dc3a54c3a69ae90e6..d7bc90237ba7422b13e0fba0920fd3766123c474 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -3160,9 +3160,10 @@ public abstract class LivingEntity extends Entity {
+                 this.func_226293_b_(this.field_184627_bm, 16);
+                 // CraftBukkit start - fire PlayerItemConsumeEvent
+                 ItemStack itemstack;
++                PlayerItemConsumeEvent event = null; // Paper
+                 if (this instanceof ServerPlayerEntity) {
+                     org.bukkit.inventory.ItemStack craftItem = CraftItemStack.asBukkitCopy(this.field_184627_bm);
+-                    PlayerItemConsumeEvent event = new PlayerItemConsumeEvent((Player) this.getBukkitEntity(), craftItem);
++                    event = new PlayerItemConsumeEvent((Player) this.getBukkitEntity(), craftItem); // Paper
+                     field_70170_p.getServer().getPluginManager().callEvent(event);
+ 
+                     if (event.isCancelled()) {
+@@ -3177,9 +3178,20 @@ public abstract class LivingEntity extends Entity {
+                     itemstack = this.field_184627_bm.func_77950_b(this.field_70170_p, this);
+                 }
+ 
++                // Paper start - save the default replacement item and change it if necessary
++                final ItemStack defaultReplacement = itemstack;
++                if (event != null && event.getReplacement() != null) {
++                    itemstack = CraftItemStack.asNMSCopy(event.getReplacement());
++                }
++                // Paper end
+                 this.func_184611_a(this.func_184600_cs(), itemstack);
+                 // CraftBukkit end
+                 this.func_184602_cy();
++                // Paper start - if the replacement is anything but the default, update the client inventory
++                if (this instanceof ServerPlayerEntity && !com.google.common.base.Objects.equal(defaultReplacement, itemstack)) {
++                    ((ServerPlayerEntity) this).getBukkitEntity().updateInventory();
++                }
++                // Paper end
+             }
+ 
+         }

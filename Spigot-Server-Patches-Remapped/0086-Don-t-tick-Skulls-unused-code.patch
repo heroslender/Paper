@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 13 Apr 2016 00:30:10 -0400
+Subject: [PATCH] Don't tick Skulls - unused code
+
+
+diff --git a/src/main/java/net/minecraft/tileentity/SkullTileEntity.java b/src/main/java/net/minecraft/tileentity/SkullTileEntity.java
+index 5af6050453b1a80b059b3ed9ac7ca1e2a6b6e035..13e44c02d88cd17fcd1459db1ff480a98e7ca1c6 100644
+--- a/src/main/java/net/minecraft/tileentity/SkullTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/SkullTileEntity.java
+@@ -32,7 +32,7 @@ import com.mojang.authlib.ProfileLookupCallback;
+ import java.util.concurrent.Callable;
+ // Spigot end
+ 
+-public class SkullTileEntity extends TileEntity implements ITickableTileEntity {
++public class SkullTileEntity extends TileEntity /*implements ITickable*/ { // Paper - remove tickable
+ 
+     @Nullable
+     private static PlayerProfileCache field_184298_j;
+@@ -135,7 +135,7 @@ public class SkullTileEntity extends TileEntity implements ITickableTileEntity {
+ 
+     }
+ 
+-    @Override
++    // Paper - remove override
+     public void func_73660_a() {
+         BlockState iblockdata = this.func_195044_w();
+ 

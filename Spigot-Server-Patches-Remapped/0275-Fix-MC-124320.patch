@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Thu, 23 Aug 2018 09:25:30 -0500
+Subject: [PATCH] Fix MC-124320
+
+
+diff --git a/src/main/java/net/minecraft/block/Block.java b/src/main/java/net/minecraft/block/Block.java
+index 41caa8ccbf18b348df012c2b282f25c739f6a2ac..1c4a7b58c8c1bec78e59bdf8f8c41a64494f0d48 100644
+--- a/src/main/java/net/minecraft/block/Block.java
++++ b/src/main/java/net/minecraft/block/Block.java
+@@ -130,6 +130,7 @@ public class Block extends AbstractBlock implements IItemProvider {
+         return this == p_235332_1_;
+     }
+ 
++    public static BlockState getValidBlockForPosition(BlockState iblockdata, IWorld generatoraccess, BlockPos blockposition) { return Block.func_199770_b(iblockdata, generatoraccess, blockposition); } // Paper - OBFHELPER
+     public static BlockState func_199770_b(BlockState p_199770_0_, IWorld p_199770_1_, BlockPos p_199770_2_) {
+         BlockState iblockdata1 = p_199770_0_;
+         BlockPos.Mutable blockposition_mutableblockposition = new BlockPos.Mutable();
+diff --git a/src/main/java/net/minecraft/entity/monster/EndermanEntity.java b/src/main/java/net/minecraft/entity/monster/EndermanEntity.java
+index 8d74c25cba2a856b6041deecdce4941db8a68594..5408822ca2c14d00a9683476ad40cef247b5d304 100644
+--- a/src/main/java/net/minecraft/entity/monster/EndermanEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/EndermanEntity.java
+@@ -443,8 +443,9 @@ public class EndermanEntity extends MonsterEntity implements IAngerable {
+             if (block.func_203417_a((ITag) BlockTags.field_201151_l) && flag) {
+                 // CraftBukkit start - Pickup event
+                 if (!org.bukkit.craftbukkit.event.CraftEventFactory.callEntityChangeBlockEvent(this.field_179473_a, blockposition, Blocks.field_150350_a.func_176223_P()).isCancelled()) {
+-                    this.field_179473_a.func_195406_b(iblockdata);
++                    //this.enderman.setCarried(iblockdata); // Paper - moved down
+                     world.func_217377_a(blockposition, false);
++                    this.field_179473_a.func_195406_b(Block.getValidBlockForPosition(iblockdata, this.field_179473_a.field_70170_p, blockposition)); // Paper - Fix MC-124320
+                 }
+                 // CraftBukkit end
+             }
+@@ -454,6 +455,7 @@ public class EndermanEntity extends MonsterEntity implements IAngerable {
+ 
+     static class PlaceBlockGoal extends Goal {
+ 
++        private EndermanEntity getEnderman() { return this.field_179475_a; } // Paper - OBFHELPER
+         private final EndermanEntity field_179475_a;
+ 
+         public PlaceBlockGoal(EndermanEntity entityenderman) {
+@@ -476,7 +478,7 @@ public class EndermanEntity extends MonsterEntity implements IAngerable {
+             BlockState iblockdata = world.func_180495_p(blockposition);
+             BlockPos blockposition1 = blockposition.func_177977_b();
+             BlockState iblockdata1 = world.func_180495_p(blockposition1);
+-            BlockState iblockdata2 = this.field_179475_a.func_195405_dq();
++            BlockState iblockdata2 = Block.getValidBlockForPosition(getEnderman().func_195405_dq(), getEnderman().field_70170_p, blockposition); // Paper - Fix MC-124320
+ 
+             if (iblockdata2 != null && this.func_220836_a(world, blockposition, iblockdata2, iblockdata, iblockdata1, blockposition1)) {
+                 // CraftBukkit start - Place event

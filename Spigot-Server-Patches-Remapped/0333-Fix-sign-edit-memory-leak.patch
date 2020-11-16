@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 28 Feb 2019 00:15:28 -0500
+Subject: [PATCH] Fix sign edit memory leak
+
+when a player edits a sign, a reference to their Entity is never cleand up.
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 5e00e78ceacaa54b555bd24818a490452a45376c..f3a6bd53049b2af320ff05d3dff23d28d3cb92eb 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -2729,7 +2729,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+             SignTileEntity tileentitysign = (SignTileEntity) tileentity;
+ 
+-            if (!tileentitysign.func_145914_a() || tileentitysign.func_145911_b() != this.field_147369_b) {
++            if (!tileentitysign.func_145914_a() || tileentitysign.signEditor == null || !tileentitysign.signEditor.equals(this.field_147369_b.func_110124_au())) {
+                 ServerPlayNetHandler.field_147370_c.warn("Player {} just tried to change non-editable sign", this.field_147369_b.func_200200_C_().getString());
+                 this.func_147359_a(tileentity.func_189518_D_()); // CraftBukkit
+                 return;
+diff --git a/src/main/java/net/minecraft/tileentity/SignTileEntity.java b/src/main/java/net/minecraft/tileentity/SignTileEntity.java
+index 1fd8d47fc30327df1ff031db15d62d97c0d558c6..98f321de5183ec7c8172d4e793786a7d76db79fe 100644
+--- a/src/main/java/net/minecraft/tileentity/SignTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/SignTileEntity.java
+@@ -31,6 +31,7 @@ public class SignTileEntity extends TileEntity implements ICommandSource { // Cr
+     private PlayerEntity field_145917_k;
+     private final ITextProperties[] field_212367_h;
+     private DyeColor field_214073_l;
++    public java.util.UUID signEditor; // Paper
+ 
+     public SignTileEntity() {
+         super(TileEntityType.field_200978_i);
+@@ -132,7 +133,10 @@ public class SignTileEntity extends TileEntity implements ICommandSource { // Cr
+     }
+ 
+     public void func_145912_a(PlayerEntity p_145912_1_) {
+-        this.field_145917_k = p_145912_1_;
++        // Paper start
++        //this.c = entityhuman;
++        signEditor = p_145912_1_ != null ? p_145912_1_.func_110124_au() : null;
++        // Paper end
+     }
+ 
+     public PlayerEntity func_145911_b() {

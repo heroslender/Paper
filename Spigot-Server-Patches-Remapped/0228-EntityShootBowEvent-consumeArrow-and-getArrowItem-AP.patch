@@ -1,0 +1,97 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 15 Jun 2013 19:51:17 -0400
+Subject: [PATCH] EntityShootBowEvent consumeArrow and getArrowItem API
+
+Adds ability to get what arrow was shot, and control if it should be consumed.
+
+diff --git a/src/main/java/net/minecraft/entity/monster/AbstractSkeletonEntity.java b/src/main/java/net/minecraft/entity/monster/AbstractSkeletonEntity.java
+index 47649313cbb4c369ac0ef21e4b7e75b647cb3518..0b30044b4f50397f7a3e1861f61a2d30e38a46c7 100644
+--- a/src/main/java/net/minecraft/entity/monster/AbstractSkeletonEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/AbstractSkeletonEntity.java
+@@ -198,7 +198,7 @@ public abstract class AbstractSkeletonEntity extends MonsterEntity implements IR
+ 
+         entityarrow.func_70186_c(d0, d1 + d3 * 0.20000000298023224D, d2, 1.6F, (float) (14 - this.field_70170_p.func_175659_aa().func_151525_a() * 4));
+         // CraftBukkit start
+-        org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(this, this.func_184614_ca(), entityarrow, 0.8F);
++        org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(this, this.func_184614_ca(), this.func_184592_cb(), entityarrow, 0.8F); // Paper
+         if (event.isCancelled()) {
+             event.getProjectile().remove();
+             return;
+diff --git a/src/main/java/net/minecraft/item/BowItem.java b/src/main/java/net/minecraft/item/BowItem.java
+index c89a02fe30b701d1426011b25cf61040c6bbed3a..0e39468878608afb9632caef085b29c74965188f 100644
+--- a/src/main/java/net/minecraft/item/BowItem.java
++++ b/src/main/java/net/minecraft/item/BowItem.java
+@@ -39,6 +39,7 @@ public class BowItem extends ShootableItem implements IVanishable {
+                 if ((double) f >= 0.1D) {
+                     boolean flag1 = flag && itemstack1.func_77973_b() == Items.field_151032_g;
+ 
++                    boolean consumeArrow = true; // Paper
+                     if (!p_77615_2_.field_72995_K) {
+                         ArrowItem itemarrow = (ArrowItem) ((ArrowItem) (itemstack1.func_77973_b() instanceof ArrowItem ? itemstack1.func_77973_b() : Items.field_151032_g));
+                         AbstractArrowEntity entityarrow = itemarrow.func_200887_a(p_77615_2_, itemstack1, (LivingEntity) entityhuman);
+@@ -64,7 +65,7 @@ public class BowItem extends ShootableItem implements IVanishable {
+                             entityarrow.func_70015_d(100);
+                         }
+                         // CraftBukkit start
+-                        org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(entityhuman, p_77615_1_, entityarrow, f);
++                        org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(entityhuman, p_77615_1_, itemstack1, entityarrow, f); // Paper
+                         if (event.isCancelled()) {
+                             event.getProjectile().remove();
+                             return;
+@@ -74,7 +75,8 @@ public class BowItem extends ShootableItem implements IVanishable {
+                         p_77615_1_.func_222118_a(1, entityhuman, (entityhuman1) -> {
+                             entityhuman1.func_213334_d(entityhuman.func_184600_cs());
+                         });
+-                        if (flag1 || entityhuman.field_71075_bZ.field_75098_d && (itemstack1.func_77973_b() == Items.field_185166_h || itemstack1.func_77973_b() == Items.field_185167_i)) {
++                        consumeArrow = event.getConsumeArrow(); // Paper
++                        if (!consumeArrow || flag1 || (entityhuman.field_71075_bZ.field_75098_d && ((itemstack1.func_77973_b() == Items.field_185166_h) || (itemstack1.func_77973_b() == Items.field_185167_i)))) { // Paper - add
+                             entityarrow.field_70251_a = AbstractArrowEntity.PickupStatus.CREATIVE_ONLY;
+                         }
+ 
+@@ -91,7 +93,7 @@ public class BowItem extends ShootableItem implements IVanishable {
+                     }
+ 
+                     p_77615_2_.func_184148_a((PlayerEntity) null, entityhuman.func_226277_ct_(), entityhuman.func_226278_cu_(), entityhuman.func_226281_cx_(), SoundEvents.field_187737_v, SoundCategory.PLAYERS, 1.0F, 1.0F / (BowItem.field_77697_d.nextFloat() * 0.4F + 1.2F) + f * 0.5F);
+-                    if (!flag1 && !entityhuman.field_71075_bZ.field_75098_d) {
++                    if (!flag1 && !entityhuman.field_71075_bZ.field_75098_d && consumeArrow) { // Paper
+                         itemstack1.func_190918_g(1);
+                         if (itemstack1.func_190926_b()) {
+                             entityhuman.field_71071_by.func_184437_d(itemstack1);
+diff --git a/src/main/java/net/minecraft/item/CrossbowItem.java b/src/main/java/net/minecraft/item/CrossbowItem.java
+index 9be5addaf4f745258964b5347ffb48045b8ebc3e..6993504903a361513e34693b656b7ade7a68c89a 100644
+--- a/src/main/java/net/minecraft/item/CrossbowItem.java
++++ b/src/main/java/net/minecraft/item/CrossbowItem.java
+@@ -229,7 +229,7 @@ public class CrossbowItem extends ShootableItem implements IVanishable {
+                 ((ProjectileEntity) object).func_70186_c((double) vector3fa.func_195899_a(), (double) vector3fa.func_195900_b(), (double) vector3fa.func_195902_c(), p_220016_7_, p_220016_8_);
+             }
+             // CraftBukkit start
+-            org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(p_220016_1_, p_220016_3_, (Entity) object, p_220016_5_);
++            org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(p_220016_1_, p_220016_3_, p_220016_4_, (ProjectileEntity) object, p_220016_5_); // Paper // TODO: consume??
+             if (event.isCancelled()) {
+                 event.getProjectile().remove();
+                 return;
+diff --git a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+index 8c61515d971f8a550415973c465f84c8f9528f87..f1e065a5c9c32ceb3c5c9caa110bca47f7a383fe 100644
+--- a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
++++ b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+@@ -503,16 +503,16 @@ public class CraftEventFactory {
+     /**
+      * EntityShootBowEvent
+      */
+-    public static EntityShootBowEvent callEntityShootBowEvent(net.minecraft.entity.LivingEntity who, ItemStack itemstack, Entity entityArrow, float force) {
++    public static EntityShootBowEvent callEntityShootBowEvent(net.minecraft.entity.LivingEntity who, ItemStack itemstack, ItemStack arrowItem, ProjectileEntity entityArrow, float force) { // paper
+         LivingEntity shooter = (LivingEntity) who.getBukkitEntity();
+         CraftItemStack itemInHand = CraftItemStack.asCraftMirror(itemstack);
+-        org.bukkit.entity.Entity arrow = entityArrow.getBukkitEntity();
++        org.bukkit.entity.Entity arrow = ((Entity) entityArrow).getBukkitEntity(); // Paper
+ 
+         if (itemInHand != null && (itemInHand.getType() == Material.AIR || itemInHand.getAmount() == 0)) {
+             itemInHand = null;
+         }
+ 
+-        EntityShootBowEvent event = new EntityShootBowEvent(shooter, itemInHand, arrow, force);
++        EntityShootBowEvent event = new EntityShootBowEvent(shooter, itemInHand, CraftItemStack.asCraftMirror(arrowItem), arrow, force); // Paper
+         Bukkit.getPluginManager().callEvent(event);
+ 
+         return event;

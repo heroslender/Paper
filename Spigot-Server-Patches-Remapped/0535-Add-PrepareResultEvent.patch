@@ -1,0 +1,164 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 3 Jul 2020 11:58:56 -0500
+Subject: [PATCH] Add PrepareResultEvent
+
+Adds a new event for all crafting stations that generate a result slot item
+
+Anvil, Grindstone and Smithing now extend this event
+
+diff --git a/src/main/java/net/minecraft/inventory/container/AbstractRepairContainer.java b/src/main/java/net/minecraft/inventory/container/AbstractRepairContainer.java
+index 1caea5b5dacdf992363ad449815f3e6638cd2339..ae86511dfdbd72c6c9bcbfa056ad18d304c69036 100644
+--- a/src/main/java/net/minecraft/inventory/container/AbstractRepairContainer.java
++++ b/src/main/java/net/minecraft/inventory/container/AbstractRepairContainer.java
+@@ -73,6 +73,7 @@ public abstract class AbstractRepairContainer extends Container {
+         super.func_75130_a(p_75130_1_);
+         if (p_75130_1_ == this.field_234643_d_) {
+             this.func_82848_d();
++            org.bukkit.craftbukkit.event.CraftEventFactory.callPrepareResultEvent(this, 2); // Paper
+         }
+ 
+     }
+diff --git a/src/main/java/net/minecraft/inventory/container/CartographyContainer.java b/src/main/java/net/minecraft/inventory/container/CartographyContainer.java
+index 145cb618a3b3d3dc0bb859d0442607c60e4067e5..4a83cf1f9171ec2a5898e406ae3111d37bbb6236 100644
+--- a/src/main/java/net/minecraft/inventory/container/CartographyContainer.java
++++ b/src/main/java/net/minecraft/inventory/container/CartographyContainer.java
+@@ -168,6 +168,7 @@ public class CartographyContainer extends Container {
+             this.func_216993_a(itemstack, itemstack1, itemstack2);
+         }
+ 
++        org.bukkit.craftbukkit.event.CraftEventFactory.callPrepareResultEvent(this, 2); // Paper
+     }
+ 
+     private void func_216993_a(ItemStack p_216993_1_, ItemStack p_216993_2_, ItemStack p_216993_3_) {
+diff --git a/src/main/java/net/minecraft/inventory/container/Container.java b/src/main/java/net/minecraft/inventory/container/Container.java
+index 1a8597803acbead00cb805a4299f97b2f15fdab7..ed398dad5dccb346e833c30644703a7668956862 100644
+--- a/src/main/java/net/minecraft/inventory/container/Container.java
++++ b/src/main/java/net/minecraft/inventory/container/Container.java
+@@ -144,6 +144,7 @@ public abstract class Container {
+         return nonnulllist;
+     }
+ 
++    public final void notifyListeners() { this.func_75142_b(); } // Paper - OBFHELPER
+     public void func_75142_b() {
+         int i;
+ 
+diff --git a/src/main/java/net/minecraft/inventory/container/GrindstoneContainer.java b/src/main/java/net/minecraft/inventory/container/GrindstoneContainer.java
+index 716f2a41dd84574895c2aba59a2f39f95ab7efdf..cac7f3d7e0c65cdf03cf974bb0bd00ad6e2a3d98 100644
+--- a/src/main/java/net/minecraft/inventory/container/GrindstoneContainer.java
++++ b/src/main/java/net/minecraft/inventory/container/GrindstoneContainer.java
+@@ -158,6 +158,7 @@ public class GrindstoneContainer extends Container {
+         super.func_75130_a(p_75130_1_);
+         if (p_75130_1_ == this.field_217014_d) {
+             this.func_217010_e();
++            org.bukkit.craftbukkit.event.CraftEventFactory.callPrepareResultEvent(this, 2); // Paper
+         }
+ 
+     }
+diff --git a/src/main/java/net/minecraft/inventory/container/LoomContainer.java b/src/main/java/net/minecraft/inventory/container/LoomContainer.java
+index 376eb416c1ff95f2ed562e5c2d22a59989199159..c0af66294d910c7ff6e1b19b5db159ad141d33cb 100644
+--- a/src/main/java/net/minecraft/inventory/container/LoomContainer.java
++++ b/src/main/java/net/minecraft/inventory/container/LoomContainer.java
+@@ -191,7 +191,8 @@ public class LoomContainer extends Container {
+         }
+ 
+         this.func_217031_j();
+-        this.func_75142_b();
++        //this.c(); // Paper - done below
++        org.bukkit.craftbukkit.event.CraftEventFactory.callPrepareResultEvent(this, 3); // Paper
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/inventory/container/RepairContainer.java b/src/main/java/net/minecraft/inventory/container/RepairContainer.java
+index b0fbc340888786f7aac24baab93284fb27e9fbbe..054e11d7f32900ebe48b87549361321b5837abab 100644
+--- a/src/main/java/net/minecraft/inventory/container/RepairContainer.java
++++ b/src/main/java/net/minecraft/inventory/container/RepairContainer.java
+@@ -309,6 +309,7 @@ public class RepairContainer extends AbstractRepairContainer {
+         }
+ 
+         this.func_82848_d();
++        org.bukkit.craftbukkit.event.CraftEventFactory.callPrepareResultEvent(this, 2); // Paper
+     }
+ 
+     // CraftBukkit start
+diff --git a/src/main/java/net/minecraft/inventory/container/SmithingTableContainer.java b/src/main/java/net/minecraft/inventory/container/SmithingTableContainer.java
+index 72a54646e0da8d4874150936aca37b991a843d81..99c250a1346b565d4edf2597fc204d58c0359427 100644
+--- a/src/main/java/net/minecraft/inventory/container/SmithingTableContainer.java
++++ b/src/main/java/net/minecraft/inventory/container/SmithingTableContainer.java
+@@ -73,6 +73,7 @@ public class SmithingTableContainer extends AbstractRepairContainer {
+             org.bukkit.craftbukkit.event.CraftEventFactory.callPrepareSmithingEvent(getBukkitView(), itemstack); // CraftBukkit
+         }
+ 
++        org.bukkit.craftbukkit.event.CraftEventFactory.callPrepareResultEvent(this, 2); // Paper
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/inventory/container/StonecutterContainer.java b/src/main/java/net/minecraft/inventory/container/StonecutterContainer.java
+index 0ce7fadbc472131bf273fef2df65493e3cc94b36..ec42d77ba7336c15f9b953ed4608f31ebd5591c5 100644
+--- a/src/main/java/net/minecraft/inventory/container/StonecutterContainer.java
++++ b/src/main/java/net/minecraft/inventory/container/StonecutterContainer.java
+@@ -148,6 +148,7 @@ public class StonecutterContainer extends Container {
+             this.func_217074_a(p_75130_1_, itemstack);
+         }
+ 
++        org.bukkit.craftbukkit.event.CraftEventFactory.callPrepareResultEvent(this, 1); // Paper
+     }
+ 
+     private void func_217074_a(IInventory p_217074_1_, ItemStack p_217074_2_) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+index 012b249d6930671e828a9e1449a4d11cc0fbdedf..e0aacf157b857c74530e882e60457431526d2f18 100644
+--- a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
++++ b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+@@ -1546,19 +1546,44 @@ public class CraftEventFactory {
+         return event;
+     }
+ 
+-    public static PrepareAnvilEvent callPrepareAnvilEvent(InventoryView view, ItemStack item) {
+-        PrepareAnvilEvent event = new PrepareAnvilEvent(view, CraftItemStack.asCraftMirror(item).clone());
+-        event.getView().getPlayer().getServer().getPluginManager().callEvent(event);
++    // Paper start - disable this method, handled below
++    public static void callPrepareAnvilEvent(InventoryView view, ItemStack item) { // Paper - verify nothing uses return - handled below in PrepareResult
++        PrepareAnvilEvent event = new PrepareAnvilEvent(view, CraftItemStack.asCraftMirror(item)); // Paper - remove clone
++        //event.getView().getPlayer().getServer().getPluginManager().callEvent(event); // disable event
+         event.getInventory().setItem(2, event.getResult());
+-        return event;
++        //return event; // Paper
+     }
++    // Paper end
+ 
+-    public static PrepareSmithingEvent callPrepareSmithingEvent(InventoryView view, ItemStack item) {
+-        PrepareSmithingEvent event = new PrepareSmithingEvent(view, CraftItemStack.asCraftMirror(item).clone());
+-        event.getView().getPlayer().getServer().getPluginManager().callEvent(event);
++    // Paper start - disable this method, handled in callPrepareResultEvent
++    public static void callPrepareSmithingEvent(InventoryView view, ItemStack item) { // Paper - verify nothing uses return - handled below in PrepareResult
++        PrepareSmithingEvent event = new PrepareSmithingEvent(view, CraftItemStack.asCraftMirror(item)); // Paper - remove clone
++        //event.getView().getPlayer().getServer().getPluginManager().callEvent(event); // Paper - disable event
+         event.getInventory().setItem(2, event.getResult());
+-        return event;
++        //return event; // Paper
+     }
++    // Paper end
++
++    // Paper start - support specific overrides for prepare result
++    public static void callPrepareResultEvent(net.minecraft.inventory.container.Container container, int resultSlot) {
++        com.destroystokyo.paper.event.inventory.PrepareResultEvent event;
++        InventoryView view = container.getBukkitView();
++        org.bukkit.inventory.ItemStack origItem = view.getTopInventory().getItem(resultSlot);
++        CraftItemStack result = origItem != null ? CraftItemStack.asCraftCopy(origItem) : null;
++        if (view.getTopInventory() instanceof org.bukkit.inventory.AnvilInventory) {
++            event = new PrepareAnvilEvent(view, result);
++        } else if (view.getTopInventory() instanceof org.bukkit.inventory.GrindstoneInventory) {
++            event = new com.destroystokyo.paper.event.inventory.PrepareGrindstoneEvent(view, result);
++        } else if (view.getTopInventory() instanceof org.bukkit.inventory.SmithingInventory) {
++            event = new PrepareSmithingEvent(view, result);
++        } else {
++            event = new com.destroystokyo.paper.event.inventory.PrepareResultEvent(view, result);
++        }
++        event.callEvent();
++        event.getInventory().setItem(resultSlot, event.getResult());
++        container.notifyListeners();
++    }
++    // Paper end
+ 
+     /**
+      * Mob spawner event.

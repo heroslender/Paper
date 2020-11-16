@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Wed, 2 Mar 2016 23:45:17 -0600
+Subject: [PATCH] Disable spigot tick limiters
+
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 40a424894f1f59dfae56292df7884947cfc3bcd5..6e08a1f0608fe45c8adf194b587b4b0e58e59918 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -743,9 +743,7 @@ public abstract class World implements IWorld, AutoCloseable {
+         // Spigot start
+         // Iterator iterator = this.tileEntityListTick.iterator();
+         int tilesThisCycle = 0;
+-        for (tileLimiter.initTick();
+-                tilesThisCycle < field_175730_i.size() && (tilesThisCycle % 10 != 0 || tileLimiter.shouldContinue());
+-                tileTickPosition++, tilesThisCycle++) {
++        for (tileTickPosition = 0; tileTickPosition < field_175730_i.size(); tileTickPosition++) { // Paper - Disable tick limiters
+             tileTickPosition = (tileTickPosition < field_175730_i.size()) ? tileTickPosition : 0;
+             TileEntity tileentity = (TileEntity) this.field_175730_i.get(tileTickPosition);
+             // Spigot start

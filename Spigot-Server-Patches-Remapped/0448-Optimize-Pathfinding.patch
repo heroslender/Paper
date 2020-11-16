@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 3 Mar 2016 02:02:07 -0600
+Subject: [PATCH] Optimize Pathfinding
+
+Prevents pathfinding from spamming failures for things such as
+arrow attacks.
+
+diff --git a/src/main/java/net/minecraft/pathfinding/PathNavigator.java b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+index fb5d85fa7fdf18844dd1e5885d9f7186ca2958a5..534ac4b111f8c8f6c134d88c26bbfcb522603a7b 100644
+--- a/src/main/java/net/minecraft/pathfinding/PathNavigator.java
++++ b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+@@ -13,6 +13,7 @@ import net.minecraft.entity.MobEntity;
+ import net.minecraft.entity.ai.attributes.Attributes;
+ import net.minecraft.network.DebugPacketSender;
+ import net.minecraft.server.MCUtil;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.Util;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.MathHelper;
+@@ -27,7 +28,7 @@ public abstract class PathNavigator {
+     protected final MobEntity field_75515_a; public Entity getEntity() { return field_75515_a; } // Paper - OBFHELPER
+     protected final World field_75513_b;
+     @Nullable
+-    protected Path field_75514_c;
++    protected Path field_75514_c; protected final Path getCurrentPath() { return this.field_75514_c; } // Paper - OBFHELPER
+     protected double field_75511_d;
+     protected int field_75510_g;
+     protected int field_75520_h;
+@@ -178,10 +179,30 @@ public abstract class PathNavigator {
+         return this.func_75484_a(this.func_225466_a(p_75492_1_, p_75492_2_, p_75492_3_, 1), p_75492_4_);
+     }
+ 
++    // Paper start - optimise pathfinding
++    private int lastFailure = 0;
++    private int pathfindFailures = 0;
++    // Paper end
++
+     public boolean func_75497_a(Entity p_75497_1_, double p_75497_2_) {
++        // Paper start - Pathfinding optimizations
++        if (this.pathfindFailures > 10 && this.getCurrentPath() == null && MinecraftServer.currentTick < this.lastFailure + 40) {
++            return false;
++        }
++        // Paper end
+         Path pathentity = this.func_75494_a(p_75497_1_, 1);
+ 
+-        return pathentity != null && this.func_75484_a(pathentity, p_75497_2_);
++        // Paper start - Pathfinding optimizations
++        if (pathentity != null && this.func_75484_a(pathentity, p_75497_2_)) {
++            this.lastFailure = 0;
++            this.pathfindFailures = 0;
++            return true;
++        } else {
++            this.pathfindFailures++;
++            this.lastFailure = MinecraftServer.currentTick;
++            return false;
++        }
++        // Paper end
+     }
+ 
+     public boolean setDestination(@Nullable Path pathentity, double speed) { return func_75484_a(pathentity, speed); } // Paper - OBFHELPER

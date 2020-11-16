@@ -1,0 +1,161 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Techcable <Techcable@outlook.com>
+Date: Thu, 3 Mar 2016 02:32:10 -0600
+Subject: [PATCH] Player Tab List and Title APIs
+
+
+diff --git a/src/main/java/net/minecraft/network/play/server/STitlePacket.java b/src/main/java/net/minecraft/network/play/server/STitlePacket.java
+index bc33a9f425459f569528856f9fe3f8c3bf85cba0..c1005c00033239cb0590e7b6b763eb1405323dbf 100644
+--- a/src/main/java/net/minecraft/network/play/server/STitlePacket.java
++++ b/src/main/java/net/minecraft/network/play/server/STitlePacket.java
+@@ -47,12 +47,29 @@ public class STitlePacket implements IPacket<IClientPlayNetHandler> {
+         }
+ 
+     }
++    // Paper start
++    public net.md_5.bungee.api.chat.BaseComponent[] components;
++
++    public STitlePacket(Type action, net.md_5.bungee.api.chat.BaseComponent[] components, int fadeIn, int stay, int fadeOut) {
++        this.field_179812_a = action;
++        this.components = components;
++        this.field_179811_c = fadeIn;
++        this.field_179808_d = stay;
++        this.field_179809_e = fadeOut;
++    }
++    // Paper end
+ 
+     @Override
+     public void func_148840_b(PacketBuffer p_148840_1_) throws IOException {
+         p_148840_1_.func_179249_a((Enum) this.field_179812_a);
+         if (this.field_179812_a == STitlePacket.Type.TITLE || this.field_179812_a == STitlePacket.Type.SUBTITLE || this.field_179812_a == STitlePacket.Type.ACTIONBAR) {
+-            p_148840_1_.func_179256_a(this.field_179810_b);
++            // Paper start
++            if (this.components != null) {
++                p_148840_1_.func_180714_a(net.md_5.bungee.chat.ComponentSerializer.toString(components));
++            } else {
++                p_148840_1_.func_179256_a(this.field_179810_b);
++            }
++            // Paper end
+         }
+ 
+         if (this.field_179812_a == STitlePacket.Type.TIMES) {
+diff --git a/src/main/java/net/minecraft/util/text/ITextComponent.java b/src/main/java/net/minecraft/util/text/ITextComponent.java
+index f95adaf0e9b3eb4d93accc9a88b9e573cd7ef16c..6cabb870d181226b344da3ce79e4abbfdd714fd8 100644
+--- a/src/main/java/net/minecraft/util/text/ITextComponent.java
++++ b/src/main/java/net/minecraft/util/text/ITextComponent.java
+@@ -356,6 +356,7 @@ public interface ITextComponent extends Message, ITextProperties, Iterable<IText
+             return ITextComponent.Serializer.field_150700_a.toJsonTree(p_200528_0_);
+         }
+ 
++        @Nullable public static ITextComponent jsonToComponent(String json) { return func_240643_a_(json);} // Paper - OBFHELPER
+         @Nullable
+         public static IFormattableTextComponent func_240643_a_(String p_240643_0_) {
+             return (IFormattableTextComponent) JSONUtils.func_188176_a(ITextComponent.Serializer.field_150700_a, p_240643_0_, IFormattableTextComponent.class, false);
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index 95af87f4a860e1777d97ee80342fdd73f48158d3..266da1418966662e5c843dfd66f2590ecd75e9d3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -1,5 +1,6 @@
+ package org.bukkit.craftbukkit.entity;
+ 
++import com.destroystokyo.paper.Title;
+ import com.google.common.base.Preconditions;
+ import com.google.common.collect.ImmutableSet;
+ import com.google.common.io.BaseEncoding;
+@@ -214,6 +215,96 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+         }
+     }
+ 
++    // Paper start
++    @Override
++    public void setPlayerListHeaderFooter(BaseComponent[] header, BaseComponent[] footer) {
++         if (header != null) {
++             String headerJson = net.md_5.bungee.chat.ComponentSerializer.toString(header);
++             playerListHeader = net.minecraft.util.text.TextComponent.ChatSerializer.jsonToComponent(headerJson);
++         } else {
++             playerListHeader = null;
++         }
++
++        if (footer != null) {
++             String footerJson = net.md_5.bungee.chat.ComponentSerializer.toString(footer);
++             playerListFooter = net.minecraft.util.text.TextComponent.ChatSerializer.jsonToComponent(footerJson);
++         } else {
++             playerListFooter = null;
++         }
++
++         updatePlayerListHeaderFooter();
++    }
++
++    @Override
++    public void setPlayerListHeaderFooter(BaseComponent header, BaseComponent footer) {
++        this.setPlayerListHeaderFooter(header == null ? null : new BaseComponent[]{header},
++                footer == null ? null : new BaseComponent[]{footer});
++    }
++
++
++    @Override
++    public void setTitleTimes(int fadeInTicks, int stayTicks, int fadeOutTicks) {
++        getHandle().field_71135_a.func_147359_a(new STitlePacket(STitlePacket.Type.TIMES, (BaseComponent[]) null, fadeInTicks, stayTicks, fadeOutTicks));
++    }
++
++    @Override
++    public void setSubtitle(BaseComponent[] subtitle) {
++        getHandle().field_71135_a.func_147359_a(new STitlePacket(STitlePacket.Type.SUBTITLE, subtitle, 0, 0, 0));
++    }
++
++    @Override
++    public void setSubtitle(BaseComponent subtitle) {
++        setSubtitle(new BaseComponent[]{subtitle});
++    }
++
++    @Override
++    public void showTitle(BaseComponent[] title) {
++        getHandle().field_71135_a.func_147359_a(new STitlePacket(STitlePacket.Type.TITLE, title, 0, 0, 0));
++    }
++
++    @Override
++    public void showTitle(BaseComponent title) {
++        showTitle(new BaseComponent[]{title});
++    }
++
++    @Override
++    public void showTitle(BaseComponent[] title, BaseComponent[] subtitle, int fadeInTicks, int stayTicks, int fadeOutTicks) {
++        setTitleTimes(fadeInTicks, stayTicks, fadeOutTicks);
++        setSubtitle(subtitle);
++        showTitle(title);
++    }
++
++    @Override
++    public void showTitle(BaseComponent title, BaseComponent subtitle, int fadeInTicks, int stayTicks, int fadeOutTicks) {
++        setTitleTimes(fadeInTicks, stayTicks, fadeOutTicks);
++        setSubtitle(subtitle);
++        showTitle(title);
++    }
++
++    @Override
++    public void sendTitle(Title title) {
++        Preconditions.checkNotNull(title, "Title is null");
++        setTitleTimes(title.getFadeIn(), title.getStay(), title.getFadeOut());
++        setSubtitle(title.getSubtitle() == null ? new BaseComponent[0] : title.getSubtitle());
++        showTitle(title.getTitle());
++    }
++
++    @Override
++    public void updateTitle(Title title) {
++        Preconditions.checkNotNull(title, "Title is null");
++        setTitleTimes(title.getFadeIn(), title.getStay(), title.getFadeOut());
++        if (title.getSubtitle() != null) {
++            setSubtitle(title.getSubtitle());
++        }
++        showTitle(title.getTitle());
++    }
++
++    @Override
++    public void hideTitle() {
++        getHandle().field_71135_a.func_147359_a(new STitlePacket(STitlePacket.Type.CLEAR, (BaseComponent[]) null, 0, 0, 0));
++    }
++    // Paper end
++
+     @Override
+     public String getDisplayName() {
+         return getHandle().displayName;

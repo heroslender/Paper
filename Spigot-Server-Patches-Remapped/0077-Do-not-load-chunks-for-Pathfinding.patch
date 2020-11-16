@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 31 Mar 2016 19:17:58 -0400
+Subject: [PATCH] Do not load chunks for Pathfinding
+
+
+diff --git a/src/main/java/net/minecraft/pathfinding/PathFinder.java b/src/main/java/net/minecraft/pathfinding/PathFinder.java
+index 55668d128292c12006bb9a2c3384b1cf6242bbc0..0d96db8fb34406cfe1f9fae5ed3141392dbd7e0b 100644
+--- a/src/main/java/net/minecraft/pathfinding/PathFinder.java
++++ b/src/main/java/net/minecraft/pathfinding/PathFinder.java
+@@ -20,7 +20,7 @@ public class PathFinder {
+ 
+     private final PathPoint[] field_75864_d = new PathPoint[32];
+     private final int field_215751_d;
+-    private final NodeProcessor field_176190_c;
++    private final NodeProcessor field_176190_c; public NodeProcessor getPathfinder() { return this.field_176190_c; }  // Paper - OBFHELPER
+     private final PathHeap field_75866_b = new PathHeap();
+ 
+     public PathFinder(NodeProcessor pathfinderabstract, int i) {
+diff --git a/src/main/java/net/minecraft/pathfinding/PathNavigator.java b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+index 0c4ee3e5e4af54a8a60302df30e280c15dc11d2c..860b48c094b50eb0165ffd41cad876d19539cdf6 100644
+--- a/src/main/java/net/minecraft/pathfinding/PathNavigator.java
++++ b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+@@ -43,7 +43,7 @@ public abstract class PathNavigator {
+     private BlockPos field_188564_r;
+     private int field_225468_r;
+     private float field_226334_s_;
+-    private final PathFinder field_179681_j;
++    private final PathFinder field_179681_j; public PathFinder getPathfinder() { return this.field_179681_j; } // Paper - OBFHELPER
+ 
+     public PathNavigator(MobEntity entityinsentient, World world) {
+         this.field_75521_i = Vector3d.field_186680_a;
+diff --git a/src/main/java/net/minecraft/pathfinding/WalkNodeProcessor.java b/src/main/java/net/minecraft/pathfinding/WalkNodeProcessor.java
+index 6a781b8b91166463c33089a895e7f4732415a31f..53385fd87b34af96110998b611d431a451c6064d 100644
+--- a/src/main/java/net/minecraft/pathfinding/WalkNodeProcessor.java
++++ b/src/main/java/net/minecraft/pathfinding/WalkNodeProcessor.java
+@@ -491,7 +491,12 @@ public class WalkNodeProcessor extends NodeProcessor {
+                 for (int j1 = -1; j1 <= 1; ++j1) {
+                     if (l != 0 || j1 != 0) {
+                         p_237232_1_.func_181079_c(i + l, j + i1, k + j1);
+-                        BlockState iblockdata = p_237232_0_.func_180495_p(p_237232_1_);
++                        // Paper start
++                        BlockState iblockdata = p_237232_0_.getTypeIfLoaded(p_237232_1_);
++                        if (iblockdata == null) {
++                            p_237232_2_ = PathNodeType.BLOCKED;
++                        } else {
++                        // Paper end
+ 
+                         if (iblockdata.func_203425_a(Blocks.field_150434_aF)) {
+                             return PathNodeType.DANGER_CACTUS;
+@@ -514,6 +519,7 @@ public class WalkNodeProcessor extends NodeProcessor {
+                         if (fluid.func_206884_a((ITag) FluidTags.field_206960_b)) {
+                             return PathNodeType.LAVA;
+                         }
++                        } // Paper
+                     }
+                 }
+             }
+@@ -523,7 +529,8 @@ public class WalkNodeProcessor extends NodeProcessor {
+     }
+ 
+     protected static PathNodeType func_237238_b_(IBlockReader p_237238_0_, BlockPos p_237238_1_) {
+-        BlockState iblockdata = p_237238_0_.func_180495_p(p_237238_1_);
++        BlockState iblockdata = p_237238_0_.getTypeIfLoaded(p_237238_1_); // Paper
++        if (iblockdata == null) return PathNodeType.BLOCKED; // Paper
+         Block block = iblockdata.func_177230_c();
+         Material material = iblockdata.func_185904_a();
+ 

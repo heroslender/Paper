@@ -1,0 +1,94 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Mon, 13 Jul 2020 06:22:54 -0700
+Subject: [PATCH] Fix AdvancementDataPlayer leak due from quitting early in
+ login
+
+Move the criterion storage to the AdvancementDataPlayer object
+itself, so the criterion object stores no references - and thus
+needs no cleanup.
+
+diff --git a/src/main/java/net/minecraft/advancements/PlayerAdvancements.java b/src/main/java/net/minecraft/advancements/PlayerAdvancements.java
+index c537fb0c6fea2090afdfe2bc8da2762ebc9f65cc..7fa7ff7ba1159125b2c0cbd8a1558b888b56ffbb 100644
+--- a/src/main/java/net/minecraft/advancements/PlayerAdvancements.java
++++ b/src/main/java/net/minecraft/advancements/PlayerAdvancements.java
+@@ -30,6 +30,7 @@ import java.util.Set;
+ import java.util.stream.Collectors;
+ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
++import net.minecraft.advancements.criterion.AbstractCriterionTrigger;
+ import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.network.play.server.SAdvancementInfoPacket;
+ import net.minecraft.network.play.server.SSelectAdvancementsTabPacket;
+@@ -62,6 +63,10 @@ public class PlayerAdvancements {
+     private Advancement field_194221_k;
+     private boolean field_192763_k = true;
+ 
++    // Paper start - fix advancement data player leakage
++    final Map<AbstractCriterionTrigger, Set<ICriterionTrigger.Listener>> criterionData = Maps.newIdentityHashMap();
++    // Paper end - fix advancement data player leakage
++
+     public PlayerAdvancements(DataFixer datafixer, PlayerList playerlist, AdvancementManager advancementdataworld, File file, ServerPlayerEntity entityplayer) {
+         this.field_240916_d_ = datafixer;
+         this.field_240917_e_ = playerlist;
+diff --git a/src/main/java/net/minecraft/advancements/criterion/AbstractCriterionTrigger.java b/src/main/java/net/minecraft/advancements/criterion/AbstractCriterionTrigger.java
+index d2a0c0ce932659d1d14cd28026e2aa1a0d12b793..bad89c273bd81034a4e8b69d257c57253628ffb3 100644
+--- a/src/main/java/net/minecraft/advancements/criterion/AbstractCriterionTrigger.java
++++ b/src/main/java/net/minecraft/advancements/criterion/AbstractCriterionTrigger.java
+@@ -17,25 +17,25 @@ import net.minecraft.loot.LootContext;
+ 
+ public abstract class AbstractCriterionTrigger<T extends CriterionInstance> implements ICriterionTrigger<T> {
+ 
+-    private final Map<PlayerAdvancements, Set<ICriterionTrigger.Listener<T>>> field_227069_a_ = Maps.newIdentityHashMap();
++    //private final Map<AdvancementDataPlayer, Set<CriterionTrigger.a<T>>> a = Maps.newIdentityHashMap(); // Paper - moved into AdvancementDataPlayer to fix memory leak
+ 
+     public AbstractCriterionTrigger() {}
+ 
+     @Override
+     public final void func_192165_a(PlayerAdvancements p_192165_1_, ICriterionTrigger.Listener<T> p_192165_2_) {
+-        ((Set) this.field_227069_a_.computeIfAbsent(p_192165_1_, (advancementdataplayer1) -> {
++        (p_192165_1_.criterionData.computeIfAbsent(this, (advancementdataplayer1) -> { // Paper - fix AdvancementDataPlayer leak
+             return Sets.newHashSet();
+         })).add(p_192165_2_);
+     }
+ 
+     @Override
+     public final void func_192164_b(PlayerAdvancements p_192164_1_, ICriterionTrigger.Listener<T> p_192164_2_) {
+-        Set<ICriterionTrigger.Listener<T>> set = (Set) this.field_227069_a_.get(p_192164_1_);
++        Set<ICriterionTrigger.Listener<T>> set = (Set) p_192164_1_.criterionData.get(this); // Paper - fix AdvancementDataPlayer leak
+ 
+         if (set != null) {
+             set.remove(p_192164_2_);
+             if (set.isEmpty()) {
+-                this.field_227069_a_.remove(p_192164_1_);
++                p_192164_1_.criterionData.remove(this); // Paper - fix AdvancementDataPlayer leak
+             }
+         }
+ 
+@@ -43,7 +43,7 @@ public abstract class AbstractCriterionTrigger<T extends CriterionInstance> impl
+ 
+     @Override
+     public final void func_192167_a(PlayerAdvancements p_192167_1_) {
+-        this.field_227069_a_.remove(p_192167_1_);
++        p_192167_1_.criterionData.remove(this); // Paper - fix AdvancementDataPlayer leak
+     }
+ 
+     protected abstract T func_230241_b_(JsonObject p_230241_1_, EntityPredicate.AndPredicate p_230241_2_, ConditionArrayParser p_230241_3_);
+@@ -57,7 +57,7 @@ public abstract class AbstractCriterionTrigger<T extends CriterionInstance> impl
+ 
+     protected void func_235959_a_(ServerPlayerEntity p_235959_1_, Predicate<T> p_235959_2_) {
+         PlayerAdvancements advancementdataplayer = p_235959_1_.func_192039_O();
+-        Set<ICriterionTrigger.Listener<T>> set = (Set) this.field_227069_a_.get(advancementdataplayer);
++        Set<ICriterionTrigger.Listener<T>> set = (Set) advancementdataplayer.criterionData.get(this); // Paper - fix AdvancementDataPlayer leak
+ 
+         if (set != null && !set.isEmpty()) {
+             LootContext loottableinfo = EntityPredicate.func_234575_b_(p_235959_1_, p_235959_1_);
+@@ -68,7 +68,7 @@ public abstract class AbstractCriterionTrigger<T extends CriterionInstance> impl
+ 
+             while (iterator.hasNext()) {
+                 criteriontrigger_a = (ICriterionTrigger.Listener) iterator.next();
+-                T t0 = (CriterionInstance) criteriontrigger_a.func_192158_a();
++                T t0 = (T) criteriontrigger_a.func_192158_a(); // Paper - decompile fix
+ 
+                 if (t0.func_233383_b_().func_234588_a_(loottableinfo) && p_235959_2_.test(t0)) {
+                     if (list == null) {

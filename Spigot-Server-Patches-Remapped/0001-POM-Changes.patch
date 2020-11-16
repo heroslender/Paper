@@ -1,0 +1,329 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Mon, 29 Feb 2016 20:40:33 -0600
+Subject: [PATCH] POM Changes
+
+
+diff --git a/pom.xml b/pom.xml
+index db08e98c60084b16ee18455ce014a6ea305f89c5..52834690de9f07c9c4838dbef50031567c1a72dc 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -1,15 +1,14 @@
+ <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+     <modelVersion>4.0.0</modelVersion>
+-    <groupId>org.spigotmc</groupId>
+-    <artifactId>spigot</artifactId>
++    <artifactId>paper</artifactId>
+     <packaging>jar</packaging>
+     <version>1.16.1-R0.1-SNAPSHOT</version>
+-    <name>Spigot</name>
+-    <url>https://www.spigotmc.org/</url>
++    <name>Paper</name>
++    <url>https://papermc.io</url>
+ 
+     <properties>
+-        <skipTests>true</skipTests>
++        <!-- <skipTests>true</skipTests> Paper - This [was] not going to end well -->
+         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+         <api.version>unknown</api.version>
+         <minecraft.version>1.16.1</minecraft.version>
+@@ -19,16 +18,22 @@
+     </properties>
+ 
+     <parent>
+-        <groupId>org.spigotmc</groupId>
+-        <artifactId>spigot-parent</artifactId>
++        <groupId>com.destroystokyo.paper</groupId>
++        <artifactId>paper-parent</artifactId>
+         <version>dev-SNAPSHOT</version>
+         <relativePath>../pom.xml</relativePath>
+     </parent>
+ 
+     <dependencies>
+         <dependency>
+-            <groupId>org.spigotmc</groupId>
+-            <artifactId>spigot-api</artifactId>
++            <groupId>com.destroystokyo.paper</groupId>
++            <artifactId>paper-api</artifactId>
++            <version>${project.version}</version>
++            <scope>compile</scope>
++        </dependency>
++        <dependency>
++            <groupId>com.destroystokyo.paper</groupId>
++            <artifactId>paper-mojangapi</artifactId>
+             <version>${project.version}</version>
+             <scope>compile</scope>
+         </dependency>
+@@ -50,6 +55,17 @@
+             <version>8.0.1</version>
+             <scope>compile</scope>
+         </dependency>
++        <dependency>
++            <!-- wrapper to use either java 8 sun cleaner or java9+ official cleaner -->
++            <groupId>co.aikar</groupId>
++            <artifactId>cleaner</artifactId>
++            <version>1.0-SNAPSHOT</version>
++        </dependency>
++        <dependency>
++            <groupId>io.netty</groupId>
++            <artifactId>netty-all</artifactId>
++            <version>4.1.50.Final</version>
++        </dependency>
+         <!-- deprecated API depend -->
+         <dependency>
+             <groupId>com.googlecode.json-simple</groupId>
+@@ -106,34 +122,22 @@
+ 
+     <!-- This builds a completely 'ready to start' jar with all dependencies inside -->
+     <build>
++        <finalName>paper-${minecraft.version}</finalName>
++        <defaultGoal>clean install</defaultGoal> <!-- Paper -->
+         <plugins>
+             <plugin>
+-                <groupId>net.md-5</groupId>
+-                <artifactId>scriptus</artifactId>
+-                <version>0.4.1</version>
++                <groupId>com.lukegb.mojo</groupId>
++                <artifactId>gitdescribe-maven-plugin</artifactId>
++                <version>1.3</version>
++                <configuration>
++                    <outputPrefix>git-Paper-</outputPrefix>
++                    <scmDirectory>..</scmDirectory>
++                </configuration>
+                 <executions>
+                     <execution>
+-                        <id>ex-spigot</id>
+-                        <configuration>
+-                            <format>git-Spigot-%s</format>
+-                            <scmDirectory>../</scmDirectory>
+-                            <descriptionProperty>spigot.desc</descriptionProperty>
+-                        </configuration>
+-                        <phase>initialize</phase>
++                        <phase>compile</phase>
+                         <goals>
+-                            <goal>describe</goal>
+-                        </goals>
+-                    </execution>
+-                    <execution>
+-                        <id>ex-craftbukkit</id>
+-                        <configuration>
+-                            <format>-%s</format>
+-                            <scmDirectory>../../CraftBukkit</scmDirectory>
+-                            <descriptionProperty>craftbukkit.desc</descriptionProperty>
+-                        </configuration>
+-                        <phase>initialize</phase>
+-                        <goals>
+-                            <goal>describe</goal>
++                            <goal>gitdescribe</goal>
+                         </goals>
+                     </execution>
+                 </executions>
+@@ -143,6 +147,7 @@
+                 <artifactId>maven-jar-plugin</artifactId>
+                 <version>3.2.0</version>
+                 <configuration>
++                    <forceCreation>true</forceCreation> <!-- Required to prevent shading the jar multiple times -->
+                     <archive>
+                         <manifest>
+                             <addDefaultEntries>false</addDefaultEntries>
+@@ -150,8 +155,9 @@
+                         <manifestEntries>
+                             <Main-Class>org.bukkit.craftbukkit.Main</Main-Class>
+                             <Implementation-Title>CraftBukkit</Implementation-Title>
+-                            <Implementation-Version>${spigot.desc}${craftbukkit.desc}</Implementation-Version>
+-                            <Implementation-Vendor>${project.build.outputTimestamp}</Implementation-Vendor>
++                            <!--suppress MavenModelInspection -->
++                            <Implementation-Version>${describe}</Implementation-Version>
++                            <Implementation-Vendor>${maven.build.timestamp}</Implementation-Vendor>
+                             <Specification-Title>Bukkit</Specification-Title>
+                             <Specification-Version>${api.version}</Specification-Version>
+                             <Specification-Vendor>Bukkit Team</Specification-Vendor>
+@@ -190,6 +196,7 @@
+                             <goal>shade</goal>
+                         </goals>
+                         <configuration>
++                            <dependencyReducedPomLocation>${project.build.directory}/dependency-reduced-pom.xml</dependencyReducedPomLocation> <!-- Paper -->
+                             <createSourcesJar>${shadeSourcesJar}</createSourcesJar>
+                             <filters>
+                                 <filter>
+@@ -198,6 +205,14 @@
+                                         <exclude>com/google/common/**</exclude>
+                                         <exclude>com/google/gson/**</exclude>
+                                         <exclude>com/google/thirdparty/**</exclude>
++                                        <!-- paper -->
++                                        <exclude>io/netty/**</exclude>
++                                        <exclude>META-INF/native/libnetty*</exclude>
++                                        <exclude>com/brigadier/**</exclude>
++                                        <exclude>META-INF/MANIFEST.MF</exclude>
++                                        <exclude>com.mojang.authlib.yggdrasil.YggdrasilGameProfileRepository</exclude>
++                                        <exclude>com.mojang.datafixers.util.Either</exclude>
++                                        <exclude>org.apache.logging.log4j/**</exclude>
+                                     </excludes>
+                                 </filter>
+                             </filters>
+@@ -213,10 +228,11 @@
+                                     <pattern>jline</pattern>
+                                     <shadedPattern>org.bukkit.craftbukkit.libs.jline</shadedPattern>
+                                 </relocation>
+-                                <relocation>
+-                                    <pattern>it.unimi</pattern>
+-                                    <shadedPattern>org.bukkit.craftbukkit.libs.it.unimi</shadedPattern>
+-                                </relocation>
++                                <!-- Paper - Don't relocate fastutil in order to prevent api breakage -->
++                                <!--<relocation>-->
++                                    <!--<pattern>it.unimi</pattern>-->
++                                    <!--<shadedPattern>org.bukkit.craftbukkit.libs.it.unimi</shadedPattern>-->
++                                <!--</relocation>-->
+                                 <relocation>
+                                     <pattern>org.apache.commons.codec</pattern>
+                                     <shadedPattern>org.bukkit.craftbukkit.libs.org.apache.commons.codec</shadedPattern>
+@@ -258,10 +274,6 @@
+                 <groupId>org.apache.maven.plugins</groupId>
+                 <artifactId>maven-compiler-plugin</artifactId>
+                 <version>3.8.1</version>
+-                <configuration>
+-                    <!-- we use the Eclipse compiler as it doesn't need a JDK -->
+-                    <compilerId>eclipse</compilerId>
+-                </configuration>
+                 <dependencies>
+                     <!-- we need our custom version as it fixes some bugs on case sensitive file systems -->
+                     <dependency>
+diff --git a/src/main/java/net/minecraft/block/ChestBlock.java b/src/main/java/net/minecraft/block/ChestBlock.java
+index f30c0b66b16d8722a142935423e15265fce20504..c9b4c872ca67864584400ef7cc482982deef12a9 100644
+--- a/src/main/java/net/minecraft/block/ChestBlock.java
++++ b/src/main/java/net/minecraft/block/ChestBlock.java
+@@ -80,7 +80,7 @@ public class ChestBlock extends AbstractChestBlock<ChestTileEntity> implements I
+         public Optional<INamedContainerProvider> func_225539_a_(final ChestTileEntity p_225539_1_, final ChestTileEntity p_225539_2_) {
+             final DoubleSidedInventory inventorylargechest = new DoubleSidedInventory(p_225539_1_, p_225539_2_);
+ 
+-            return Optional.of(new net.minecraft.block.ChestBlock.DoubleInventory(p_225539_1_, p_225539_2_, inventorylargechest)); // CraftBukkit
++            return Optional.of(new DoubleInventory(p_225539_1_, p_225539_2_, inventorylargechest)); // CraftBukkit
+         }
+ 
+         public Optional<INamedContainerProvider> func_225538_a_(ChestTileEntity p_225538_1_) {
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 40fc4fd1af28aefdfd5f9ade2bedfb97e3bb5d36..13c81954030d1a9de2e0aefa88a83206e6a6bc4c 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -762,7 +762,7 @@ public abstract class LivingEntity extends Entity {
+ 
+     // CraftBukkit start
+     private boolean isTickingEffects = false;
+-    private List<net.minecraft.entity.LivingEntity.ProcessableEffect> effectsToProcess = Lists.newArrayList();
++    private List<ProcessableEffect> effectsToProcess = Lists.newArrayList();
+ 
+     private static class ProcessableEffect {
+ 
+@@ -813,7 +813,7 @@ public abstract class LivingEntity extends Entity {
+         }
+         // CraftBukkit start
+         isTickingEffects = false;
+-        for (net.minecraft.entity.LivingEntity.ProcessableEffect e : effectsToProcess) {
++        for (ProcessableEffect e : effectsToProcess) {
+             if (e.effect != null) {
+                 addEffect(e.effect, e.cause);
+             } else {
+@@ -986,7 +986,7 @@ public abstract class LivingEntity extends Entity {
+     public boolean addEffect(EffectInstance mobeffect, EntityPotionEffectEvent.Cause cause) {
+         org.spigotmc.AsyncCatcher.catchOp("effect add"); // Spigot
+         if (isTickingEffects) {
+-            effectsToProcess.add(new net.minecraft.entity.LivingEntity.ProcessableEffect(mobeffect, cause));
++            effectsToProcess.add(new ProcessableEffect(mobeffect, cause));
+             return true;
+         }
+         // CraftBukkit end
+@@ -1049,7 +1049,7 @@ public abstract class LivingEntity extends Entity {
+     @Nullable
+     public EffectInstance c(@Nullable Effect mobeffectlist, EntityPotionEffectEvent.Cause cause) {
+         if (isTickingEffects) {
+-            effectsToProcess.add(new net.minecraft.entity.LivingEntity.ProcessableEffect(mobeffectlist, cause));
++            effectsToProcess.add(new ProcessableEffect(mobeffectlist, cause));
+             return null;
+         }
+ 
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index 167966820e5109d8aba57501b9a82dfcda801b0e..4ba133ac3352bad3a3b9662887552b846401f3d2 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -196,7 +196,7 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+                 public void run() {
+                     try {
+                         initUUID();
+-                        new net.minecraft.network.login.ServerLoginNetHandler.LoginHandler().fireEvents();
++                        new LoginHandler().fireEvents();
+                     } catch (Exception ex) {
+                         disconnect("Failed to verify username!");
+                         field_147327_f.server.getLogger().log(java.util.logging.Level.WARNING, "Exception verifying " + field_147337_i.getName(), ex);
+@@ -233,7 +233,7 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+                                 return;
+                             }
+ 
+-                            new net.minecraft.network.login.ServerLoginNetHandler.LoginHandler().fireEvents();
++                            new LoginHandler().fireEvents();
+                         } else if (ServerLoginNetHandler.this.field_147327_f.func_71264_H()) {
+                             ServerLoginNetHandler.field_147332_c.warn("Failed to verify username but will let them in anyway!");
+                             ServerLoginNetHandler.this.field_147337_i = ServerLoginNetHandler.this.func_152506_a(gameprofile);
+diff --git a/src/main/java/net/minecraft/tileentity/LecternTileEntity.java b/src/main/java/net/minecraft/tileentity/LecternTileEntity.java
+index 1b7b3580bb63063fec3465ac8edbe1f0df46cdd5..e640dfd67ca12e6800026e1fc17c46c1353e2ac6 100644
+--- a/src/main/java/net/minecraft/tileentity/LecternTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/LecternTileEntity.java
+@@ -42,7 +42,7 @@ import org.bukkit.inventory.InventoryHolder;
+ public class LecternTileEntity extends TileEntity implements IClearable, INamedContainerProvider, ICommandSource { // CraftBukkit - ICommandListener
+ 
+     // CraftBukkit start - add fields and methods
+-    public final IInventory field_214048_a = new net.minecraft.tileentity.LecternTileEntity.LecternInventory();
++    public final IInventory field_214048_a = new LecternInventory();
+     public class LecternInventory implements IInventory {
+ 
+         public List<HumanEntity> transaction = new ArrayList<>();
+diff --git a/src/main/java/org/bukkit/craftbukkit/Main.java b/src/main/java/org/bukkit/craftbukkit/Main.java
+index eaec0c30f15e4ee4611ae7c9b2c146d75a1e0d51..5014cbbeef9a9980cca43680c3378b9d6cc210d3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/Main.java
++++ b/src/main/java/org/bukkit/craftbukkit/Main.java
+@@ -186,7 +186,7 @@ public class Main {
+                 }
+ 
+                 if (Main.class.getPackage().getImplementationVendor() != null && System.getProperty("IReallyKnowWhatIAmDoingISwear") == null) {
+-                    Date buildDate = new Date(Integer.parseInt(Main.class.getPackage().getImplementationVendor()) * 1000L);
++                    Date buildDate = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").parse(Main.class.getPackage().getImplementationVendor()); // Paper
+ 
+                     Calendar deadline = Calendar.getInstance();
+                     deadline.add(Calendar.DAY_OF_YEAR, -21);
+diff --git a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaBlockState.java b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaBlockState.java
+index 86cf864385bddf726efe6380bf5f81935e7421ad..c6b1118943e38ade69dd2a8c0612de1d99ccb3f3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaBlockState.java
++++ b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaBlockState.java
+@@ -68,7 +68,6 @@ import org.bukkit.craftbukkit.block.CraftSign;
+ import org.bukkit.craftbukkit.block.CraftSkull;
+ import org.bukkit.craftbukkit.block.CraftSmoker;
+ import org.bukkit.craftbukkit.block.CraftStructureBlock;
+-import org.bukkit.craftbukkit.inventory.CraftMetaItem.ItemMetaKey;
+ import org.bukkit.craftbukkit.util.CraftMagicNumbers;
+ import org.bukkit.inventory.meta.BlockStateMeta;
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaLeatherArmor.java b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaLeatherArmor.java
+index 801c77ab002c103ad6a301ec76e6208a80f6b54f..9d4a6e828519ed7b738d768f5913e7711296c3cf 100644
+--- a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaLeatherArmor.java
++++ b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaLeatherArmor.java
+@@ -8,7 +8,6 @@ import net.minecraft.nbt.IntNBT;
+ import org.bukkit.Color;
+ import org.bukkit.Material;
+ import org.bukkit.configuration.serialization.DelegateDeserialization;
+-import org.bukkit.craftbukkit.inventory.CraftMetaItem.ItemMetaKey;
+ import org.bukkit.craftbukkit.inventory.CraftMetaItem.SerializableMeta;
+ import org.bukkit.inventory.meta.LeatherArmorMeta;
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/util/Versioning.java b/src/main/java/org/bukkit/craftbukkit/util/Versioning.java
+index 93046379d0cefd5d3236fc59e698809acdc18f80..674096cab190d62622f9947853b056f57d43a2a5 100644
+--- a/src/main/java/org/bukkit/craftbukkit/util/Versioning.java
++++ b/src/main/java/org/bukkit/craftbukkit/util/Versioning.java
+@@ -11,7 +11,7 @@ public final class Versioning {
+     public static String getBukkitVersion() {
+         String result = "Unknown-Version";
+ 
+-        InputStream stream = Bukkit.class.getClassLoader().getResourceAsStream("META-INF/maven/org.spigotmc/spigot-api/pom.properties");
++        InputStream stream = Bukkit.class.getClassLoader().getResourceAsStream("META-INF/maven/com.destroystokyo.paper/paper-api/pom.properties");
+         Properties properties = new Properties();
+ 
+         if (stream != null) {

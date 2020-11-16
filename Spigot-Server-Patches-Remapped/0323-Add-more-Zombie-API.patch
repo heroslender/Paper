@@ -1,0 +1,118 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 7 Oct 2018 04:29:59 -0500
+Subject: [PATCH] Add more Zombie API
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+index 62f6818fb3a2cbf9e599653d8a7f352fbd956a64..e399fd5306b23bf20867b6563506d3da06168e14 100644
+--- a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+@@ -91,6 +91,7 @@ public class ZombieEntity extends MonsterEntity {
+     private int field_204707_bD;
+     public int field_204708_bE;
+     private int lastTick = MinecraftServer.currentTick; // CraftBukkit - add field
++    private boolean shouldBurnInDay = true; // Paper
+ 
+     public ZombieEntity(EntityType<? extends ZombieEntity> entitytypes, World world) {
+         super(entitytypes, world);
+@@ -264,6 +265,13 @@ public class ZombieEntity extends MonsterEntity {
+         this.func_184212_Q().func_187227_b(ZombieEntity.field_204709_bA, true);
+     }
+ 
++    // Paper start
++    public void stopDrowning() {
++        this.field_204708_bE = -1;
++        this.func_184212_Q().func_187227_b(ZombieEntity.field_204709_bA, false);
++    }
++    // Paper end
++
+     protected void func_207302_dI() {
+         this.func_234341_c_(EntityType.field_204724_o);
+         if (!this.func_174814_R()) {
+@@ -283,10 +291,17 @@ public class ZombieEntity extends MonsterEntity {
+ 
+     }
+ 
++    public boolean shouldBurnInDay() { return func_190730_o(); } // Paper - OBFHELPER
+     protected boolean func_190730_o() {
+-        return true;
++        return shouldBurnInDay;
+     }
+ 
++    // Paper start
++    public void setShouldBurnInDay(boolean shouldBurnInDay) {
++        this.shouldBurnInDay = shouldBurnInDay;
++    }
++    // Paper end
++
+     @Override
+     public boolean func_70097_a(DamageSource p_70097_1_, float p_70097_2_) {
+         if (super.func_70097_a(p_70097_1_, p_70097_2_)) {
+@@ -406,6 +421,7 @@ public class ZombieEntity extends MonsterEntity {
+         p_213281_1_.func_74757_a("CanBreakDoors", this.func_146072_bX());
+         p_213281_1_.func_74768_a("InWaterTime", this.func_70090_H() ? this.field_204707_bD : -1);
+         p_213281_1_.func_74768_a("DrownedConversionTime", this.func_204706_dD() ? this.field_204708_bE : -1);
++        p_213281_1_.func_74757_a("Paper.ShouldBurnInDay", shouldBurnInDay); // Paper
+     }
+ 
+     @Override
+@@ -420,7 +436,11 @@ public class ZombieEntity extends MonsterEntity {
+         if (p_70037_1_.func_150297_b("DrownedConversionTime", 99) && p_70037_1_.func_74762_e("DrownedConversionTime") > -1) {
+             this.func_204704_a(p_70037_1_.func_74762_e("DrownedConversionTime"));
+         }
+-
++        // Paper start
++        if (p_70037_1_.func_74764_b("Paper.ShouldBurnInDay")) {
++            shouldBurnInDay = p_70037_1_.func_74767_n("Paper.ShouldBurnInDay");
++        }
++        // Paper end
+     }
+ 
+     @Override
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftZombie.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftZombie.java
+index ae6842873c5a67819396b42bf31b3ca912f89982..0019c50d6a4c143931566c20a5404ef867a934b7 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftZombie.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftZombie.java
+@@ -80,4 +80,41 @@ public class CraftZombie extends CraftMonster implements Zombie {
+             getHandle().func_204704_a(time);
+         }
+     }
++
++    // Paper start
++    @Override
++    public boolean isDrowning() {
++        return getHandle().func_204706_dD();
++    }
++
++    @Override
++    public void startDrowning(int drownedConversionTime) {
++        getHandle().func_204704_a(drownedConversionTime);
++    }
++
++    @Override
++    public void stopDrowning() {
++        getHandle().stopDrowning();
++    }
++
++    @Override
++    public boolean shouldBurnInDay() {
++        return getHandle().shouldBurnInDay();
++    }
++
++    @Override
++    public boolean isArmsRaised() {
++        return getHandle().func_213398_dR();
++    }
++
++    @Override
++    public void setArmsRaised(final boolean raised) {
++        getHandle().func_213395_q(raised);
++    }
++
++    @Override
++    public void setShouldBurnInDay(boolean shouldBurnInDay) {
++        getHandle().setShouldBurnInDay(shouldBurnInDay);
++    }
++    // Paper end
+ }

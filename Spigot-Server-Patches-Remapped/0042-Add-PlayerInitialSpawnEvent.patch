@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Steve Anton <anxuiz.nx@gmail.com>
+Date: Thu, 3 Mar 2016 00:09:38 -0600
+Subject: [PATCH] Add PlayerInitialSpawnEvent
+
+For modifying a player's initial spawn location as they join the server
+
+This is a duplicate API from spigot, so use our duplicate subclass and
+improve setPosition to use raw
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index ec467d1b39a71a8055b1b3fd67dd7640fc691376..c74bf7731b9caea4201661dec53554a7533d941a 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -208,7 +208,7 @@ public abstract class PlayerList {
+ 
+         // Spigot start - spawn location event
+         Player bukkitPlayer = p_72355_2_.getBukkitEntity();
+-        PlayerSpawnLocationEvent ev = new PlayerSpawnLocationEvent(bukkitPlayer, bukkitPlayer.getLocation());
++        PlayerSpawnLocationEvent ev = new com.destroystokyo.paper.event.player.PlayerInitialSpawnEvent(bukkitPlayer, bukkitPlayer.getLocation()); // Paper use our duplicate event
+         Bukkit.getPluginManager().callEvent(ev);
+ 
+         Location loc = ev.getSpawnLocation();
+@@ -216,7 +216,7 @@ public abstract class PlayerList {
+ 
+         p_72355_2_.a_(worldserver1);
+         p_72355_2_.field_71134_c.func_73080_a((ServerWorld) p_72355_2_.field_70170_p);
+-        p_72355_2_.func_70107_b(loc.getX(), loc.getY(), loc.getZ());
++        p_72355_2_.func_226288_n_(loc.getX(), loc.getY(), loc.getZ()); // Paper - set raw so we aren't fully joined to the world (not added to chunk or world)
+         p_72355_2_.func_70101_b(loc.getYaw(), loc.getPitch());
+         // Spigot end
+ 

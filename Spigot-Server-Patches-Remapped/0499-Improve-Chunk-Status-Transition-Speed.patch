@@ -1,0 +1,99 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 29 May 2020 23:32:14 -0400
+Subject: [PATCH] Improve Chunk Status Transition Speed
+
+When a chunk is loaded from disk that has already been generated,
+the server has to promote the chunk through the system to reach
+it's current desired status level.
+
+This results in every single status transition going from the main thread
+to the world gen threads, only to discover it has no work it actually
+needs to do.... and then it returns back to main.
+
+This back and forth costs a lot of time and can really delay chunk loads
+when the server is under high TPS due to their being a lot of time in
+between chunk load times, as well as hogs up the chunk threads from doing
+actual generation and light work.
+
+Additionally, the whole task system uses a lot of CPU on the server threads anyways.
+
+So by optimizing status transitions for status's that are already complete,
+we can run them to the desired level while on main thread (where it has
+to happen anyways) instead of ever jumping to world gen thread.
+
+This will improve chunk loading effeciency to be reduced down to the following
+scenario / path:
+
+1) MAIN: Chunk Requested, Load Request sent to ChunkTaskManager / IO Queue
+2) IO: Once position in queue comes, submit read IO data and schedule to chunk task thread
+3) CHUNK: Once IO is loaded and position in queue comes, deserialize the chunk data, process conversions, submit to main queue
+4) MAIN: next Chunk Task process (Mid Tick or End Of Tick), load chunk data into world (POI, main thread tasks)
+5) MAIN: process status transitions all the way to LIGHT, light schedules Threaded task
+6) SERVER: Light tasks register light enablement for chunk and any lighting needing to be done
+7) MAIN: Task returns to main, finish processing to FULL/TICKING status
+
+Previously would have hopped to SERVER around 12+ times there extra.
+
+diff --git a/src/main/java/net/minecraft/world/server/ChunkHolder.java b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+index 731b064231ae4a3ec46cd32e4b506f7f2153a922..4efee5a6e284656d2722fd2c2ed28cdf76e13603 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkHolder.java
++++ b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+@@ -77,6 +77,13 @@ public class ChunkHolder {
+         this.playersInChunkTickRange = this.chunkMap.playerChunkTickRangeMap.getObjectsInRange(key);
+     }
+     // Paper end - optimise isOutsideOfRange
++    // Paper start - optimize chunk status progression without jumping through thread pool
++    public boolean canAdvanceStatus() {
++        ChunkStatus status = getChunkHolderStatus();
++        IChunk chunk = getAvailableChunkNow();
++        return chunk != null && (status == null || chunk.func_201589_g().isAtLeastStatus(getNextStatus(status)));
++    }
++    // Paper end
+ 
+     // Paper start - no-tick view distance
+     public final Chunk getSendingChunk() {
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 39143207b23fc274230755fb9807116bb2e8ec2d..8bf1844f5ebfa418aefb9e13caa2addcb6f9a81d 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -796,7 +796,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+             return either.mapLeft((list) -> {
+                 return (Chunk) list.get(list.size() / 2);
+             });
+-        }, this.field_219257_k);
++        }, this.mainInvokingExecutor); // Paper
+     }
+ 
+     @Nullable
+@@ -1146,7 +1146,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+                     IChunk ichunkaccess = (IChunk) optional.get();
+ 
+                     if (ichunkaccess.func_201589_g().func_209003_a(p_219244_2_)) {
+-                        CompletableFuture completablefuture1;
++                        CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> completablefuture1; // Paper
+ 
+                         if (p_219244_2_ == ChunkStatus.field_222614_j) {
+                             completablefuture1 = this.func_223156_b(p_219244_1_, p_219244_2_);
+@@ -1162,7 +1162,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+                         return this.func_223156_b(p_219244_1_, p_219244_2_);
+                     }
+                 }
+-            }, this.field_219257_k);
++            }, this.mainInvokingExecutor).thenComposeAsync(CompletableFuture::completedFuture, this.mainInvokingExecutor); // Paper - optimize chunk status progression without jumping through thread pool - ensure main
+         }
+     }
+ 
+@@ -1283,6 +1283,12 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+                 return CompletableFuture.completedFuture(Either.right(playerchunk_failure));
+             });
+         }, (runnable) -> {
++            // Paper start - optimize chunk status progression without jumping through thread pool
++            if (p_223156_1_.canAdvanceStatus()) {
++                this.mainInvokingExecutor.execute(runnable);
++                return;
++            }
++            // Paper end
+             this.field_219264_r.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219081_a(p_223156_1_, runnable));
+         });
+     }

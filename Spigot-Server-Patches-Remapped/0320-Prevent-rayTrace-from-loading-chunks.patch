@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 26 Nov 2018 19:21:58 -0500
+Subject: [PATCH] Prevent rayTrace from loading chunks
+
+ray tracing into an unloaded chunk should be treated as a miss
+this saves a ton of lag for when AI tries to raytrace near unloaded chunks.
+
+diff --git a/src/main/java/net/minecraft/world/IBlockReader.java b/src/main/java/net/minecraft/world/IBlockReader.java
+index 3bd09c42fd8ed75700ddeede4a9c1e03a224151d..247061dd8719fe4f8e083fd9e387fa4735377691 100644
+--- a/src/main/java/net/minecraft/world/IBlockReader.java
++++ b/src/main/java/net/minecraft/world/IBlockReader.java
+@@ -59,7 +59,15 @@ public interface IBlockReader {
+ 
+     // CraftBukkit start - moved block handling into separate method for use by Block#rayTrace
+     default BlockRayTraceResult rayTraceBlock(RayTraceContext raytrace1, BlockPos blockposition) {
+-            BlockState iblockdata = this.func_180495_p(blockposition);
++            // Paper start - Prevent raytrace from loading chunks
++            BlockState iblockdata = this.getTypeIfLoaded(blockposition);
++            if (iblockdata == null) {
++                // copied the last function parameter (listed below)
++                Vector3d vec3d = raytrace1.func_222253_b().func_178788_d(raytrace1.func_222250_a());
++
++                return BlockRayTraceResult.func_216352_a(raytrace1.func_222250_a(), Direction.func_210769_a(vec3d.field_72450_a, vec3d.field_72448_b, vec3d.field_72449_c), new BlockPos(raytrace1.func_222250_a()));
++            }
++            // Paper end
+             FluidState fluid = this.func_204610_c(blockposition);
+             Vector3d vec3d = raytrace1.func_222253_b();
+             Vector3d vec3d1 = raytrace1.func_222250_a();

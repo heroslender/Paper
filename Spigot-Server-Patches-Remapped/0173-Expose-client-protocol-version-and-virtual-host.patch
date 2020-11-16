@@ -1,0 +1,128 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Minecrell <minecrell@minecrell.net>
+Date: Tue, 10 Oct 2017 18:45:20 +0200
+Subject: [PATCH] Expose client protocol version and virtual host
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/network/PaperNetworkClient.java b/src/main/java/com/destroystokyo/paper/network/PaperNetworkClient.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..981ecc6c17d6355f4d7f234ba7f6c42726014f64
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/network/PaperNetworkClient.java
+@@ -0,0 +1,49 @@
++package com.destroystokyo.paper.network;
++
++import java.net.InetSocketAddress;
++
++import javax.annotation.Nullable;
++import net.minecraft.network.NetworkManager;
++
++public class PaperNetworkClient implements NetworkClient {
++
++    private final NetworkManager networkManager;
++
++    PaperNetworkClient(NetworkManager networkManager) {
++        this.networkManager = networkManager;
++    }
++
++    @Override
++    public InetSocketAddress getAddress() {
++        return (InetSocketAddress) this.networkManager.func_74430_c();
++    }
++
++    @Override
++    public int getProtocolVersion() {
++        return this.networkManager.protocolVersion;
++    }
++
++    @Nullable
++    @Override
++    public InetSocketAddress getVirtualHost() {
++        return this.networkManager.virtualHost;
++    }
++
++    public static InetSocketAddress prepareVirtualHost(String host, int port) {
++        int len = host.length();
++
++        // FML appends a marker to the host to recognize FML clients (\0FML\0)
++        int pos = host.indexOf('\0');
++        if (pos >= 0) {
++            len = pos;
++        }
++
++        // When clients connect with a SRV record, their host contains a trailing '.'
++        if (len > 0 && host.charAt(len -  1) == '.') {
++            len--;
++        }
++
++        return InetSocketAddress.createUnresolved(host.substring(0, len), port);
++    }
++
++}
+diff --git a/src/main/java/net/minecraft/network/NetworkManager.java b/src/main/java/net/minecraft/network/NetworkManager.java
+index ec5366b12c2852d3707a33735465faa7e1626688..7db29e1e5e5a1b775ff0c5e0024a36c9b99cbb2e 100644
+--- a/src/main/java/net/minecraft/network/NetworkManager.java
++++ b/src/main/java/net/minecraft/network/NetworkManager.java
+@@ -68,6 +68,10 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+     private float field_211397_t;
+     private int field_211398_u;
+     private boolean field_211399_v;
++    // Paper start - NetworkClient implementation
++    public int protocolVersion;
++    public java.net.InetSocketAddress virtualHost;
++    // Paper end
+ 
+     public NetworkManager(PacketDirection enumprotocoldirection) {
+         this.field_179294_g = enumprotocoldirection;
+diff --git a/src/main/java/net/minecraft/network/handshake/ServerHandshakeNetHandler.java b/src/main/java/net/minecraft/network/handshake/ServerHandshakeNetHandler.java
+index 673b4a3024eae68c60effab47b1668d212b5febf..f941ed2b62b4ff9d37bd92dcb7b50eb5c96da307 100644
+--- a/src/main/java/net/minecraft/network/handshake/ServerHandshakeNetHandler.java
++++ b/src/main/java/net/minecraft/network/handshake/ServerHandshakeNetHandler.java
+@@ -144,6 +144,10 @@ public class ServerHandshakeNetHandler implements IHandshakeNetHandler {
+                 throw new UnsupportedOperationException("Invalid intention " + p_147383_1_.func_149594_c());
+         }
+ 
++        // Paper start - NetworkClient implementation
++        this.getNetworkManager().protocolVersion = p_147383_1_.getProtocolVersion();
++        this.getNetworkManager().virtualHost = com.destroystokyo.paper.network.PaperNetworkClient.prepareVirtualHost(p_147383_1_.field_149598_b, p_147383_1_.field_149599_c);
++        // Paper end
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/network/handshake/client/CHandshakePacket.java b/src/main/java/net/minecraft/network/handshake/client/CHandshakePacket.java
+index a6eb6fc561e03d73d2ce85516d896ecd5260ad9c..cb43bdd5b517100c0dd1935fb8a705b65266761d 100644
+--- a/src/main/java/net/minecraft/network/handshake/client/CHandshakePacket.java
++++ b/src/main/java/net/minecraft/network/handshake/client/CHandshakePacket.java
+@@ -39,6 +39,7 @@ public class CHandshakePacket implements IPacket<IHandshakeNetHandler> {
+         return this.field_149597_d;
+     }
+ 
++    public int getProtocolVersion() { return func_149595_d(); } // Paper - OBFHELPER
+     public int func_149595_d() {
+         return this.field_149600_a;
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index 8847e57e7ffbeeeaf17e60016dbcac3234c09aab..e910eacae6d99103a9265c9302440a69cf71029a 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -187,6 +187,20 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+         }
+     }
+ 
++    // Paper start - Implement NetworkClient
++    @Override
++    public int getProtocolVersion() {
++        if (getHandle().field_71135_a == null) return -1;
++        return getHandle().field_71135_a.field_147371_a.protocolVersion;
++    }
++
++    @Override
++    public InetSocketAddress getVirtualHost() {
++        if (getHandle().field_71135_a == null) return null;
++        return getHandle().field_71135_a.field_147371_a.virtualHost;
++    }
++    // Paper end
++
+     @Override
+     public double getEyeHeight(boolean ignorePose) {
+         if (ignorePose) {

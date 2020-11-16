@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 28 Jun 2020 19:36:55 -0400
+Subject: [PATCH] Don't allow null UUID's for chat
+
+
+diff --git a/src/main/java/net/minecraft/network/play/server/SChatPacket.java b/src/main/java/net/minecraft/network/play/server/SChatPacket.java
+index 01cb735bdc27455dbd820e21f82da6e1c5ae30dc..1396b5adf1d03346faff1318c11be19b0e4809b5 100644
+--- a/src/main/java/net/minecraft/network/play/server/SChatPacket.java
++++ b/src/main/java/net/minecraft/network/play/server/SChatPacket.java
+@@ -5,6 +5,7 @@ import java.util.UUID;
+ import net.minecraft.client.network.play.IClientPlayNetHandler;
+ import net.minecraft.network.IPacket;
+ import net.minecraft.network.PacketBuffer;
++import net.minecraft.util.Util;
+ import net.minecraft.util.text.ChatType;
+ import net.minecraft.util.text.ITextComponent;
+ 
+@@ -20,7 +21,7 @@ public class SChatPacket implements IPacket<IClientPlayNetHandler> {
+     public SChatPacket(ITextComponent ichatbasecomponent, ChatType chatmessagetype, UUID uuid) {
+         this.field_148919_a = ichatbasecomponent;
+         this.field_179842_b = chatmessagetype;
+-        this.field_240809_c_ = uuid;
++        this.field_240809_c_ = uuid != null ? uuid : Util.getNullUUID(); // Paper
+     }
+ 
+     @Override

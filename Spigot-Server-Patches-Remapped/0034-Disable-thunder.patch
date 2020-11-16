@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sudzzy <originmc@outlook.com>
+Date: Wed, 2 Mar 2016 14:52:43 -0600
+Subject: [PATCH] Disable thunder
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 25e0717186366af580e512eedfd403b8efc64a75..41436a4ead736dc925ca77d4cabf925f4e492d68 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -161,4 +161,9 @@ public class PaperWorldConfig {
+     private void disableExplosionKnockback(){
+         disableExplosionKnockback = getBoolean("disable-explosion-knockback", false);
+     }
++
++    public boolean disableThunder;
++    private void disableThunder() {
++        disableThunder = getBoolean("disable-thunder", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 943726296a3fbc3834366f4b557d7ea9346f5d36..a085568cd4bfea350960fd46f2ef7526d04c700f 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -572,7 +572,7 @@ public class ServerWorld extends World implements ISeedReader {
+         gameprofilerfiller.func_76320_a("thunder");
+         BlockPos blockposition;
+ 
+-        if (flag && this.func_72911_I() && this.field_73012_v.nextInt(100000) == 0) {
++        if (!this.paperConfig.disableThunder && flag && this.func_72911_I() && this.field_73012_v.nextInt(100000) == 0) { // Paper - Disable thunder
+             blockposition = this.func_175736_a(this.func_217383_a(j, 0, k, 15));
+             if (this.func_175727_C(blockposition)) {
+                 DifficultyInstance difficultydamagescaler = this.func_175649_E(blockposition);

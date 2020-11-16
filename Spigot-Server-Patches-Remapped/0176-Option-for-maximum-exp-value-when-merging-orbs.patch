@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 10 Nov 2017 23:03:12 -0500
+Subject: [PATCH] Option for maximum exp value when merging orbs
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index e30f48caf2ce4f48f371b2594b765c27bc9e9778..2d8b354d707e8b5b0e7cd644fb93bc8f1c4009f1 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -335,4 +335,10 @@ public class PaperWorldConfig {
+         disableCreeperLingeringEffect = getBoolean("disable-creeper-lingering-effect", false);
+         log("Creeper lingering effect: " + disableCreeperLingeringEffect);
+     }
++
++    public int expMergeMaxValue;
++    private void expMergeMaxValue() {
++        expMergeMaxValue = getInt("experience-merge-max-value", -1);
++        log("Experience Merge Max Value: " + expMergeMaxValue);
++    }
+ }
+diff --git a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+index f457e5a1d59d369e63556d2ad89667e02a82ab7e..2d3d9c7eb8aa75ef816093a1fda1a2e2246aad64 100644
+--- a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
++++ b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+@@ -575,16 +575,32 @@ public class CraftEventFactory {
+             ExperienceOrbEntity xp = (ExperienceOrbEntity) entity;
+             double radius = world.spigotConfig.expMerge;
+             if (radius > 0) {
++                // Paper start - Maximum exp value when merging - Whole section has been tweaked, see comments for specifics
++                final int maxValue = world.paperConfig.expMergeMaxValue;
++                final boolean mergeUnconditionally = world.paperConfig.expMergeMaxValue <= 0;
++                if (mergeUnconditionally || xp.field_70530_e < maxValue) { // Paper - Skip iteration if unnecessary
++
+                 List<Entity> entities = world.func_72839_b(entity, entity.func_174813_aQ().func_72314_b(radius, radius, radius));
+                 for (Entity e : entities) {
+                     if (e instanceof ExperienceOrbEntity) {
+                         ExperienceOrbEntity loopItem = (ExperienceOrbEntity) e;
+-                        if (!loopItem.field_70128_L) {
+-                            xp.field_70530_e += loopItem.field_70530_e;
+-                            loopItem.func_70106_y();
++                        // Paper start
++                        if (!loopItem.field_70128_L && !(maxValue > 0 && loopItem.field_70530_e >= maxValue)) {
++                            long newTotal = (long)xp.field_70530_e + (long)loopItem.field_70530_e;
++                            if ((int) newTotal < 0) continue; // Overflow
++                            if (maxValue > 0 && newTotal > (long)maxValue) {
++                                loopItem.field_70530_e = (int) (newTotal - maxValue);
++                                xp.field_70530_e = maxValue;
++                            } else {
++                                xp.field_70530_e += loopItem.field_70530_e;
++                                loopItem.func_70106_y();
++                            }
++                            // Paper end
+                         }
+                     }
+                 }
++
++                } // Paper end - End iteration skip check - All tweaking ends here
+             }
+         // Spigot end
+         } else if (!(entity instanceof ServerPlayerEntity)) {

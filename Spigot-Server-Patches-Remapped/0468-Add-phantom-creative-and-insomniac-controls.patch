@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 25 Apr 2020 15:13:41 -0500
+Subject: [PATCH] Add phantom creative and insomniac controls
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 08949526752e4d66e4c0df11f76f6500846e1fe4..13b89276feb76fcecaeefc166a1bc161d5931d9d 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -622,4 +622,11 @@ public class PaperWorldConfig {
+     private void lightQueueSize() {
+         lightQueueSize = getInt("light-queue-size", lightQueueSize);
+     }
++
++    public boolean phantomIgnoreCreative = true;
++    public boolean phantomOnlyAttackInsomniacs = true;
++    private void phantomSettings() {
++        phantomIgnoreCreative = getBoolean("phantoms-do-not-spawn-on-creative-players", phantomIgnoreCreative);
++        phantomOnlyAttackInsomniacs = getBoolean("phantoms-only-attack-insomniacs", phantomOnlyAttackInsomniacs);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/monster/PhantomEntity.java b/src/main/java/net/minecraft/entity/monster/PhantomEntity.java
+index 7577e1aaeff3a52cad42042d1b7a0b04479f56e4..7780352cc8978bbeabb22e1acf12b919bd90bec4 100644
+--- a/src/main/java/net/minecraft/entity/monster/PhantomEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/PhantomEntity.java
+@@ -261,6 +261,7 @@ public class PhantomEntity extends FlyingEntity implements IMob {
+                         PlayerEntity entityhuman = (PlayerEntity) iterator.next();
+ 
+                         if (PhantomEntity.this.func_213344_a((LivingEntity) entityhuman, EntityPredicate.field_221016_a)) {
++                            if (!field_70170_p.paperConfig.phantomOnlyAttackInsomniacs || EntityPredicates.isInsomniac.test(entityhuman)) // Paper
+                             PhantomEntity.this.setGoalTarget(entityhuman, org.bukkit.event.entity.EntityTargetEvent.TargetReason.CLOSEST_PLAYER, true); // CraftBukkit - reason
+                             return true;
+                         }
+diff --git a/src/main/java/net/minecraft/util/EntityPredicates.java b/src/main/java/net/minecraft/util/EntityPredicates.java
+index f40702f4a70a1fd1a8a9e255e61a084d578ed5f8..9bca0ac2d54e419305ca973925df74cb8a399940 100644
+--- a/src/main/java/net/minecraft/util/EntityPredicates.java
++++ b/src/main/java/net/minecraft/util/EntityPredicates.java
+@@ -10,6 +10,8 @@ import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.inventory.IInventory;
+ import net.minecraft.item.ItemStack;
+ import net.minecraft.scoreboard.Team;
++import net.minecraft.stats.Stats;
++import net.minecraft.util.math.MathHelper;
+ import net.minecraft.world.Difficulty;
+ 
+ public final class EntityPredicates {
+@@ -34,6 +36,7 @@ public final class EntityPredicates {
+     public static final Predicate<Entity> field_180132_d = (entity) -> {
+         return !entity.func_175149_v();
+     };
++    public static Predicate<PlayerEntity> isInsomniac = (player) -> MathHelper.func_76125_a(((ServerPlayerEntity) player).func_147099_x().func_77444_a(Stats.field_199092_j.get(Stats.field_203284_n)), 1, Integer.MAX_VALUE) >= 72000; // Paper
+ 
+     // Paper start
+     public static final Predicate<Entity> affectsSpawning = (entity) -> {
+diff --git a/src/main/java/net/minecraft/world/spawner/PhantomSpawner.java b/src/main/java/net/minecraft/world/spawner/PhantomSpawner.java
+index f71407f998a4c3103e62718066014c530cdd4f87..7b1a0c50890ab76273749bb057a77fcedecc0abc 100644
+--- a/src/main/java/net/minecraft/world/spawner/PhantomSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/PhantomSpawner.java
+@@ -51,7 +51,7 @@ public class PhantomSpawner implements ISpecialSpawner {
+                     while (iterator.hasNext()) {
+                         PlayerEntity entityhuman = (PlayerEntity) iterator.next();
+ 
+-                        if (!entityhuman.func_175149_v()) {
++                        if (!entityhuman.func_175149_v() && (!p_230253_1_.paperConfig.phantomIgnoreCreative || !entityhuman.func_184812_l_())) { // Paper
+                             BlockPos blockposition = entityhuman.func_233580_cy_();
+ 
+                             if (!p_230253_1_.func_230315_m_().func_218272_d() || blockposition.func_177956_o() >= p_230253_1_.func_181545_F() && p_230253_1_.func_226660_f_(blockposition)) {

@@ -1,0 +1,168 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 13 May 2020 23:01:26 -0400
+Subject: [PATCH] Protect Bedrock and End Portal/Frames from being destroyed
+
+This fixes exploits that let players destroy bedrock by Pistons, explosions
+and Mushrooom/Tree generation.
+
+These blocks are designed to not be broken except by creative players/commands.
+So protect them from a multitude of methods of destroying them.
+
+A config is provided if you rather let players use these exploits, and let
+them destroy the worlds End Portals and get on top of the nether easy.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index 093605fe8e079d9ec973702c55ea6caddf0369f1..3d63215a855c71d257b18a247eb7f0b2d7908bce 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -411,4 +411,17 @@ public class PaperConfig {
+     private static void midTickChunkTasks() {
+         midTickChunkTasks = getInt("settings.chunk-tasks-per-tick", midTickChunkTasks);
+     }
++
++    public static boolean allowBlockPermanentBreakingExploits = false;
++    private static void allowBlockPermanentBreakingExploits() {
++        if (config.contains("allow-perm-block-break-exploits")) {
++            allowBlockPermanentBreakingExploits = config.getBoolean("allow-perm-block-break-exploits", false);
++            config.set("allow-perm-block-break-exploits", null);
++        }
++
++        config.set("settings.unsupported-settings.allow-permanent-block-break-exploits-readme", "This setting controls if players should be able to break bedrock, end portals and other intended to be permanent blocks.");
++        allowBlockPermanentBreakingExploits = getBoolean("settings.unsupported-settings.allow-permanent-block-break-exploits", allowBlockPermanentBreakingExploits);
++
++    }
++
+ }
+diff --git a/src/main/java/net/minecraft/block/AbstractBlock.java b/src/main/java/net/minecraft/block/AbstractBlock.java
+index ace3e1d5984c070a9e88d796dd79ba372a9c12f1..e5e8c17e76339fdf4941b1c52b0f785b3e00c3a8 100644
+--- a/src/main/java/net/minecraft/block/AbstractBlock.java
++++ b/src/main/java/net/minecraft/block/AbstractBlock.java
+@@ -185,7 +185,7 @@ public abstract class AbstractBlock {
+ 
+     @Deprecated
+     public boolean func_196253_a(BlockState p_196253_1_, BlockItemUseContext p_196253_2_) {
+-        return this.field_149764_J.func_76222_j() && (p_196253_2_.func_195996_i().func_190926_b() || p_196253_2_.func_195996_i().func_77973_b() != this.func_199767_j());
++        return this.field_149764_J.func_76222_j() && (p_196253_2_.func_195996_i().func_190926_b() || p_196253_2_.func_195996_i().func_77973_b() != this.func_199767_j()) && (p_196253_1_.isDestroyable() || (p_196253_2_.func_195999_j() != null && p_196253_2_.func_195999_j().field_71075_bZ.field_75098_d)); // Paper
+     }
+ 
+     @Deprecated
+@@ -389,7 +389,11 @@ public abstract class AbstractBlock {
+         public Block func_177230_c() {
+             return (Block) this.field_235892_c_;
+         }
+-
++        // Paper start
++        public final boolean isDestroyable() {
++            return func_177230_c().isDestroyable();
++        }
++        // Paper end
+         public Material func_185904_a() {
+             return this.field_235703_g_;
+         }
+@@ -479,7 +483,7 @@ public abstract class AbstractBlock {
+         }
+ 
+         public PushReaction func_185905_o() {
+-            return this.func_177230_c().func_149656_h(this.func_230340_p_());
++            return !isDestroyable() ? PushReaction.BLOCK : this.func_177230_c().func_149656_h(this.func_230340_p_()); // Paper
+         }
+ 
+         public boolean func_200015_d(IBlockReader p_200015_1_, BlockPos p_200015_2_) {
+diff --git a/src/main/java/net/minecraft/block/Block.java b/src/main/java/net/minecraft/block/Block.java
+index 889bba1e02d62439ad309cfb804dd675981eeab0..ae03c10f86a7b6ae7ea7bac86b4993e0ec34f6a5 100644
+--- a/src/main/java/net/minecraft/block/Block.java
++++ b/src/main/java/net/minecraft/block/Block.java
+@@ -62,6 +62,14 @@ public class Block extends AbstractBlock implements IItemProvider {
+     protected final StateContainer<Block, BlockState> field_176227_L;
+     private BlockState field_196275_y;
+     // Paper start
++    public final boolean isDestroyable() {
++        return com.destroystokyo.paper.PaperConfig.allowBlockPermanentBreakingExploits ||
++            this != Blocks.field_150357_h &&
++            this != Blocks.field_150378_br &&
++            this != Blocks.field_150384_bq &&
++            this != Blocks.field_185775_db &&
++            this != Blocks.field_196603_bb; // try to prevent creation of headless pistons
++    }
+     public co.aikar.timings.Timing timing;
+     public co.aikar.timings.Timing getTiming() {
+         if (timing == null) {
+diff --git a/src/main/java/net/minecraft/block/PistonBlock.java b/src/main/java/net/minecraft/block/PistonBlock.java
+index 4a8c519128abf64a0d9067e24f9cbccb564ac947..1862dd5c477ebf207f5b4599122b12d2824db20e 100644
+--- a/src/main/java/net/minecraft/block/PistonBlock.java
++++ b/src/main/java/net/minecraft/block/PistonBlock.java
+@@ -188,6 +188,12 @@ public class PistonBlock extends DirectionalBlock {
+     @Override
+     public boolean func_189539_a(BlockState p_189539_1_, World p_189539_2_, BlockPos p_189539_3_, int p_189539_4_, int p_189539_5_) {
+         Direction enumdirection = (Direction) p_189539_1_.func_177229_b(PistonBlock.field_176387_N);
++        // Paper start - prevent retracting when we're facing the wrong way (we were replaced before retraction could occur)
++        Direction directionQueuedAs = Direction.func_82600_a(p_189539_5_ & 7); // Paper - copied from below
++        if (!com.destroystokyo.paper.PaperConfig.allowBlockPermanentBreakingExploits && enumdirection != directionQueuedAs) {
++            return false;
++        }
++        // Paper end - prevent retracting when we're facing the wrong way
+ 
+         if (!p_189539_2_.field_72995_K) {
+             boolean flag = this.func_176318_b(p_189539_2_, p_189539_3_, enumdirection);
+@@ -219,7 +225,7 @@ public class PistonBlock extends DirectionalBlock {
+             BlockState iblockdata1 = (BlockState) ((BlockState) Blocks.field_196603_bb.func_176223_P().func_206870_a(MovingPistonBlock.field_196344_a, enumdirection)).func_206870_a(MovingPistonBlock.field_196345_b, this.field_150082_a ? PistonType.STICKY : PistonType.DEFAULT);
+ 
+             p_189539_2_.func_180501_a(p_189539_3_, iblockdata1, 20);
+-            p_189539_2_.func_175690_a(p_189539_3_, MovingPistonBlock.func_196343_a((BlockState) this.func_176223_P().func_206870_a(PistonBlock.field_176387_N, Direction.func_82600_a(p_189539_5_ & 7)), enumdirection, false, true));
++            p_189539_2_.func_175690_a(p_189539_3_, MovingPistonBlock.func_196343_a((BlockState) this.func_176223_P().func_206870_a(PistonBlock.field_176387_N, Direction.func_82600_a(p_189539_5_ & 7)), enumdirection, false, true)); // Paper - diff on change, j is facing direction - copy this above
+             p_189539_2_.func_230547_a_(p_189539_3_, iblockdata1.func_177230_c());
+             iblockdata1.func_235734_a_(p_189539_2_, p_189539_3_, 2);
+             if (this.field_150082_a) {
+@@ -248,7 +254,14 @@ public class PistonBlock extends DirectionalBlock {
+                     }
+                 }
+             } else {
+-                p_189539_2_.func_217377_a(p_189539_3_.func_177972_a(enumdirection), false);
++                // Paper start - fix headless pistons breaking blocks
++                BlockPos headPos = p_189539_3_.func_177972_a(enumdirection);
++                if (com.destroystokyo.paper.PaperConfig.allowBlockPermanentBreakingExploits || p_189539_2_.func_180495_p(headPos) == Blocks.field_150332_K.func_176223_P().func_206870_a(field_176387_N, enumdirection)) { // double check to make sure we're not a headless piston.
++                    p_189539_2_.setAir(headPos, false);
++                } else {
++                    ((ServerWorld)p_189539_2_).E().func_217217_a(headPos); // ... fix client desync
++                }
++                // Paper end - fix headless pistons breaking blocks
+             }
+ 
+             p_189539_2_.func_184133_a((PlayerEntity) null, p_189539_3_, SoundEvents.field_187712_dQ, SoundCategory.BLOCKS, 0.5F, p_189539_2_.field_73012_v.nextFloat() * 0.15F + 0.6F);
+diff --git a/src/main/java/net/minecraft/world/Explosion.java b/src/main/java/net/minecraft/world/Explosion.java
+index 23f8bc869131fe2001b6626e9fb0dcd4056293c0..058dbfad3885f34288c25273c2f776d16cabb9c1 100644
+--- a/src/main/java/net/minecraft/world/Explosion.java
++++ b/src/main/java/net/minecraft/world/Explosion.java
+@@ -152,6 +152,7 @@ public class Explosion {
+                         for (float f1 = 0.3F; f > 0.0F; f -= 0.22500001F) {
+                             BlockPos blockposition = new BlockPos(d4, d5, d6);
+                             BlockState iblockdata = this.field_77287_j.func_180495_p(blockposition);
++                            if (!iblockdata.isDestroyable()) continue; // Paper
+                             FluidState fluid = iblockdata.func_204520_s(); // Paper
+                             Optional<Float> optional = this.field_234893_k_.func_230312_a_(this, this.field_77287_j, blockposition, iblockdata, fluid);
+ 
+@@ -305,7 +306,7 @@ public class Explosion {
+                 BlockState iblockdata = this.field_77287_j.func_180495_p(blockposition);
+                 Block block = iblockdata.func_177230_c();
+ 
+-                if (!iblockdata.func_196958_f()) {
++                if (!iblockdata.func_196958_f() && iblockdata.isDestroyable()) { // Paper
+                     BlockPos blockposition1 = blockposition.func_185334_h();
+ 
+                     this.field_77287_j.func_217381_Z().func_76320_a("explosion_blocks");
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index a8a75967153b70bd2fd27da79a15903eade9d817..82888b3837ae3c12efcd39ea027bd46e23b4bba0 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -466,6 +466,10 @@ public abstract class World implements IWorld, AutoCloseable {
+     public boolean func_241211_a_(BlockPos p_241211_1_, BlockState p_241211_2_, int p_241211_3_, int p_241211_4_) {
+         // CraftBukkit start - tree generation
+         if (this.captureTreeGeneration) {
++            // Paper start
++            BlockState type = func_180495_p(p_241211_1_);
++            if (!type.isDestroyable()) return false;
++            // Paper end
+             CraftBlockState blockstate = capturedBlockStates.get(p_241211_1_);
+             if (blockstate == null) {
+                 blockstate = CapturedBlockState.getTreeBlockState(this, p_241211_1_, p_241211_3_);

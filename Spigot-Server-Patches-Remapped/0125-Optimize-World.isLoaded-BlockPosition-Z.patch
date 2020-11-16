@@ -1,0 +1,212 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 2 Dec 2016 00:11:43 -0500
+Subject: [PATCH] Optimize World.isLoaded(BlockPosition)Z
+
+Reduce method invocations for World.isLoaded(BlockPosition)Z
+
+diff --git a/src/main/java/net/minecraft/block/FireBlock.java b/src/main/java/net/minecraft/block/FireBlock.java
+index 0b403723f3549d4fe3f082bff1fba65be03ee03b..a04e9a224f5579169021cbfa464a4c5b8e86d645 100644
+--- a/src/main/java/net/minecraft/block/FireBlock.java
++++ b/src/main/java/net/minecraft/block/FireBlock.java
+@@ -196,7 +196,7 @@ public class FireBlock extends AbstractFireBlock {
+                                 }
+ 
+                                 blockposition_mutableblockposition.func_239621_a_((Vector3i) p_225534_3_, l, j1, i1);
+-                                if (!p_225534_2_.func_175667_e(blockposition_mutableblockposition)) continue; // Paper
++                                if (!p_225534_2_.C(blockposition_mutableblockposition)) continue; // Paper
+                                 int l1 = this.func_176538_m((IWorldReader) p_225534_2_, (BlockPos) blockposition_mutableblockposition);
+ 
+                                 if (l1 > 0) {
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index ef9b67c28e5f334e11007e10fa105efe5098ae3a..fd3e908e84cef492778ca27c4b8d95943e801f1e 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -1331,7 +1331,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     public float func_70013_c() {
+         BlockPos.Mutable blockposition_mutableblockposition = new BlockPos.Mutable(this.func_226277_ct_(), 0.0D, this.func_226281_cx_());
+ 
+-        if (this.field_70170_p.func_175667_e(blockposition_mutableblockposition)) {
++        if (this.field_70170_p.C(blockposition_mutableblockposition)) {
+             blockposition_mutableblockposition.func_185336_p(MathHelper.func_76128_c(this.func_226280_cw_()));
+             return this.field_70170_p.func_205052_D(blockposition_mutableblockposition);
+         } else {
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 6a03d4a5acc8958767dc9e302e014fe55ddd43c5..512fdbd9e276b37dee42809eb650f2cec04d0c8b 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -2348,7 +2348,7 @@ public abstract class LivingEntity extends Entity {
+                 if (this.func_70644_a(Effects.field_188424_y)) {
+                     d7 += (0.05D * (double) (this.func_70660_b(Effects.field_188424_y).func_76458_c() + 1) - vec3d6.field_72448_b) * 0.2D;
+                     this.field_70143_R = 0.0F;
+-                } else if (this.field_70170_p.field_72995_K && !this.field_70170_p.func_175667_e(blockposition)) {
++                } else if (this.field_70170_p.field_72995_K && !this.field_70170_p.C(blockposition)) {
+                     if (this.func_226278_cu_() > 0.0D) {
+                         d7 = -0.1D;
+                     } else {
+@@ -3277,7 +3277,7 @@ public abstract class LivingEntity extends Entity {
+         BlockPos blockposition = new BlockPos(p_213373_1_, p_213373_2_, p_213373_3_);
+         World world = this.field_70170_p;
+ 
+-        if (world.func_175667_e(blockposition)) {
++        if (world.C(blockposition)) {
+             boolean flag2 = false;
+ 
+             while (!flag2 && blockposition.func_177956_o() > 0) {
+@@ -3405,7 +3405,7 @@ public abstract class LivingEntity extends Entity {
+         World world = this.field_70170_p;
+ 
+         this.field_70170_p.getClass();
+-        optional.filter(world::func_175667_e).ifPresent((blockposition) -> {
++        optional.filter(world::C).ifPresent((blockposition) -> {
+             BlockState iblockdata = this.field_70170_p.func_180495_p(blockposition);
+ 
+             if (iblockdata.func_177230_c() instanceof BedBlock) {
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 73bd95b9da3e4246dd40b6512b200251802f72e2..c0186d63483a4933c755a0ae3932c8cbeea54c4a 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -576,7 +576,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+ 
+     public void func_71127_g() {
+         try {
+-            if (!this.func_175149_v() || this.field_70170_p.func_175667_e(this.func_233580_cy_())) {
++            if (!this.func_175149_v() || this.field_70170_p.C(this.func_233580_cy_())) {
+                 super.func_70071_h_();
+             }
+ 
+@@ -1260,7 +1260,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public void func_71122_b(double p_71122_1_, boolean p_71122_2_) {
+         BlockPos blockposition = this.func_226268_ag_();
+ 
+-        if (this.field_70170_p.func_175667_e(blockposition)) {
++        if (this.field_70170_p.C(blockposition)) {
+             super.func_184231_a(p_71122_1_, p_71122_2_, this.field_70170_p.func_180495_p(blockposition), blockposition);
+         }
+     }
+diff --git a/src/main/java/net/minecraft/entity/projectile/DamagingProjectileEntity.java b/src/main/java/net/minecraft/entity/projectile/DamagingProjectileEntity.java
+index f5871b0d5925dc9217c61a6cd144df728b212c31..580dc9a075671a04829456890db432b687964d4e 100644
+--- a/src/main/java/net/minecraft/entity/projectile/DamagingProjectileEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/DamagingProjectileEntity.java
+@@ -63,7 +63,7 @@ public abstract class DamagingProjectileEntity extends ProjectileEntity {
+     public void func_70071_h_() {
+         Entity entity = this.func_234616_v_();
+ 
+-        if (!this.field_70170_p.field_72995_K && (entity != null && entity.field_70128_L || !this.field_70170_p.func_175667_e(this.func_233580_cy_()))) {
++        if (!this.field_70170_p.field_72995_K && (entity != null && entity.field_70128_L || !this.field_70170_p.C(this.func_233580_cy_()))) {
+             this.func_70106_y();
+         } else {
+             super.func_70071_h_();
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index a1fc73fcfef985bebe02509862a94e4c0ee062e4..3f3626be71f12d14d0f3f64349fd37925e054785 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -2591,7 +2591,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+         ServerWorld worldserver = this.field_147369_b.func_71121_q();
+         BlockPos blockposition = p_147343_1_.func_179722_a();
+ 
+-        if (worldserver.func_175667_e(blockposition)) {
++        if (worldserver.C(blockposition)) {
+             BlockState iblockdata = worldserver.func_180495_p(blockposition);
+             TileEntity tileentity = worldserver.func_175625_s(blockposition);
+ 
+diff --git a/src/main/java/net/minecraft/tileentity/HopperTileEntity.java b/src/main/java/net/minecraft/tileentity/HopperTileEntity.java
+index 02eb00703b9310b92f879d823630a920fba11c1e..0866bae85eb2461736b1b9351c96ff1d86da2707 100644
+--- a/src/main/java/net/minecraft/tileentity/HopperTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/HopperTileEntity.java
+@@ -460,7 +460,7 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+     public static IInventory func_145893_b(World p_145893_0_, double p_145893_1_, double p_145893_2_, double p_145893_3_) {
+         Object object = null;
+         BlockPos blockposition = new BlockPos(p_145893_1_, p_145893_2_, p_145893_3_);
+-        if ( !p_145893_0_.func_175667_e( blockposition ) ) return null; // Spigot
++        if ( !p_145893_0_.C( blockposition ) ) return null; // Spigot
+         BlockState iblockdata = p_145893_0_.func_180495_p(blockposition);
+         Block block = iblockdata.func_177230_c();
+ 
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 689edfb332a7bf73661d6599019a4ed37a74ebdb..0c5ad728b94861c9de485bc341a38311fb5db8cc 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -341,6 +341,11 @@ public abstract class World implements IWorld, AutoCloseable {
+         return chunk == null ? null : chunk.func_204610_c(blockposition);
+     }
+ 
++    public boolean C(BlockPos blockposition) {
++        return getChunkIfLoaded(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4) != null; // Paper
++    }
++
++
+     public boolean isLoadedAndInBounds(BlockPos blockposition) {
+         return func_175723_af().isInBounds(blockposition) && getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4) != null;
+     }
+@@ -821,7 +826,7 @@ public abstract class World implements IWorld, AutoCloseable {
+                 this.field_175730_i.remove(tileTickPosition--);
+                 // Spigot end
+                 //this.tileEntityList.remove(tileentity); // Paper - remove unused list
+-                if (this.func_175667_e(tileentity.func_174877_v())) {
++                if (this.C(tileentity.func_174877_v())) {
+                     this.func_175726_f(tileentity.func_174877_v()).func_177425_e(tileentity.func_174877_v());
+                 }
+             }
+@@ -842,7 +847,7 @@ public abstract class World implements IWorld, AutoCloseable {
+                     }
+                     // CraftBukkit end */
+ 
+-                    if (this.func_175667_e(tileentity1.func_174877_v())) {
++                    if (this.C(tileentity1.func_174877_v())) {
+                         Chunk chunk = this.func_175726_f(tileentity1.func_174877_v());
+                         BlockState iblockdata = chunk.func_180495_p(tileentity1.func_174877_v());
+ 
+@@ -1145,7 +1150,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     public abstract Entity func_73045_a(int p_73045_1_);
+ 
+     public void func_175646_b(BlockPos p_175646_1_, TileEntity p_175646_2_) {
+-        if (this.func_175667_e(p_175646_1_)) {
++        if (this.C(p_175646_1_)) {
+             this.func_175726_f(p_175646_1_).func_76630_e();
+         }
+ 
+@@ -1334,7 +1339,7 @@ public abstract class World implements IWorld, AutoCloseable {
+             Direction enumdirection = (Direction) iterator.next();
+             BlockPos blockposition1 = p_175666_1_.func_177972_a(enumdirection);
+ 
+-            if (this.func_175667_e(blockposition1)) {
++            if (this.C(blockposition1)) {
+                 BlockState iblockdata = this.func_180495_p(blockposition1);
+ 
+                 if (iblockdata.func_203425_a(Blocks.field_196762_fd)) {
+@@ -1356,7 +1361,7 @@ public abstract class World implements IWorld, AutoCloseable {
+         long i = 0L;
+         float f = 0.0F;
+ 
+-        if (this.func_175667_e(p_175649_1_)) {
++        if (this.C(p_175649_1_)) {
+             f = this.func_130001_d();
+             i = this.func_175726_f(p_175649_1_).func_177416_w();
+         }
+diff --git a/src/main/java/net/minecraft/world/raid/Raid.java b/src/main/java/net/minecraft/world/raid/Raid.java
+index 32c46d6c12b38f21cbebe20e7759d85bc08c0c45..d2b640107210d22ed3898b79805a2cc0d499abe6 100644
+--- a/src/main/java/net/minecraft/world/raid/Raid.java
++++ b/src/main/java/net/minecraft/world/raid/Raid.java
+@@ -233,7 +233,7 @@ public class Raid {
+             if (this.field_221360_x == Raid.Status.ONGOING) {
+                 boolean flag = this.field_221353_q;
+ 
+-                this.field_221353_q = this.field_221348_l.func_175667_e(this.field_221347_k);
++                this.field_221353_q = this.field_221348_l.C(this.field_221347_k);
+                 if (this.field_221348_l.func_175659_aa() == Difficulty.PEACEFUL) {
+                     org.bukkit.craftbukkit.event.CraftEventFactory.callRaidStopEvent(this, org.bukkit.event.raid.RaidStopEvent.Reason.PEACE); // CraftBukkit
+                     this.func_221295_o();
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index 8d2c32d48ab0019607d3323dc76e4eddb1437bae..15c27f46cf66940ac4c23ad957b80bf60794b5b4 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -949,7 +949,7 @@ public class CraftWorld implements World {
+     public void setBiome(int x, int y, int z, Biome bio) {
+         net.minecraft.world.biome.Biome bb = CraftBlock.biomeToBiomeBase(bio);
+         BlockPos pos = new BlockPos(x, 0, z);
+-        if (this.world.func_175667_e(pos)) {
++        if (this.world.C(pos)) {
+             net.minecraft.world.chunk.Chunk chunk = this.world.func_175726_f(pos);
+ 
+             if (chunk != null) {

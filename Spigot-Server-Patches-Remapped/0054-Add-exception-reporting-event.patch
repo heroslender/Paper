@@ -1,0 +1,286 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joseph Hirschfeld <joe@ibj.io>
+Date: Thu, 3 Mar 2016 03:15:41 -0600
+Subject: [PATCH] Add exception reporting event
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/ServerSchedulerReportingWrapper.java b/src/main/java/com/destroystokyo/paper/ServerSchedulerReportingWrapper.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..f699ce18ca044f813e194ef2786b7ea853ea86e7
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/ServerSchedulerReportingWrapper.java
+@@ -0,0 +1,38 @@
++package com.destroystokyo.paper;
++
++import com.google.common.base.Preconditions;
++import org.bukkit.craftbukkit.scheduler.CraftTask;
++import com.destroystokyo.paper.event.server.ServerExceptionEvent;
++import com.destroystokyo.paper.exception.ServerSchedulerException;
++
++/**
++ * Reporting wrapper to catch exceptions not natively
++ */
++public class ServerSchedulerReportingWrapper implements Runnable {
++
++    private final CraftTask internalTask;
++
++    public ServerSchedulerReportingWrapper(CraftTask internalTask) {
++        this.internalTask = Preconditions.checkNotNull(internalTask, "internalTask");
++    }
++
++    @Override
++    public void run() {
++        try {
++            internalTask.run();
++        } catch (RuntimeException e) {
++            internalTask.getOwner().getServer().getPluginManager().callEvent(
++                    new ServerExceptionEvent(new ServerSchedulerException(e, internalTask))
++            );
++            throw e;
++        } catch (Throwable t) {
++            internalTask.getOwner().getServer().getPluginManager().callEvent(
++                    new ServerExceptionEvent(new ServerSchedulerException(t, internalTask))
++            ); //Do not rethrow, since it is not permitted with Runnable#run
++        }
++    }
++
++    public CraftTask getInternalTask() {
++        return internalTask;
++    }
++}
+diff --git a/src/main/java/net/minecraft/server/management/PreYggdrasilConverter.java b/src/main/java/net/minecraft/server/management/PreYggdrasilConverter.java
+index 6d3a11d10e254dc9d6988f22ac81e329dc0865d8..280a21744b1010a739759714fa4e4f60fdcb88cf 100644
+--- a/src/main/java/net/minecraft/server/management/PreYggdrasilConverter.java
++++ b/src/main/java/net/minecraft/server/management/PreYggdrasilConverter.java
+@@ -1,5 +1,6 @@
+ package net.minecraft.server.management;
+ 
++import com.destroystokyo.paper.exception.ServerInternalException;
+ import com.google.common.collect.Lists;
+ import com.google.common.collect.Maps;
+ import com.google.common.io.Files;
+@@ -360,6 +361,7 @@ public class PreYggdrasilConverter {
+                             root = CompressedStreamTools.func_74796_a(new java.io.FileInputStream(file5));
+                         } catch (Exception exception) {
+                             exception.printStackTrace();
++                            ServerInternalException.reportInternalException(exception); // Paper
+                         }
+ 
+                         if (root != null) {
+@@ -373,6 +375,7 @@ public class PreYggdrasilConverter {
+                                 CompressedStreamTools.func_74799_a(root, new java.io.FileOutputStream(file2));
+                             } catch (Exception exception) {
+                                 exception.printStackTrace();
++                                ServerInternalException.reportInternalException(exception); // Paper
+                             }
+                        }
+                         // CraftBukkit end
+diff --git a/src/main/java/net/minecraft/village/VillageSiege.java b/src/main/java/net/minecraft/village/VillageSiege.java
+index 98de22bf4c2bf31cd81a211bc39d4b1138a52ff8..35b2163953c1a9f236be35aaf782231c2b6453af 100644
+--- a/src/main/java/net/minecraft/village/VillageSiege.java
++++ b/src/main/java/net/minecraft/village/VillageSiege.java
+@@ -1,5 +1,7 @@
+ package net.minecraft.village;
+ 
++import com.destroystokyo.paper.exception.ServerInternalException;
++
+ import java.util.Iterator;
+ import javax.annotation.Nullable;
+ import net.minecraft.entity.EntityType;
+@@ -116,6 +118,7 @@ public class VillageSiege implements ISpecialSpawner {
+                 entityzombie.func_213386_a(p_75530_1_, p_75530_1_.func_175649_E(entityzombie.func_233580_cy_()), SpawnReason.EVENT, (ILivingEntityData) null, (CompoundNBT) null);
+             } catch (Exception exception) {
+                 exception.printStackTrace();
++                ServerInternalException.reportInternalException(exception); // Paper
+                 return;
+             }
+ 
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 47d451ac90b5b32da2c0d1d7e2fedd8bffdc1422..a322d88b7c5037c1b5b9f26ac53d62d610585541 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -1,5 +1,10 @@
+ package net.minecraft.world;
+ 
++import co.aikar.timings.Timing;
++import co.aikar.timings.Timings;
++import com.destroystokyo.paper.event.server.ServerExceptionEvent;
++import com.destroystokyo.paper.exception.ServerInternalException;
++import com.google.common.base.MoreObjects;
+ import com.google.common.collect.Lists;
+ import com.mojang.serialization.Codec;
+ import java.io.IOException;
+@@ -773,8 +778,11 @@ public abstract class World implements IWorld, AutoCloseable {
+                         gameprofilerfiller.func_76319_b();
+                     } catch (Throwable throwable) {
+                         // Paper start - Prevent tile entity and entity crashes
+-                        System.err.println("TileEntity threw exception at " + tileentity.field_145850_b.getWorld().getName() + ":" + tileentity.field_174879_c.func_177958_n() + "," + tileentity.field_174879_c.func_177956_o() + "," + tileentity.field_174879_c.func_177952_p());
++                        String msg = "TileEntity threw exception at " + tileentity.field_145850_b.getWorld().getName() + ":" + tileentity.field_174879_c.func_177958_n() + "," + tileentity.field_174879_c.func_177956_o() + "," + tileentity.field_174879_c.func_177952_p();
++                        System.err.println(msg);
+                         throwable.printStackTrace();
++                        getServer().getPluginManager().callEvent(new ServerExceptionEvent(new ServerInternalException(msg, throwable)));
++                        // Paper end
+                         tilesThisCycle--;
+                         this.field_175730_i.remove(tileTickPosition--);
+                         continue;
+@@ -845,8 +853,10 @@ public abstract class World implements IWorld, AutoCloseable {
+             p_217390_1_.accept(p_217390_2_);
+         } catch (Throwable throwable) {
+             // Paper start - Prevent tile entity and entity crashes
+-            System.err.println("Entity threw exception at " + p_217390_2_.field_70170_p.getWorld().getName() + ":" + p_217390_2_.func_226277_ct_() + "," + p_217390_2_.func_226278_cu_() + "," + p_217390_2_.func_226281_cx_());
++            String msg = "Entity threw exception at " + p_217390_2_.field_70170_p.getWorld().getName() + ":" + p_217390_2_.func_226277_ct_() + "," + p_217390_2_.func_226278_cu_() + "," + p_217390_2_.func_226281_cx_();
++            System.err.println(msg);
+             throwable.printStackTrace();
++            getServer().getPluginManager().callEvent(new ServerExceptionEvent(new ServerInternalException(msg, throwable)));
+             p_217390_2_.field_70128_L = true;
+             return;
+             // Paper end
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index e62cc18e1f1fb96c297d1cfaf31b03c6d4cceb1e..5e998d4d2880191868c63c07805ea51e55b0eb92 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -1,5 +1,6 @@
+ package net.minecraft.world.chunk;
+ 
++import com.destroystokyo.paper.exception.ServerInternalException;
+ import com.google.common.collect.Maps;
+ import com.google.common.collect.Sets;
+ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+@@ -653,10 +654,15 @@ public class Chunk implements IChunk {
+             this.field_150816_i.remove(p_177426_1_);
+             // Paper end
+         } else {
+-            System.out.println("Attempted to place a tile entity (" + p_177426_2_ + ") at " + p_177426_2_.field_174879_c.func_177958_n() + "," + p_177426_2_.field_174879_c.func_177956_o() + "," + p_177426_2_.field_174879_c.func_177952_p()
+-                + " (" + func_180495_p(p_177426_1_) + ") where there was no entity tile!");
+-            System.out.println("Chunk coordinates: " + (this.field_212816_F.field_77276_a * 16) + "," + (this.field_212816_F.field_77275_b * 16));
+-            new Exception().printStackTrace();
++            // Paper start
++            ServerInternalException e = new ServerInternalException(
++                    "Attempted to place a tile entity (" + p_177426_2_ + ") at " + p_177426_2_.field_174879_c.func_177958_n() + ","
++                            + p_177426_2_.field_174879_c.func_177956_o() + "," + p_177426_2_.field_174879_c.func_177952_p()
++                            + " (" + func_180495_p(p_177426_1_) + ") where there was no entity tile!\n" +
++                            "Chunk coordinates: " + (this.field_212816_F.field_77276_a * 16) + "," + (this.field_212816_F.field_77275_b * 16));
++            e.printStackTrace();
++            ServerInternalException.reportInternalException(e);
++            // Paper end
+             // CraftBukkit end
+         }
+     }
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java b/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
+index fa3bc0ec1d31368997ae4344ab75f3ceb6c98ee9..824d56f87345d06b7270c214439e34da6b2ffff6 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
+@@ -248,6 +248,7 @@ public class RegionFile implements AutoCloseable {
+                     return true;
+                 }
+             } catch (IOException ioexception) {
++                com.destroystokyo.paper.exception.ServerInternalException.reportInternalException(ioexception); // Paper
+                 return false;
+             }
+         }
+@@ -320,6 +321,7 @@ public class RegionFile implements AutoCloseable {
+             filechannel.write(p_227138_2_);
+         } catch (Throwable throwable1) {
+             throwable = throwable1;
++            com.destroystokyo.paper.exception.ServerInternalException.reportInternalException(throwable); // Paper
+             throw throwable1;
+         } finally {
+             if (filechannel != null) {
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 183e51deea079f0e10ac30bc4e8aec0e7b6b6f94..025582273fbda30879407836933e853502625d5b 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -811,6 +811,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+                 return true;
+             } catch (Exception exception) {
+                 ChunkManager.field_219250_d.error("Failed to save chunk {},{}", chunkcoordintpair.field_77276_a, chunkcoordintpair.field_77275_b, exception);
++                com.destroystokyo.paper.exception.ServerInternalException.reportInternalException(exception); // Paper
+                 return false;
+             }
+         }
+diff --git a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+index c1e002cb1a3282a4ff3488d7d59a9864102f13c0..33ddc736bd6dc563105a4f1e7fdeab5b1ec74e53 100644
+--- a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
++++ b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+@@ -45,6 +45,9 @@ import net.minecraft.world.spawner.WorldEntitySpawner;
+ import net.minecraft.world.storage.DimensionSavedDataManager;
+ import net.minecraft.world.storage.IWorldInfo;
+ import net.minecraft.world.storage.SaveFormat;
++import com.destroystokyo.paper.exception.ServerInternalException;
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
+ 
+ public class ServerChunkProvider extends AbstractChunkProvider {
+ 
+diff --git a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+index 33726926f6cc14b9cc45ac803776f0ec917a3b28..f77be63afdf6468f15e05b71fd5bec4f84c2c74d 100644
+--- a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+@@ -51,6 +51,7 @@ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+ 
+ // CraftBukkit start
++import com.destroystokyo.paper.exception.ServerInternalException;
+ import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
+ // CraftBukkit end
+ 
+@@ -305,6 +306,7 @@ public final class WorldEntitySpawner {
+             }
+         } catch (Exception exception) {
+             WorldEntitySpawner.field_209383_a.warn("Failed to create mob", exception);
++            ServerInternalException.reportInternalException(exception); // Paper
+             return null;
+         }
+     }
+@@ -410,6 +412,7 @@ public final class WorldEntitySpawner {
+                                 entity = biomebase_biomemeta.field_200702_b.func_200721_a(p_77191_0_.func_201672_e());
+                             } catch (Exception exception) {
+                                 WorldEntitySpawner.field_209383_a.warn("Failed to create mob", exception);
++                                ServerInternalException.reportInternalException(exception); // Paper
+                                 continue;
+                             }
+ 
+diff --git a/src/main/java/net/minecraft/world/storage/DimensionSavedDataManager.java b/src/main/java/net/minecraft/world/storage/DimensionSavedDataManager.java
+index 18b7fb210a34b4eb3bb0f12feea86b621aad41cb..5df4ec54c7a6ed317c03081d9a6df877a8b16524 100644
+--- a/src/main/java/net/minecraft/world/storage/DimensionSavedDataManager.java
++++ b/src/main/java/net/minecraft/world/storage/DimensionSavedDataManager.java
+@@ -126,6 +126,7 @@ public class DimensionSavedDataManager {
+             nbttagcompound = NBTUtil.func_210821_a(this.field_215758_c, DefaultTypeReferences.SAVED_DATA, nbttagcompound1, j, p_215755_2_);
+         } catch (Throwable throwable4) {
+             throwable = throwable4;
++            com.destroystokyo.paper.exception.ServerInternalException.reportInternalException(throwable); // Paper
+             throw throwable4;
+         } finally {
+             if (pushbackinputstream != null) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/scheduler/CraftScheduler.java b/src/main/java/org/bukkit/craftbukkit/scheduler/CraftScheduler.java
+index 8350ffc5bc23a19b70ee0baf0a5323418500ed59..12dbf310bd1ee28f05d3bac652e74a68c1549ba3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/scheduler/CraftScheduler.java
++++ b/src/main/java/org/bukkit/craftbukkit/scheduler/CraftScheduler.java
+@@ -16,6 +16,9 @@ import java.util.concurrent.atomic.AtomicInteger;
+ import java.util.concurrent.atomic.AtomicReference;
+ import java.util.function.Consumer;
+ import java.util.logging.Level;
++import com.destroystokyo.paper.ServerSchedulerReportingWrapper;
++import com.destroystokyo.paper.event.server.ServerExceptionEvent;
++import com.destroystokyo.paper.exception.ServerSchedulerException;
+ import org.apache.commons.lang.Validate;
+ import org.bukkit.plugin.IllegalPluginAccessException;
+ import org.bukkit.plugin.Plugin;
+@@ -419,6 +422,8 @@ public class CraftScheduler implements BukkitScheduler {
+                             msg,
+                             throwable);
+                     }
++                    task.getOwner().getServer().getPluginManager().callEvent(
++                        new ServerExceptionEvent(new ServerSchedulerException(msg, throwable, task)));
+                     // Paper end
+                 } finally {
+                     currentTask = null;
+@@ -426,7 +431,7 @@ public class CraftScheduler implements BukkitScheduler {
+                 parsePending();
+             } else {
+                 debugTail = debugTail.setNext(new CraftAsyncDebugger(currentTick + RECENT_TICKS, task.getOwner(), task.getTaskClass()));
+-                executor.execute(task);
++                executor.execute(new ServerSchedulerReportingWrapper(task)); // Paper
+                 // We don't need to parse pending
+                 // (async tasks must live with race-conditions if they attempt to cancel between these few lines of code)
+             }

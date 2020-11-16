@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AgentTroll <woodyc40@gmail.com>
+Date: Fri, 22 Mar 2019 22:24:03 -0700
+Subject: [PATCH] Update entity Metadata for all tracked players
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 4d9b58920c7812f7bb42692115054baf52271e7d..24bf96772b51f0c4b269a4eaba7bc74fb47851d2 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -2188,7 +2188,14 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+                     if (event.isCancelled() || this.field_147369_b.field_71071_by.func_70448_g() == null || this.field_147369_b.field_71071_by.func_70448_g().func_77973_b() != origItem) {
+                         // Refresh the current entity metadata
+-                        this.func_147359_a(new SEntityMetadataPacket(entity.func_145782_y(), entity.field_70180_af, true));
++                        // Paper start - update entity for all players
++                        SEntityMetadataPacket packet = new SEntityMetadataPacket(entity.func_145782_y(), entity.field_70180_af, true);
++                        if (entity.tracker != null) {
++                            entity.tracker.func_219391_a(packet);
++                        } else {
++                            this.func_147359_a(packet);
++                        }
++                        // Paper end
+                     }
+ 
+                     if (event.isCancelled()) {
+diff --git a/src/main/java/net/minecraft/world/TrackedEntity.java b/src/main/java/net/minecraft/world/TrackedEntity.java
+index 5be9f4ecfb8b851be179d034965380345e4c3c68..ad4b31f58a5dba0140e8c2e2be7b611e9553d0ff 100644
+--- a/src/main/java/net/minecraft/world/TrackedEntity.java
++++ b/src/main/java/net/minecraft/world/TrackedEntity.java
+@@ -422,6 +422,12 @@ public class TrackedEntity {
+         return SEntityPacket.func_218744_a(this.field_219465_g, this.field_219466_h, this.field_219467_i);
+     }
+ 
++    // Paper start - Add broadcast method
++    void broadcast(IPacket<?> packet) {
++        this.getPacketConsumer().accept(packet);
++    }
++    // Paper end
++
+     private void func_219451_a(IPacket<?> p_219451_1_) {
+         this.field_219464_f.accept(p_219451_1_);
+         if (this.field_219461_c instanceof ServerPlayerEntity) {

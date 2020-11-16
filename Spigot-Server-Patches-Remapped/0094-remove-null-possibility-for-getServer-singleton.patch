@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 28 Apr 2016 00:57:27 -0400
+Subject: [PATCH] remove null possibility for getServer singleton
+
+to stop IDE complaining about potential NPE
+
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 9a9928c97e70d629a1afb7195ce8acb5c5c41760..6ae232c5eb68670917aa04daffad296c1351b772 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -177,6 +177,7 @@ import org.spigotmc.SlackActivityAccountant; // Spigot
+ 
+ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask> implements ISnooperInfo, ICommandSource, AutoCloseable {
+ 
++    private static MinecraftServer SERVER; // Paper
+     public static final Logger field_147145_h = LogManager.getLogger();
+     public static final File field_152367_a = new File("usercache.json");
+     public static final WorldSettings field_213219_c = new WorldSettings("Demo World", GameType.SURVIVAL, false, Difficulty.NORMAL, false, new GameRules(), DatapackCodec.field_234880_a_);
+@@ -283,6 +284,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+ 
+     public MinecraftServer(OptionSet options, DatapackCodec datapackconfiguration, Thread thread, IDynamicRegistries.Impl iregistrycustom_dimension, SaveFormat.LevelSave convertable_conversionsession, IServerConfiguration savedata, ResourcePackList<ResourcePackInfo> resourcepackrepository, Proxy proxy, DataFixer datafixer, DataPackRegistries datapackresources, MinecraftSessionService minecraftsessionservice, GameProfileRepository gameprofilerepository, PlayerProfileCache usercache, IChunkStatusListenerFactory worldloadlistenerfactory) {
+         super("Server");
++        SERVER = this; // Paper - better singleton
+         this.field_240769_m_ = new TimeTracker(Util.field_211180_a, this::func_71259_af);
+         this.field_71304_b = EmptyProfiler.field_219906_a;
+         this.field_147147_p = new ServerStatusResponse();
+@@ -2143,7 +2145,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+ 
+     @Deprecated
+     public static MinecraftServer getServer() {
+-        return (Bukkit.getServer() instanceof CraftServer) ? ((CraftServer) Bukkit.getServer()).getServer() : null;
++        return SERVER; // Paper
+     }
+     // CraftBukkit end
+ 

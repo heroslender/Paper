@@ -1,0 +1,131 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 21 Jul 2018 08:25:40 -0400
+Subject: [PATCH] Add Debug Entities option to debug dupe uuid issues
+
+Add -Ddebug.entities=true to your JVM flags to gain more information
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 3442a35c9c10d727855eaed92af2f6cb14a51e2d..b3ded538f45057d4fe9c4752f4c9f8194b4eefef 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -105,6 +105,7 @@ import net.minecraft.world.IWorldReader;
+ import net.minecraft.world.World;
+ import net.minecraft.world.chunk.Chunk;
+ import net.minecraft.world.gen.Heightmap;
++import net.minecraft.world.server.ChunkManager;
+ import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.server.TicketType;
+ import org.apache.logging.log4j.LogManager;
+@@ -165,6 +166,8 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     public com.destroystokyo.paper.loottable.PaperLootableInventoryData lootableData; // Paper
+     private CraftEntity bukkitEntity;
+ 
++    ChunkManager.EntityTracker tracker; // Paper
++    Throwable addedToWorldStack; // Paper - entity debug
+     public CraftEntity getBukkitEntity() {
+         if (bukkitEntity == null) {
+             bukkitEntity = CraftEntity.getEntity(field_70170_p.getServer(), this);
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index bacbdc2ab20803da5f363bf5b0a51d3a85925677..c1cb8d45bb2aa8e49bfeee655ba350eab511dc76 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -122,6 +122,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     public boolean pvpMode;
+     public boolean keepSpawnInMemory = true;
+     public org.bukkit.generator.ChunkGenerator generator;
++    public static final boolean DEBUG_ENTITIES = Boolean.getBoolean("debug.entities"); // Paper
+ 
+     public boolean captureBlockStates = false;
+     public boolean captureTreeGeneration = false;
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 6964fac0204ac60d17313075769794a55cd574b7..8b0c708c850b82d38aff7e867af67d01d5e0fb51 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -1143,6 +1143,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+             } else {
+                 ChunkManager.EntityTracker playerchunkmap_entitytracker = new ChunkManager.EntityTracker(p_219210_1_, i, j, entitytypes.func_220340_m());
+ 
++                p_219210_1_.tracker = playerchunkmap_entitytracker; // Paper - Fast access to tracker
+                 this.field_219272_z.put(p_219210_1_.func_145782_y(), playerchunkmap_entitytracker);
+                 playerchunkmap_entitytracker.func_219397_a(this.field_219255_i.func_217369_A());
+                 if (p_219210_1_ instanceof ServerPlayerEntity) {
+@@ -1184,7 +1185,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         if (playerchunkmap_entitytracker1 != null) {
+             playerchunkmap_entitytracker1.func_219396_a();
+         }
+-
++        p_219231_1_.tracker = null; // Paper - We're no longer tracked
+     }
+ 
+     protected void func_219169_g() {
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 09e70b1249c3d80a04ba945cff875212d368225f..6d8f73bf875c7aa73b733f8a9026f0b3ff754c1a 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -185,6 +185,9 @@ public class ServerWorld extends World implements ISeedReader {
+     public final SaveFormat.LevelSave convertable;
+     public final UUID uuid;
+     boolean hasPhysicsEvent = true; // Paper
++    private static Throwable getAddToWorldStackTrace(Entity entity) {
++        return new Throwable(entity + " Added to world at " + new java.util.Date());
++    }
+ 
+     @Override public Chunk getChunkIfLoaded(int x, int z) { // Paper - this was added in world too but keeping here for NMS ABI
+         return this.field_241102_C_.func_217205_a(x, z, false);
+@@ -1020,8 +1023,28 @@ public class ServerWorld extends World implements ISeedReader {
+     // CraftBukkit start
+     private boolean addEntity0(Entity entity, CreatureSpawnEvent.SpawnReason spawnReason) {
+         org.spigotmc.AsyncCatcher.catchOp("entity add"); // Spigot
+-        if (entity.valid) { MinecraftServer.field_147145_h.error("Attempted Double World add on " + entity, new Throwable()); return true; } // Paper
++        // Paper start
++        if (entity.valid) {
++            MinecraftServer.field_147145_h.error("Attempted Double World add on " + entity, new Throwable());
++
++            if (DEBUG_ENTITIES) {
++                Throwable thr = entity.addedToWorldStack;
++                if (thr == null) {
++                    MinecraftServer.field_147145_h.error("Double add entity has no add stacktrace");
++                } else {
++                    MinecraftServer.field_147145_h.error("Double add stacktrace: ", thr);
++                }
++            }
++            return true;
++        }
++        // Paper end
+         if (entity.field_70128_L) {
++            // Paper start
++            if (DEBUG_ENTITIES) {
++                new Throwable("Tried to add entity " + entity + " but it was marked as removed already").printStackTrace(); // CraftBukkit
++                getAddToWorldStackTrace(entity).printStackTrace();
++            }
++            // Paper end
+             // WorldServer.LOGGER.warn("Tried to add entity {} but it was marked as removed already", EntityTypes.getName(entity.getEntityType())); // CraftBukkit
+             return false;
+         } else if (this.func_217478_l(entity)) {
+@@ -1181,7 +1204,24 @@ public class ServerWorld extends World implements ISeedReader {
+                 }
+             }
+ 
+-            this.field_175741_N.put(p_217465_1_.func_110124_au(), p_217465_1_);
++            if (DEBUG_ENTITIES) {
++                p_217465_1_.addedToWorldStack = getAddToWorldStackTrace(p_217465_1_);
++            }
++
++            Entity old = this.field_175741_N.put(p_217465_1_.func_110124_au(), p_217465_1_);
++            if (old != null && old.func_145782_y() != p_217465_1_.func_145782_y() && old.valid) {
++                Logger logger = LogManager.getLogger();
++                logger.error("Overwrote an existing entity " + old + " with " + p_217465_1_);
++                if (DEBUG_ENTITIES) {
++                    if (old.addedToWorldStack != null) {
++                        old.addedToWorldStack.printStackTrace();
++                    } else {
++                        logger.error("Oddly, the old entity was not added to the world in the normal way. Plugins?");
++                    }
++                    p_217465_1_.addedToWorldStack.printStackTrace();
++                }
++            }
++
+             this.E().func_217230_c(p_217465_1_);
+             // CraftBukkit start - SPIGOT-5278
+             if (p_217465_1_ instanceof DrownedEntity) {

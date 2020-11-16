@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <blake.galbreath@gmail.com>
+Date: Wed, 9 Oct 2019 21:51:43 -0500
+Subject: [PATCH] Fix stuck in sneak when changing worlds (MC-10657)
+
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 24d000c24031caeef6e00454eb12b20ad153463d..1572bbb2de429468ad102ecf8280ccc2f582d244 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -1139,6 +1139,8 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+             this.field_71149_ch = -1.0F;
+             this.field_71146_ci = -1;
+ 
++            func_226284_e_(false); // Paper - fix MC-10657
++
+             // CraftBukkit start
+             PlayerChangedWorldEvent changeEvent = new PlayerChangedWorldEvent(this.getBukkitEntity(), worldserver1.getWorld());
+             this.field_70170_p.getServer().getPluginManager().callEvent(changeEvent);
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index 555bfdc8736116a0afc5d1a6b467a5687b6f9efe..e52bc3ac089705f306af9fe500e24cf9832118dc 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -826,6 +826,8 @@ public abstract class PlayerList {
+             entityplayer.field_71135_a.func_147359_a(new SPlayEntityEffectPacket(entityplayer.func_145782_y(), mobEffect));
+         }
+ 
++        entityplayer.func_226284_e_(false); // Paper - fix MC-10657
++
+         // Fire advancement trigger
+         entityplayer.func_213846_b(((CraftWorld) fromWorld).getHandle());
+ 

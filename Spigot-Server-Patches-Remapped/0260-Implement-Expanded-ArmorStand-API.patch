@@ -1,0 +1,127 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: willies952002 <admin@domnian.com>
+Date: Thu, 26 Jul 2018 02:25:46 -0400
+Subject: [PATCH] Implement Expanded ArmorStand API
+
+Add the following:
+- Add proper methods for getting and setting items in both hands. Deprecates old methods
+- Enable/Disable slot interactions
+
+diff --git a/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java b/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
+index caccc7af08775f3743bc7685d6e83fd14ce7615f..c21af4a3c10b1fab6cce8c45f97439d157d74228 100644
+--- a/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
+@@ -69,7 +69,7 @@ public class ArmorStandEntity extends LivingEntity {
+     private final NonNullList<ItemStack> field_184800_bx;
+     private boolean field_175436_h;
+     public long field_175437_i;
+-    private int field_175442_bg;
++    private int field_175442_bg; public final void setDisabledSlots(int i) { field_175442_bg = i; } public final int getDisabledSlots() { return field_175442_bg; } // Paper - OBFHELPER
+     public Rotations field_175443_bh;
+     public Rotations field_175444_bi;
+     public Rotations field_175438_bj;
+@@ -418,6 +418,7 @@ public class ArmorStandEntity extends LivingEntity {
+         return enumitemslot;
+     }
+ 
++    public final boolean isSlotDisabled(EquipmentSlotType slot) { return this.func_184796_b(slot); } // Paper - OBFHELPER
+     private boolean func_184796_b(EquipmentSlotType p_184796_1_) {
+         return (this.field_175442_bg & 1 << p_184796_1_.func_188452_c()) != 0 || p_184796_1_.func_188453_a() == EquipmentSlotType.Group.HAND && !this.func_175402_q();
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftArmorStand.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftArmorStand.java
+index 946193be64f3a1a58c66151fad8c27b2a13abb0d..55bc56c9483be396cf4afbf24f277826ff68c986 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftArmorStand.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftArmorStand.java
+@@ -30,11 +30,13 @@ public class CraftArmorStand extends CraftLivingEntity implements ArmorStand {
+     }
+ 
+     @Override
++    @Deprecated // Paper
+     public ItemStack getItemInHand() {
+         return getEquipment().getItemInHand();
+     }
+ 
+     @Override
++    @Deprecated // Paper
+     public void setItemInHand(ItemStack item) {
+         getEquipment().setItemInHand(item);
+     }
+@@ -222,5 +224,78 @@ public class CraftArmorStand extends CraftLivingEntity implements ArmorStand {
+     public void setCanMove(boolean move) {
+         getHandle().canMove = move;
+     }
++
++    @Override
++    public ItemStack getItem(org.bukkit.inventory.EquipmentSlot slot) {
++        com.google.common.base.Preconditions.checkNotNull(slot, "slot");
++        return getHandle().func_184582_a(org.bukkit.craftbukkit.CraftEquipmentSlot.getNMS(slot)).asBukkitMirror();
++    }
++
++    @Override
++    public void setItem(org.bukkit.inventory.EquipmentSlot slot, ItemStack item) {
++        com.google.common.base.Preconditions.checkNotNull(slot, "slot");
++        switch (slot) {
++            case HAND:
++                getEquipment().setItemInMainHand(item);
++                return;
++            case OFF_HAND:
++                getEquipment().setItemInOffHand(item);
++                return;
++            case FEET:
++                setBoots(item);
++                return;
++            case LEGS:
++                setLeggings(item);
++                return;
++            case CHEST:
++                setChestplate(item);
++                return;
++            case HEAD:
++                setHelmet(item);
++                return;
++        }
++        throw new UnsupportedOperationException(slot.name());
++    }
++
++    @Override
++    public java.util.Set<org.bukkit.inventory.EquipmentSlot> getDisabledSlots() {
++        java.util.Set<org.bukkit.inventory.EquipmentSlot> disabled = new java.util.HashSet<>();
++        for (org.bukkit.inventory.EquipmentSlot slot : org.bukkit.inventory.EquipmentSlot.values()) {
++            if (this.isSlotDisabled(slot)) {
++                disabled.add(slot);
++            }
++        }
++        return disabled;
++    }
++
++    @Override
++    public void setDisabledSlots(org.bukkit.inventory.EquipmentSlot... slots) {
++        int disabled = 0;
++        for (org.bukkit.inventory.EquipmentSlot slot : slots) {
++            if (slot == org.bukkit.inventory.EquipmentSlot.OFF_HAND) continue;
++            net.minecraft.inventory.EquipmentSlotType nmsSlot = org.bukkit.craftbukkit.CraftEquipmentSlot.getNMS(slot);
++            disabled += (1 << nmsSlot.func_188452_c()) + (1 << (nmsSlot.func_188452_c() + 8)) + (1 << (nmsSlot.func_188452_c() + 16));
++        }
++        getHandle().setDisabledSlots(disabled);
++    }
++
++    @Override
++    public void addDisabledSlots(org.bukkit.inventory.EquipmentSlot... slots) {
++        java.util.Set<org.bukkit.inventory.EquipmentSlot> disabled = getDisabledSlots();
++        java.util.Collections.addAll(disabled, slots);
++        setDisabledSlots(disabled.toArray(new org.bukkit.inventory.EquipmentSlot[0]));
++    }
++
++    @Override
++    public void removeDisabledSlots(org.bukkit.inventory.EquipmentSlot... slots) {
++        java.util.Set<org.bukkit.inventory.EquipmentSlot> disabled = getDisabledSlots();
++        for (final org.bukkit.inventory.EquipmentSlot slot : slots) disabled.remove(slot);
++        setDisabledSlots(disabled.toArray(new org.bukkit.inventory.EquipmentSlot[0]));
++    }
++
++    @Override
++    public boolean isSlotDisabled(org.bukkit.inventory.EquipmentSlot slot) {
++        return getHandle().isSlotDisabled(org.bukkit.craftbukkit.CraftEquipmentSlot.getNMS(slot));
++    }
+     // Paper end
+ }

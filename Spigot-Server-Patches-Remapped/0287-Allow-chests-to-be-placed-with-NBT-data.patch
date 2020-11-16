@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 8 Sep 2018 18:43:31 -0500
+Subject: [PATCH] Allow chests to be placed with NBT data
+
+
+diff --git a/src/main/java/net/minecraft/item/ItemStack.java b/src/main/java/net/minecraft/item/ItemStack.java
+index df326273efeab3b2bb2170d39707806acd5be8d1..12881ae84e4613359a991b3ea7bcebaeb2c5bc36 100644
+--- a/src/main/java/net/minecraft/item/ItemStack.java
++++ b/src/main/java/net/minecraft/item/ItemStack.java
+@@ -297,6 +297,7 @@ public final class ItemStack {
+                     enuminteractionresult = ActionResultType.FAIL; // cancel placement
+                     // PAIL: Remove this when MC-99075 fixed
+                     placeEvent.getPlayer().updateInventory();
++                    world.capturedTileEntities.clear(); // Paper - clear out tile entities as chests and such will pop loot
+                     // revert back all captured blocks
+                     for (BlockState blockstate : blocks) {
+                         blockstate.update(true, false);
+diff --git a/src/main/java/net/minecraft/tileentity/ChestTileEntity.java b/src/main/java/net/minecraft/tileentity/ChestTileEntity.java
+index d90a99b125629c49c46089fd1f3e6cb21dda3ffe..23a30c72a5ffdc40d12edbdf6412abc59e908b1e 100644
+--- a/src/main/java/net/minecraft/tileentity/ChestTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/ChestTileEntity.java
+@@ -326,7 +326,7 @@ public class ChestTileEntity extends LockableLootTileEntity { // Paper - Remove
+     // CraftBukkit start
+     @Override
+     public boolean t() {
+-        return true;
++        return false; // Paper
+     }
+     // CraftBukkit end
+ }

@@ -1,0 +1,392 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Sat, 15 Jun 2019 08:54:33 -0700
+Subject: [PATCH] Fix World#isChunkGenerated calls
+
+Optimize World#loadChunk() too
+This patch also adds a chunk status cache on region files (note that
+its only purpose is to cache the status on DISK)
+
+diff --git a/src/main/java/net/minecraft/world/chunk/ChunkStatus.java b/src/main/java/net/minecraft/world/chunk/ChunkStatus.java
+index 0b3722778898407491c2b669f29ffc06336cb447..70cc2d10c20207fabe9491a11afbef1a26a14745 100644
+--- a/src/main/java/net/minecraft/world/chunk/ChunkStatus.java
++++ b/src/main/java/net/minecraft/world/chunk/ChunkStatus.java
+@@ -194,6 +194,7 @@ public class ChunkStatus {
+         return this.field_202130_j;
+     }
+ 
++    public ChunkStatus getPreviousStatus() { return this.func_222593_e(); } // Paper - OBFHELPER
+     public ChunkStatus func_222593_e() {
+         return this.field_222624_t;
+     }
+@@ -214,6 +215,17 @@ public class ChunkStatus {
+         return this.field_202134_n;
+     }
+ 
++    // Paper start
++    public static ChunkStatus getStatus(String name) {
++        try {
++            // We need this otherwise we return EMPTY for invalid names
++            ResourceLocation key = new ResourceLocation(name);
++            return Registry.field_218360_A.func_218349_b(key).orElse(null);
++        } catch (Exception ex) {
++            return null; // invalid name
++        }
++    }
++    // Paper end
+     public static ChunkStatus func_222591_a(String p_222591_0_) {
+         return (ChunkStatus) Registry.field_218360_A.func_82594_a(ResourceLocation.func_208304_a(p_222591_0_));
+     }
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/ChunkLoader.java b/src/main/java/net/minecraft/world/chunk/storage/ChunkLoader.java
+index db69ba08023cf97ad20d3a0200c9657632f820bd..5f0897606a95d59c26269a7b2a25876a4ade8421 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/ChunkLoader.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/ChunkLoader.java
+@@ -21,7 +21,7 @@ import net.minecraft.world.storage.DimensionSavedDataManager;
+ 
+ public class ChunkLoader implements AutoCloseable {
+ 
+-    private final IOWorker field_227077_a_;
++    private final IOWorker field_227077_a_; public IOWorker getIOWorker() { return field_227077_a_; } // Paper - OBFHELPER
+     protected final DataFixer field_219168_b;
+     @Nullable
+     private LegacyStructureDataUtil field_219167_a;
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+index c07898e5b9d760df36fdaa8ec662c431e1b22a37..206237ac35c32cd4b537760b436775e69bcd9ed4 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+@@ -450,6 +450,17 @@ public class ChunkSerializer {
+     }
+     // Paper end
+ 
++    // Paper start
++    public static ChunkStatus getStatus(CompoundNBT compound) {
++        if (compound == null) {
++            return null;
++        }
++
++        // Note: Copied from below
++        return ChunkStatus.getStatus(compound.func_74775_l("Level").func_74779_i("Status"));
++    }
++    // Paper end
++
+     public static ChunkStatus.Type func_222651_a(@Nullable CompoundNBT p_222651_0_) {
+         if (p_222651_0_ != null) {
+             ChunkStatus chunkstatus = ChunkStatus.func_222591_a(p_222651_0_.func_74775_l("Level").func_74779_i("Status"));
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java b/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
+index 8ab1085ad5e8625ab38fbf33e5130bd91185f750..814ce0e19e4c49fcf06062522e02532347f8863c 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
+@@ -24,6 +24,7 @@ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.CompressedStreamTools;
+ import net.minecraft.util.Util;
+ import net.minecraft.util.math.ChunkPos;
++import net.minecraft.world.chunk.ChunkStatus;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+ 
+@@ -40,6 +41,30 @@ public class RegionFile implements AutoCloseable {
+     private final RegionBitmap field_227128_i_;
+     public final File file;
+ 
++    // Paper start - Cache chunk status
++    private final ChunkStatus[] statuses = new ChunkStatus[32 * 32];
++
++    private boolean closed;
++
++    // invoked on write/read
++    public void setStatus(int x, int z, ChunkStatus status) {
++        if (this.closed) {
++            // We've used an invalid region file.
++            throw new IllegalStateException("RegionFile is closed");
++        }
++        this.statuses[getChunkLocation(x, z)] = status;
++    }
++
++    public ChunkStatus getStatusIfCached(int x, int z) {
++        if (this.closed) {
++            // We've used an invalid region file.
++            throw new IllegalStateException("RegionFile is closed");
++        }
++        final int location = getChunkLocation(x, z);
++        return this.statuses[location];
++    }
++    // Paper end
++
+     public RegionFile(File p_i231893_1_, File p_i231893_2_, boolean p_i231893_3_) throws IOException {
+         this(p_i231893_1_.toPath(), p_i231893_2_.toPath(), RegionFileVersion.field_227159_b_, p_i231893_3_);
+     }
+@@ -363,11 +388,13 @@ public class RegionFile implements AutoCloseable {
+         return this.func_222660_e(p_222667_1_) != 0;
+     }
+ 
++    private static int getChunkLocation(int x, int z) { return (x & 31) + (z & 31) * 32; } // Paper - OBFHELPER - sort of, mirror of logic below
+     private static int func_222668_f(ChunkPos p_222668_0_) {
+         return p_222668_0_.func_222240_j() + p_222668_0_.func_222238_k() * 32;
+     }
+ 
+     public void close() throws IOException {
++        this.closed = true; // Paper
+         try {
+             this.func_227143_c_();
+         } finally {
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java b/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java
+index 51ed13955c653d7dcaf88b51163660f0496eb811..70999f1ff2cffce4c0976358d9fe14a9d7ac6910 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java
+@@ -26,7 +26,14 @@ public final class RegionFileCache implements AutoCloseable {
+         this.field_235986_c_ = p_i231895_2_;
+     }
+ 
+-    private RegionFile getFile(ChunkPos chunkcoordintpair, boolean existingOnly) throws IOException { // CraftBukkit
++
++    // Paper start
++    public RegionFile getRegionFileIfLoaded(ChunkPos chunkcoordintpair) {
++        return this.field_219102_c.getAndMoveToFirst(ChunkPos.func_77272_a(chunkcoordintpair.func_222241_h(), chunkcoordintpair.func_222242_i()));
++    }
++
++    // Paper end
++    public RegionFile getFile(ChunkPos chunkcoordintpair, boolean existingOnly) throws IOException { // CraftBukkit // Paper - private >  public
+         long i = ChunkPos.func_77272_a(chunkcoordintpair.func_222241_h(), chunkcoordintpair.func_222242_i());
+         RegionFile regionfile = (RegionFile) this.field_219102_c.getAndMoveToFirst(i);
+ 
+@@ -173,7 +180,8 @@ public final class RegionFileCache implements AutoCloseable {
+ 
+         try {
+             CompressedStreamTools.func_74800_a(p_219100_2_, (DataOutput) dataoutputstream);
+-            regionfile.setOversized(p_219100_1_.field_77276_a, p_219100_1_.field_77275_b, false); // We don't do this anymore
++            regionfile.setStatus(p_219100_1_.field_77276_a, p_219100_1_.field_77275_b, ChunkSerializer.getStatus(p_219100_2_)); // Paper - cache status on disk
++            regionfile.setOversized(p_219100_1_.field_77276_a, p_219100_1_.field_77275_b, false);
+         } catch (Throwable throwable1) {
+             throwable = throwable1;
+             throw throwable1;
+diff --git a/src/main/java/net/minecraft/world/server/ChunkHolder.java b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+index 1d1bdf9c8bacfb50b5dc8f7249c6d9161f7f4b77..c26e0510278e3317f55725c7b055221c1ba34c3b 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkHolder.java
++++ b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+@@ -132,6 +132,19 @@ public class ChunkHolder {
+         Either<IChunk, ChunkHolder.IChunkLoadingError> either = (Either<IChunk, ChunkHolder.IChunkLoadingError>) statusFuture.getNow(null);
+         return either == null ? null : (Chunk) either.left().orElse(null);
+     }
++
++    public IChunk getAvailableChunkNow() {
++        // TODO can we just getStatusFuture(EMPTY)?
++        for (ChunkStatus curr = ChunkStatus.field_222617_m, next = curr.getPreviousStatus(); curr != next; curr = next, next = next.getPreviousStatus()) {
++            CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = this.func_219301_a(curr);
++            Either<IChunk, ChunkHolder.IChunkLoadingError> either = future.getNow(null);
++            if (either == null || !either.left().isPresent()) {
++                continue;
++            }
++            return either.left().get();
++        }
++        return null;
++    }
+     // Paper end
+ 
+     public CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> func_219301_a(ChunkStatus p_219301_1_) {
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index a5f911a5192b7bbd450342465bb1057ec02f386c..56617e123db897df9cb45fad1f42f83e1091eedc 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -93,6 +93,7 @@ import net.minecraft.world.chunk.PlayerGenerationTracker;
+ import net.minecraft.world.chunk.listener.IChunkStatusListener;
+ import net.minecraft.world.chunk.storage.ChunkLoader;
+ import net.minecraft.world.chunk.storage.ChunkSerializer;
++import net.minecraft.world.chunk.storage.RegionFile;
+ import net.minecraft.world.gen.ChunkGenerator;
+ import net.minecraft.world.gen.feature.structure.StructureStart;
+ import net.minecraft.world.gen.feature.template.TemplateManager;
+@@ -989,12 +990,61 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+     }
+ 
+     @Nullable
+-    private CompoundNBT func_219178_f(ChunkPos p_219178_1_) throws IOException {
++    public CompoundNBT func_219178_f(ChunkPos p_219178_1_) throws IOException { // Paper - private -> public
+         CompoundNBT nbttagcompound = this.func_227078_e_(p_219178_1_);
++        // Paper start - Cache chunk status on disk
++        if (nbttagcompound == null) {
++            return null;
++        }
++
++        nbttagcompound = this.getChunkData(this.field_219255_i.func_234922_V_(), this.field_219259_m, nbttagcompound, p_219178_1_, field_219255_i); // CraftBukkit
++        if (nbttagcompound == null) {
++            return null;
++        }
++
++        this.updateChunkStatusOnDisk(p_219178_1_, nbttagcompound);
++
++        return nbttagcompound;
++        // Paper end
++    }
++
++    // Paper start - chunk status cache "api"
++    public ChunkStatus getChunkStatusOnDiskIfCached(ChunkPos chunkPos) {
++        RegionFile regionFile = this.getIOWorker().getRegionFileCache().getRegionFileIfLoaded(chunkPos);
++
++        return regionFile == null ? null : regionFile.getStatusIfCached(chunkPos.field_77276_a, chunkPos.field_77275_b);
++    }
++
++    public ChunkStatus getChunkStatusOnDisk(ChunkPos chunkPos) throws IOException {
++        RegionFile regionFile = this.getIOWorker().getRegionFileCache().getFile(chunkPos, true);
++
++        if (regionFile == null || !regionFile.func_222667_d(chunkPos)) {
++            return null;
++        }
++
++        ChunkStatus status = regionFile.getStatusIfCached(chunkPos.field_77276_a, chunkPos.field_77275_b);
++
++        if (status != null) {
++            return status;
++        }
++
++        this.func_219178_f(chunkPos);
+ 
+-        return nbttagcompound == null ? null : this.getChunkData(this.field_219255_i.func_234922_V_(), this.field_219259_m, nbttagcompound, p_219178_1_, field_219255_i); // CraftBukkit
++        return regionFile.getStatusIfCached(chunkPos.field_77276_a, chunkPos.field_77275_b);
+     }
+ 
++    public void updateChunkStatusOnDisk(ChunkPos chunkPos, @Nullable CompoundNBT compound) throws IOException {
++        RegionFile regionFile = this.getIOWorker().getRegionFileCache().getFile(chunkPos, false);
++
++        regionFile.setStatus(chunkPos.field_77276_a, chunkPos.field_77275_b, ChunkSerializer.getStatus(compound));
++    }
++
++    public IChunk getUnloadingChunk(int chunkX, int chunkZ) {
++        ChunkHolder chunkHolder = this.field_219253_g.get(ChunkPos.func_77272_a(chunkX, chunkZ));
++        return chunkHolder == null ? null : chunkHolder.getAvailableChunkNow();
++    }
++    // Paper end
++
+     boolean func_219243_d(ChunkPos p_219243_1_) {
+         // Spigot start
+         return isOutsideOfRange(p_219243_1_, false);
+diff --git a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+index 82916f7ddef315213119f69a798bdbb9fbc0873e..b414f63bf8b1402abff5458d741b914746599574 100644
+--- a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
++++ b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+@@ -57,7 +57,7 @@ public class ServerChunkProvider extends AbstractChunkProvider {
+     private final ServerWorld field_73251_h;
+     public final Thread field_217241_g; // Paper - private -> public
+     private final ServerWorldLightManager field_217242_h;
+-    private final ServerChunkProvider.ChunkExecutor field_217243_i;
++    public final ServerChunkProvider.ChunkExecutor field_217243_i; // Paper private -> public
+     public final ChunkManager field_217237_a;
+     private final DimensionSavedDataManager field_217244_j;
+     private long field_217245_k;
+@@ -323,6 +323,21 @@ public class ServerChunkProvider extends AbstractChunkProvider {
+ 
+         return ret;
+     }
++
++    @Nullable
++    public IChunk getChunkAtImmediately(int x, int z) {
++        long k = ChunkPos.func_77272_a(x, z);
++
++        // Note: Bypass cache to make this MT-Safe
++
++        ChunkHolder playerChunk = this.func_217213_a(k);
++        if (playerChunk == null) {
++            return null;
++        }
++
++        return playerChunk.getAvailableChunkNow();
++
++    }
+     // Paper end
+ 
+     @Nullable
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index eaafbce24552f25043326ff5203b05dbb7bb9ac0..86c8ee54bb9e1e70765341085d10f46c1ff6ae4c 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -19,6 +19,7 @@ import java.util.Objects;
+ import java.util.Random;
+ import java.util.Set;
+ import java.util.UUID;
++import java.util.concurrent.CompletableFuture;
+ import java.util.function.Predicate;
+ import java.util.stream.Collectors;
+ import net.minecraft.block.Blocks;
+@@ -407,8 +408,22 @@ public class CraftWorld implements World {
+ 
+     @Override
+     public boolean isChunkGenerated(int x, int z) {
++        // Paper start - Fix this method
++        if (!Bukkit.isPrimaryThread()) {
++            return CompletableFuture.supplyAsync(() -> {
++                return CraftWorld.this.isChunkGenerated(x, z);
++            }, world.E().field_217243_i).join();
++        }
++        IChunk chunk = world.E().getChunkAtImmediately(x, z);
++        if (chunk == null) {
++            chunk = world.E().field_217237_a.getUnloadingChunk(x, z);
++        }
++        if (chunk != null) {
++            return chunk instanceof ChunkPrimerWrapper || chunk instanceof net.minecraft.world.chunk.Chunk;
++        }
+         try {
+-            return world.E().getChunkAtIfCachedImmediately(x, z) != null || world.E().field_217237_a.func_227078_e_(new ChunkPos(x, z)) != null; // Paper (TODO check if the first part can be removed)
++            return world.E().field_217237_a.getChunkStatusOnDisk(new ChunkPos(x, z)) == ChunkStatus.field_222617_m;
++            // Paper end
+         } catch (IOException ex) {
+             throw new RuntimeException(ex);
+         }
+@@ -519,20 +534,49 @@ public class CraftWorld implements World {
+     @Override
+     public boolean loadChunk(int x, int z, boolean generate) {
+         org.spigotmc.AsyncCatcher.catchOp("chunk load"); // Spigot
+-        IChunk chunk = world.E().func_212849_a_(x, z, generate || isChunkGenerated(x, z) ? ChunkStatus.field_222617_m : ChunkStatus.field_223226_a_, true); // Paper
++        // Paper start - Optimize this method
++        ChunkPos chunkPos = new ChunkPos(x, z);
+ 
+-        // If generate = false, but the chunk already exists, we will get this back.
+-        if (chunk instanceof ChunkPrimerWrapper) {
+-            // We then cycle through again to get the full chunk immediately, rather than after the ticket addition
+-            chunk = world.E().func_212849_a_(x, z, ChunkStatus.field_222617_m, true);
+-        }
++        if (!generate) {
+ 
+-        if (chunk instanceof net.minecraft.world.chunk.Chunk) {
+-            world.E().func_217228_a(TicketType.PLUGIN, new ChunkPos(x, z), 1, Unit.INSTANCE);
+-            return true;
++            IChunk immediate = world.E().getChunkAtImmediately(x, z);
++            if (immediate == null) {
++                immediate = world.E().field_217237_a.getUnloadingChunk(x, z);
++            }
++            if (immediate != null) {
++                if (!(immediate instanceof ChunkPrimerWrapper) && !(immediate instanceof net.minecraft.world.chunk.Chunk)) {
++                    return false; // not full status
++                }
++                world.E().func_217228_a(TicketType.PLUGIN, chunkPos, 1, Unit.INSTANCE);
++                world.func_212866_a_(x, z); // make sure we're at ticket level 32 or lower
++                return true;
++            }
++
++            net.minecraft.world.chunk.storage.RegionFile file;
++            try {
++                file = world.E().field_217237_a.getIOWorker().getRegionFileCache().getFile(chunkPos, false);
++            } catch (IOException ex) {
++                throw new RuntimeException(ex);
++            }
++
++            ChunkStatus status = file.getStatusIfCached(x, z);
++            if (!file.func_222667_d(chunkPos) || (status != null && status != ChunkStatus.field_222617_m)) {
++                return false;
++            }
++
++            IChunk chunk = world.E().func_212849_a_(x, z, ChunkStatus.field_223226_a_, true);
++            if (!(chunk instanceof ChunkPrimerWrapper) && !(chunk instanceof net.minecraft.world.chunk.Chunk)) {
++                return false;
++            }
++
++            // fall through to load
++            // we do this so we do not re-read the chunk data on disk
+         }
+ 
+-        return false;
++        world.E().func_217228_a(TicketType.PLUGIN, chunkPos, 1, Unit.INSTANCE);
++        world.E().func_212849_a_(x, z, ChunkStatus.field_222617_m, true);
++        return true;
++        // Paper end
+     }
+ 
+     @Override

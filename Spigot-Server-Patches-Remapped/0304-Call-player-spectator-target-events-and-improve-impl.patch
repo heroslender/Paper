@@ -1,0 +1,107 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Caleb Bassham <caleb.bassham@gmail.com>
+Date: Fri, 28 Sep 2018 02:32:19 -0500
+Subject: [PATCH] Call player spectator target events and improve
+ implementation
+
+Use a proper teleport for teleporting to entities in different
+worlds.
+
+Implementation improvements authored by Spottedleaf <Spottedleaf@users.noreply.github.com>
+Validate that the target entity is valid and deny spectate
+requests from frozen players.
+
+Also, make sure the entity is spawned to the client before
+sending the camera packet. If the entity isn't spawned clientside
+when it receives the camera packet, then the client will not
+spectate the target entity.
+
+Co-authored-by: Spottedleaf <Spottedleaf@users.noreply.github.com>
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 885ff29fa6d29ce814bc484394dae9fad6f61dac..580083b25ec51c3f1f5f267efc106b3541359966 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -134,6 +134,7 @@ import net.minecraft.world.GameRules;
+ import net.minecraft.world.GameType;
+ import net.minecraft.world.World;
+ import net.minecraft.world.biome.BiomeManager;
++import net.minecraft.world.server.ChunkManager;
+ import net.minecraft.world.server.ServerWorld;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+@@ -1816,14 +1817,58 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     }
+ 
+     public void func_175399_e(Entity p_175399_1_) {
++        // Paper start - Add PlayerStartSpectatingEntityEvent and PlayerStopSpectatingEntity Event and improve implementation
+         Entity entity1 = this.func_175398_C();
+ 
+-        this.field_175401_bS = (Entity) (p_175399_1_ == null ? this : p_175399_1_);
+-        if (entity1 != this.field_175401_bS) {
+-            this.field_71135_a.func_147359_a(new SCameraPacket(this.field_175401_bS));
+-            this.field_71135_a.a(this.field_175401_bS.func_226277_ct_(), this.field_175401_bS.func_226278_cu_(), this.field_175401_bS.func_226281_cx_(), this.field_70177_z, this.field_70125_A, TeleportCause.SPECTATE); // CraftBukkit
++        if (p_175399_1_ == null) {
++            p_175399_1_ = this;
+         }
+ 
++        if (entity1 == p_175399_1_) return; // new spec target is the current spec target
++
++        if (p_175399_1_ == this) {
++            com.destroystokyo.paper.event.player.PlayerStopSpectatingEntityEvent playerStopSpectatingEntityEvent = new com.destroystokyo.paper.event.player.PlayerStopSpectatingEntityEvent(this.getBukkitEntity(), entity1.getBukkitEntity());
++
++            if (!playerStopSpectatingEntityEvent.callEvent()) {
++                return;
++            }
++        } else {
++            com.destroystokyo.paper.event.player.PlayerStartSpectatingEntityEvent playerStartSpectatingEntityEvent = new com.destroystokyo.paper.event.player.PlayerStartSpectatingEntityEvent(this.getBukkitEntity(), entity1.getBukkitEntity(), p_175399_1_.getBukkitEntity());
++
++            if (!playerStartSpectatingEntityEvent.callEvent()) {
++                return;
++            }
++        }
++        // Validate
++        if (p_175399_1_ != this) {
++            if (p_175399_1_.field_70128_L || p_175399_1_.shouldBeRemoved || !p_175399_1_.valid || p_175399_1_.field_70170_p == null) {
++                MinecraftServer.field_147145_h.info("Blocking player " + this.toString() + " from spectating invalid entity " + p_175399_1_.toString());
++                return;
++            }
++            if (this.dH()) {
++                // use debug: clients might maliciously spam this
++                MinecraftServer.field_147145_h.debug("Blocking frozen player " + this.toString() + " from spectating entity " + p_175399_1_.toString());
++                return;
++            }
++        }
++
++        this.field_175401_bS = p_175399_1_; // only set after validating state
++
++        if (p_175399_1_ != this) {
++            // Make sure we're in the right place
++            this.func_184226_ay(); // teleport can fail if we have passengers...
++            this.getBukkitEntity().teleport(new Location(p_175399_1_.func_130014_f_().getWorld(), p_175399_1_.func_226277_ct_(), p_175399_1_.func_226278_cu_(), p_175399_1_.func_226281_cx_(), this.field_70177_z, this.field_70125_A), TeleportCause.SPECTATE); // Correctly handle cross-world entities from api calls by using CB teleport
++
++            // Make sure we're tracking the entity before sending
++            ChunkManager.EntityTracker tracker = ((ServerWorld)p_175399_1_.field_70170_p).E().field_217237_a.field_219272_z.get(p_175399_1_.func_145782_y());
++            if (tracker != null) { // dumb plugins...
++                tracker.func_219400_b(this);
++            }
++        } else {
++            this.field_71135_a.teleport(this.field_175401_bS.func_226277_ct_(), this.field_175401_bS.func_226278_cu_(), this.field_175401_bS.func_226281_cx_(), this.field_70177_z, this.field_70125_A, TeleportCause.SPECTATE); // CraftBukkit
++        }
++        this.field_71135_a.func_147359_a(new SCameraPacket(p_175399_1_));
++        // Paper end
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 0d9b6e2f2a925e602b7b7e65964acfe06f789232..5b0a980c90c8096ca0dfaf52879f6ebd883414ed 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1275,6 +1275,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     }
+ 
+     // CraftBukkit start - Delegate to teleport(Location)
++    public final void teleport(double d0, double d1, double d2, float f, float f1, PlayerTeleportEvent.TeleportCause cause) { this.a(d0, d1, d2, f, f1, cause); } // Paper - OBFHELPER
+     public void a(double d0, double d1, double d2, float f, float f1, PlayerTeleportEvent.TeleportCause cause) {
+         this.a(d0, d1, d2, f, f1, Collections.<SPlayerPositionLookPacket.Flags>emptySet(), cause);
+     }

@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Mon, 31 Jul 2017 01:54:40 -0500
+Subject: [PATCH] Ocelot despawns should honor nametags and leash
+
+
+diff --git a/src/main/java/net/minecraft/entity/passive/OcelotEntity.java b/src/main/java/net/minecraft/entity/passive/OcelotEntity.java
+index fa93e558bb1c2e8020312fcc3000e3873f72a10d..aee65c04f9f965852cd27b62496e5c77149c0cef 100644
+--- a/src/main/java/net/minecraft/entity/passive/OcelotEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/OcelotEntity.java
+@@ -124,7 +124,7 @@ public class OcelotEntity extends AnimalEntity {
+ 
+     @Override
+     public boolean func_213397_c(double p_213397_1_) {
+-        return !this.func_213530_dX() /*&& this.ticksLived > 2400*/; // CraftBukkit
++        return !this.func_213530_dX() && !this.func_145818_k_() && !this.func_110167_bD() /*&& this.ticksLived > 2400*/; // CraftBukkit // Paper - honor name and leash
+     }
+ 
+     public static AttributeModifierMap.MutableAttribute func_234201_eI_() {

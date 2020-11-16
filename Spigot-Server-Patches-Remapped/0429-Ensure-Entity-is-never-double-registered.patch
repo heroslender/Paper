@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 29 Mar 2020 18:26:14 -0400
+Subject: [PATCH] Ensure Entity is never double registered
+
+If something calls register twice, and the world is ticking, it could be
+enqueued to add twice.
+
+Vs behavior of non ticking of just overwriting state.
+
+We will now simply log a warning when this happens instead of crashing the server.
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 92172793ac73bbe9322636bdf849b8bd638d9163..e5e5b78147a4977c94c0d41e922c6c30809b99af 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -152,6 +152,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     // Paper start
++    boolean isQueuedForRegister = false;
+     public static Random SHARED_RANDOM = new Random() {
+         private boolean locked = false;
+         @Override
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index ab9dfb3d411e98309ed59f639c7a357352831af9..950d8cb8db82301edc893b9df57fb0e1f51e54b4 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -635,6 +635,7 @@ public class ServerWorld extends World implements ISeedReader {
+             Entity entity2;
+ 
+             while ((entity2 = (Entity) this.field_217499_z.poll()) != null) {
++                if (!entity2.isQueuedForRegister) continue; // Paper - ignore cancelled registers
+                 this.func_217465_m(entity2);
+             }
+ 
+@@ -1333,6 +1334,19 @@ public class ServerWorld extends World implements ISeedReader {
+ 
+     public void func_217484_g(Entity p_217484_1_) {
+         org.spigotmc.AsyncCatcher.catchOp("entity unregister"); // Spigot
++        // Paper start - fix entity registration issues
++        if (p_217484_1_ instanceof EnderDragonPartEntity) {
++            // Usually this is a no-op for complex parts, and ID's should be removed, but go ahead and remove it anyways
++            // Dragon parts are handled special in register. they don't receive a valid = true or register by UUID etc.
++            this.field_217498_x.remove(p_217484_1_.func_145782_y(), p_217484_1_);
++            return;
++        }
++        if (!p_217484_1_.valid) {
++            // Someone called remove before we ever got added, cancel the add.
++            p_217484_1_.isQueuedForRegister = false;
++            return;
++        }
++        // Paper end
+         // Spigot start
+         if ( p_217484_1_ instanceof PlayerEntity )
+         {
+@@ -1399,9 +1413,21 @@ public class ServerWorld extends World implements ISeedReader {
+ 
+     private void func_217465_m(Entity p_217465_1_) {
+         org.spigotmc.AsyncCatcher.catchOp("entity register"); // Spigot
++        // Paper start - don't double enqueue entity registration
++        //noinspection ObjectEquality
++        if (this.field_217498_x.get(p_217465_1_.func_145782_y()) == p_217465_1_) {
++            field_147491_a.error(p_217465_1_ + " was already registered!");
++            new Throwable().printStackTrace();
++            return;
++        }
++        // Paper end
+         if (this.field_217492_a) {
+-            this.field_217499_z.add(p_217465_1_);
++            if (!p_217465_1_.isQueuedForRegister) { // Paper
++                this.field_217499_z.add(p_217465_1_);
++                p_217465_1_.isQueuedForRegister = true; // Paper
++            }
+         } else {
++            p_217465_1_.isQueuedForRegister = false; // Paper
+             this.field_217498_x.put(p_217465_1_.func_145782_y(), p_217465_1_);
+             if (p_217465_1_ instanceof EnderDragonEntity) {
+                 EnderDragonPartEntity[] aentitycomplexpart = ((EnderDragonEntity) p_217465_1_).func_213404_dT();

@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 2 Mar 2019 16:12:35 -0500
+Subject: [PATCH] MC-145260: Fix Whitelist On/Off inconsistency
+
+mojang stored whitelist state in 2 places (Whitelist Object, PlayerList)
+
+some things checked PlayerList, some checked object. This moves
+everything to the Whitelist object.
+
+https://github.com/PaperMC/Paper/issues/1880
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index e31473209f60f05ec9bf2775da8df3fce5de8c51..b860df50d6c9a6296739a01b76bb15ff7f83dac4 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -997,9 +997,9 @@ public abstract class PlayerList {
+     }
+     public boolean isWhitelisted(GameProfile gameprofile, org.bukkit.event.player.PlayerLoginEvent loginEvent) {
+         boolean isOp = this.field_72414_i.func_152692_d(gameprofile);
+-        boolean isWhitelisted = !this.field_72409_l || isOp || this.field_72411_j.func_152692_d(gameprofile);
++        boolean isWhitelisted = !this.func_72383_n() || isOp || this.field_72411_j.func_152692_d(gameprofile);
+         final com.destroystokyo.paper.event.profile.ProfileWhitelistVerifyEvent event;
+-        event = new com.destroystokyo.paper.event.profile.ProfileWhitelistVerifyEvent(MCUtil.toBukkit(gameprofile), this.field_72409_l, isWhitelisted, isOp, org.spigotmc.SpigotConfig.whitelistMessage);
++        event = new com.destroystokyo.paper.event.profile.ProfileWhitelistVerifyEvent(MCUtil.toBukkit(gameprofile), this.func_72383_n(), isWhitelisted, isOp, org.spigotmc.SpigotConfig.whitelistMessage);
+         event.callEvent();
+         if (!event.isWhitelisted()) {
+             if (loginEvent != null) {

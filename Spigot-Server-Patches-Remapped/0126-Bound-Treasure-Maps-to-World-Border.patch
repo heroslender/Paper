@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 20 Dec 2016 15:15:11 -0500
+Subject: [PATCH] Bound Treasure Maps to World Border
+
+Make it so a Treasure Map does not target a structure outside of the
+World Border, where players are not even able to reach.
+
+This also would help the case where a players close to the border, and one
+that is outside happens to be closer, but unreachable, yet another reachable
+one is in border that would of been missed.
+
+diff --git a/src/main/java/net/minecraft/world/border/WorldBorder.java b/src/main/java/net/minecraft/world/border/WorldBorder.java
+index cbdec584d41abdbddbdefc9b6e0c4a106e6c1c98..e1ee7157a59a443718539cbcf165b08dae41b3f9 100644
+--- a/src/main/java/net/minecraft/world/border/WorldBorder.java
++++ b/src/main/java/net/minecraft/world/border/WorldBorder.java
+@@ -37,6 +37,18 @@ public class WorldBorder {
+         return (double) (p_177746_1_.func_177958_n() + 1) > this.func_177726_b() && (double) p_177746_1_.func_177958_n() < this.func_177728_d() && (double) (p_177746_1_.func_177952_p() + 1) > this.func_177736_c() && (double) p_177746_1_.func_177952_p() < this.func_177733_e();
+     }
+ 
++    // Paper start
++    private final BlockPos.Mutable mutPos = new BlockPos.Mutable();
++    public boolean isBlockInBounds(int chunkX, int chunkZ) {
++        this.mutPos.setValues(chunkX, 64, chunkZ);
++        return this.isInBounds(this.mutPos);
++    }
++    public boolean isChunkInBounds(int chunkX, int chunkZ) {
++        this.mutPos.setValues(((chunkX << 4) + 15), 64, (chunkZ << 4) + 15);
++        return this.isInBounds(this.mutPos);
++    }
++    // Paper end
++
+     public boolean func_177730_a(ChunkPos p_177730_1_) {
+         return (double) p_177730_1_.func_180332_e() > this.func_177726_b() && (double) p_177730_1_.func_180334_c() < this.func_177728_d() && (double) p_177730_1_.func_180330_f() > this.func_177736_c() && (double) p_177730_1_.func_180333_d() < this.func_177733_e();
+     }
+diff --git a/src/main/java/net/minecraft/world/gen/feature/structure/Structure.java b/src/main/java/net/minecraft/world/gen/feature/structure/Structure.java
+index 1277ce4f8c5096ddaed65f7026b9766bab260111..ef7873ca53421e8f34062b09d3c867ee88d56f4b 100644
+--- a/src/main/java/net/minecraft/world/gen/feature/structure/Structure.java
++++ b/src/main/java/net/minecraft/world/gen/feature/structure/Structure.java
+@@ -160,6 +160,7 @@ public abstract class Structure<C extends IFeatureConfig> {
+                             int i2 = l + k * k1;
+                             int j2 = i1 + k * l1;
+                             ChunkPos chunkcoordintpair = this.func_236392_a_(p_236388_7_, p_236388_6_, seededrandom, i2, j2);
++                            if (!p_236388_1_.func_175723_af().isChunkInBounds(chunkcoordintpair.field_77276_a, chunkcoordintpair.field_77275_b)) { continue; } // Paper
+                             IChunk ichunkaccess = p_236388_1_.func_217348_a(chunkcoordintpair.field_77276_a, chunkcoordintpair.field_77275_b, ChunkStatus.field_222606_b);
+                             StructureStart<?> structurestart = p_236388_2_.func_235013_a_(SectionPos.func_218156_a(ichunkaccess.func_76632_l(), 0), this, ichunkaccess);
+ 

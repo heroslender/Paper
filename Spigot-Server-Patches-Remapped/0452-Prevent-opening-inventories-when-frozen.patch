@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Mon, 13 Apr 2020 07:31:44 +0100
+Subject: [PATCH] Prevent opening inventories when frozen
+
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 3af7f9cbc621e35806fc9df0564d894d1b20229a..5dae76cfb146878027978d08d26fa3abcfdc360c 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -543,7 +543,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+             containerUpdateDelay = field_70170_p.paperConfig.containerUpdateTickRate;
+         }
+         // Paper end
+-        if (!this.field_70170_p.field_72995_K && !this.field_71070_bA.func_75145_c(this)) {
++        if (!this.field_70170_p.field_72995_K && this.field_71070_bA != this.field_71069_bz && (dH() || !this.field_71070_bA.func_75145_c(this))) { // Paper - auto close while frozen
+             this.func_71053_j(org.bukkit.event.inventory.InventoryCloseEvent.Reason.CANT_USE); // Paper
+             this.field_71070_bA = this.field_71069_bz;
+         }
+@@ -1399,7 +1399,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+             } else {
+                 // CraftBukkit start
+                 this.field_71070_bA = container;
+-                this.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, container.func_216957_a(), container.getTitle()));
++                if (!dH()) this.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, container.func_216957_a(), container.getTitle())); // Paper
+                 // CraftBukkit end
+                 container.func_75132_a(this);
+                 return OptionalInt.of(this.field_71139_cq);
+@@ -2194,7 +2194,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     }
+ 
+     @Override
+-    protected boolean dH() {
++    public boolean dH() { // Paper - protected > public
+         return super.func_70610_aX() || (this.field_71135_a != null && this.field_71135_a.isDisconnected()); // Paper
+     }
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
+index bec82a354befc1b58b9c49f408ceb30d7f3fcec2..93ce4770172f555722f783ec0520b658adb69d15 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
+@@ -318,7 +318,7 @@ public class CraftHumanEntity extends CraftLivingEntity implements HumanEntity {
+ 
+         String title = container.getBukkitView().getTitle();
+ 
+-        player.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, windowType, CraftChatMessage.fromString(title)[0]));
++        if (!player.dH()) player.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, windowType, CraftChatMessage.fromString(title)[0])); // Paper
+         getHandle().field_71070_bA = container;
+         getHandle().field_71070_bA.func_75132_a(player);
+     }
+@@ -388,7 +388,7 @@ public class CraftHumanEntity extends CraftLivingEntity implements HumanEntity {
+         // Now open the window
+         ContainerType<?> windowType = CraftContainer.getNotchInventoryType(inventory.getTopInventory());
+         String title = inventory.getTitle();
+-        player.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, windowType, CraftChatMessage.fromString(title)[0]));
++        if (!player.dH()) player.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, windowType, CraftChatMessage.fromString(title)[0])); // Paper
+         player.field_71070_bA = container;
+         player.field_71070_bA.func_75132_a(player);
+     }

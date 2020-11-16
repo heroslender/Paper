@@ -1,0 +1,334 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Mon, 8 Jul 2019 00:13:36 -0700
+Subject: [PATCH] Use getChunkIfLoadedImmediately in places
+
+This prevents us from hitting chunk loads for chunks at or less-than
+ticket level 33 (yes getChunkIfLoaded will actually perform a chunk
+load in that case).
+
+diff --git a/src/main/java/com/destroystokyo/paper/util/misc/PooledLinkedHashSets.java b/src/main/java/com/destroystokyo/paper/util/misc/PooledLinkedHashSets.java
+index e51104e65a07b6ea7bbbcbb6afb066ef6401cc5b..1cada9377a55b9e1d8bf70ade3396c4c2dadce62 100644
+--- a/src/main/java/com/destroystokyo/paper/util/misc/PooledLinkedHashSets.java
++++ b/src/main/java/com/destroystokyo/paper/util/misc/PooledLinkedHashSets.java
+@@ -1,5 +1,6 @@
+ package com.destroystokyo.paper.util.misc;
+ 
++import com.destroystokyo.paper.util.misc.PooledLinkedHashSets.RawSetObjectLinkedOpenHashSet;
+ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+ import java.lang.ref.WeakReference;
+diff --git a/src/main/java/net/minecraft/block/ChestBlock.java b/src/main/java/net/minecraft/block/ChestBlock.java
+index acb04bba64952a91533e1c88a8ced5dbd35ffb0e..52ffd52a74c5fdcb29c290c8fa45d2df3e4681c2 100644
+--- a/src/main/java/net/minecraft/block/ChestBlock.java
++++ b/src/main/java/net/minecraft/block/ChestBlock.java
+@@ -80,7 +80,7 @@ public class ChestBlock extends AbstractChestBlock<ChestTileEntity> implements I
+         public Optional<INamedContainerProvider> func_225539_a_(final ChestTileEntity p_225539_1_, final ChestTileEntity p_225539_2_) {
+             final DoubleSidedInventory inventorylargechest = new DoubleSidedInventory(p_225539_1_, p_225539_2_);
+ 
+-            return Optional.of(new DoubleInventory(p_225539_1_, p_225539_2_, inventorylargechest)); // CraftBukkit
++            return Optional.of(new net.minecraft.block.ChestBlock.DoubleInventory(p_225539_1_, p_225539_2_, inventorylargechest)); // CraftBukkit
+         }
+ 
+         public Optional<INamedContainerProvider> func_225538_a_(ChestTileEntity p_225538_1_) {
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 1d7a5b8a33b9dcee97ec84b3ad01fba95238dedf..b71e5940fbeac245c96d51ff909b3a662c4914c0 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -774,7 +774,7 @@ public abstract class LivingEntity extends Entity {
+ 
+     // CraftBukkit start
+     private boolean isTickingEffects = false;
+-    private List<ProcessableEffect> effectsToProcess = Lists.newArrayList();
++    private List<net.minecraft.entity.LivingEntity.ProcessableEffect> effectsToProcess = Lists.newArrayList();
+ 
+     private static class ProcessableEffect {
+ 
+@@ -825,7 +825,7 @@ public abstract class LivingEntity extends Entity {
+         }
+         // CraftBukkit start
+         isTickingEffects = false;
+-        for (ProcessableEffect e : effectsToProcess) {
++        for (net.minecraft.entity.LivingEntity.ProcessableEffect e : effectsToProcess) {
+             if (e.effect != null) {
+                 addEffect(e.effect, e.cause);
+             } else {
+@@ -998,7 +998,7 @@ public abstract class LivingEntity extends Entity {
+     public boolean addEffect(EffectInstance mobeffect, EntityPotionEffectEvent.Cause cause) {
+         org.spigotmc.AsyncCatcher.catchOp("effect add"); // Spigot
+         if (isTickingEffects) {
+-            effectsToProcess.add(new ProcessableEffect(mobeffect, cause));
++            effectsToProcess.add(new net.minecraft.entity.LivingEntity.ProcessableEffect(mobeffect, cause));
+             return true;
+         }
+         // CraftBukkit end
+@@ -1061,7 +1061,7 @@ public abstract class LivingEntity extends Entity {
+     @Nullable
+     public EffectInstance c(@Nullable Effect mobeffectlist, EntityPotionEffectEvent.Cause cause) {
+         if (isTickingEffects) {
+-            effectsToProcess.add(new ProcessableEffect(mobeffectlist, cause));
++            effectsToProcess.add(new net.minecraft.entity.LivingEntity.ProcessableEffect(mobeffectlist, cause));
+             return null;
+         }
+ 
+diff --git a/src/main/java/net/minecraft/network/NettyPacketEncoder.java b/src/main/java/net/minecraft/network/NettyPacketEncoder.java
+index d6949f2150a3857a51a0afd9f8753110cc0743e8..b17b48341a525f3dbad2de10f92d07ffcf49d4df 100644
+--- a/src/main/java/net/minecraft/network/NettyPacketEncoder.java
++++ b/src/main/java/net/minecraft/network/NettyPacketEncoder.java
+@@ -53,7 +53,7 @@ public class NettyPacketEncoder extends MessageToByteEncoder<IPacket<?>> {
+                 // Paper start
+                 int packetLength = bytebuf.readableBytes();
+                 if (packetLength > MAX_PACKET_SIZE) {
+-                    throw new PacketTooLargeException(packet, packetLength);
++                    throw new net.minecraft.network.NettyPacketEncoder.PacketTooLargeException(packet, packetLength);
+                 }
+                 // Paper end
+             }
+diff --git a/src/main/java/net/minecraft/network/NetworkManager.java b/src/main/java/net/minecraft/network/NetworkManager.java
+index 3ccf8e64ba14475ed7367e624eef7f431f1178a8..d0591515bae2269efb08294062d336c619edfc24 100644
+--- a/src/main/java/net/minecraft/network/NetworkManager.java
++++ b/src/main/java/net/minecraft/network/NetworkManager.java
+@@ -226,7 +226,7 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+             return; // Do nothing
+         }
+         p_201058_1_.onPacketDispatch(getPlayer());
+-        if (connected && (InnerUtil.canSendImmediate(this, p_201058_1_) || (
++        if (connected && (net.minecraft.network.NetworkManager.InnerUtil.canSendImmediate(this, p_201058_1_) || (
+             MCUtil.isMainThread() && p_201058_1_.isReady() && this.field_150745_j.isEmpty() &&
+             (p_201058_1_.getExtraPackets() == null || p_201058_1_.getExtraPackets().isEmpty())
+         ))) {
+@@ -234,7 +234,7 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+             return;
+         }
+         // write the packets to the queue, then flush - antixray hooks there already
+-        java.util.List<IPacket> extraPackets = InnerUtil.buildExtraPackets(p_201058_1_);
++        java.util.List<IPacket> extraPackets = net.minecraft.network.NetworkManager.InnerUtil.buildExtraPackets(p_201058_1_);
+         boolean hasExtraPackets = extraPackets != null && !extraPackets.isEmpty();
+         if (!hasExtraPackets) {
+             this.field_150745_j.add(new NetworkManager.QueuedPacket(p_201058_1_, p_201058_2_));
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index d3659daa9e6d6bb8c3bfced39fc0fd2ae9da46ca..6e6ba8b66af7d91acad3e08b72dedfe8eea49936 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -226,7 +226,7 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+                 public void run() {
+                     try {
+                         initUUID();
+-                        new LoginHandler().fireEvents();
++                        new net.minecraft.network.login.ServerLoginNetHandler.LoginHandler().fireEvents();
+                     } catch (Exception ex) {
+                         disconnect("Failed to verify username!");
+                         field_147327_f.server.getLogger().log(java.util.logging.Level.WARNING, "Exception verifying " + field_147337_i.getName(), ex);
+@@ -265,7 +265,7 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+                                 return;
+                             }
+ 
+-                            new LoginHandler().fireEvents();
++                            new net.minecraft.network.login.ServerLoginNetHandler.LoginHandler().fireEvents();
+                         } else if (ServerLoginNetHandler.this.field_147327_f.func_71264_H()) {
+                             ServerLoginNetHandler.field_147332_c.warn("Failed to verify username but will let them in anyway!");
+                             ServerLoginNetHandler.this.field_147337_i = ServerLoginNetHandler.this.func_152506_a(gameprofile);
+@@ -384,7 +384,7 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+             // Proceed with login
+             authenticatorPool.execute(() -> {
+                 try {
+-                    new LoginHandler().fireEvents();
++                    new net.minecraft.network.login.ServerLoginNetHandler.LoginHandler().fireEvents();
+                 } catch (Exception ex) {
+                     disconnect("Failed to verify username!");
+                     field_147327_f.server.getLogger().log(java.util.logging.Level.WARNING, "Exception verifying " + field_147337_i.getName(), ex);
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index ec5852f49f7954e79ecaba249866961fdcdc477c..ac559ec82cdb8ca6b23ec4802d3441230beceda3 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1157,7 +1157,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                                 speed = field_147369_b.field_71075_bZ.field_75097_g * 10f;
+                             }
+                             // Paper start - Prevent moving into unloaded chunks
+-                            if (field_147369_b.field_70170_p.paperConfig.preventMovingIntoUnloadedChunks && (this.field_147369_b.func_226277_ct_() != toX || this.field_147369_b.func_226281_cx_() != toZ) && !worldserver.func_217354_b((int) Math.floor(toX) >> 4, (int) Math.floor(toZ) >> 4)) {
++                            if (field_147369_b.field_70170_p.paperConfig.preventMovingIntoUnloadedChunks && (this.field_147369_b.func_226277_ct_() != toX || this.field_147369_b.func_226281_cx_() != toZ) && worldserver.getChunkIfLoadedImmediately((int) Math.floor(toX) >> 4, (int) Math.floor(toZ) >> 4) == null) { // Paper - use getIfLoadedImmediately
+                                 this.internalTeleport(this.field_147369_b.func_226277_ct_(), this.field_147369_b.func_226278_cu_(), this.field_147369_b.func_226281_cx_(), this.field_147369_b.field_70177_z, this.field_147369_b.field_70125_A, Collections.emptySet());
+                                 return;
+                             }
+diff --git a/src/main/java/net/minecraft/tileentity/LecternTileEntity.java b/src/main/java/net/minecraft/tileentity/LecternTileEntity.java
+index e640dfd67ca12e6800026e1fc17c46c1353e2ac6..1b7b3580bb63063fec3465ac8edbe1f0df46cdd5 100644
+--- a/src/main/java/net/minecraft/tileentity/LecternTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/LecternTileEntity.java
+@@ -42,7 +42,7 @@ import org.bukkit.inventory.InventoryHolder;
+ public class LecternTileEntity extends TileEntity implements IClearable, INamedContainerProvider, ICommandSource { // CraftBukkit - ICommandListener
+ 
+     // CraftBukkit start - add fields and methods
+-    public final IInventory field_214048_a = new LecternInventory();
++    public final IInventory field_214048_a = new net.minecraft.tileentity.LecternTileEntity.LecternInventory();
+     public class LecternInventory implements IInventory {
+ 
+         public List<HumanEntity> transaction = new ArrayList<>();
+diff --git a/src/main/java/net/minecraft/world/Explosion.java b/src/main/java/net/minecraft/world/Explosion.java
+index 9b6095133fcf35effca61b56668157256e33cb99..2456e4f8932ea68867af5fd358044250d62bfb73 100644
+--- a/src/main/java/net/minecraft/world/Explosion.java
++++ b/src/main/java/net/minecraft/world/Explosion.java
+@@ -424,7 +424,7 @@ public class Explosion {
+         if (!this.field_77287_j.paperConfig.optimizeExplosions) {
+             return func_222259_a(vec3d, entity);
+         }
+-        CacheKey key = new CacheKey(this, entity.func_174813_aQ());
++        net.minecraft.world.Explosion.CacheKey key = new net.minecraft.world.Explosion.CacheKey(this, entity.func_174813_aQ());
+         Float blockDensity = this.field_77287_j.explosionDensityCache.get(key);
+         if (blockDensity == null) {
+             blockDensity = func_222259_a(vec3d, entity);
+@@ -458,7 +458,7 @@ public class Explosion {
+             if (this == o) return true;
+             if (o == null || getClass() != o.getClass()) return false;
+ 
+-            CacheKey cacheKey = (CacheKey) o;
++            net.minecraft.world.Explosion.CacheKey cacheKey = (net.minecraft.world.Explosion.CacheKey) o;
+ 
+             if (Double.compare(cacheKey.posX, posX) != 0) return false;
+             if (Double.compare(cacheKey.posY, posY) != 0) return false;
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 7b4eb8c7441c7647ca6cb2bb2221996eedb92d24..add4703bea46aaeaeafb4601a849b198aa2fa899 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -163,6 +163,13 @@ public abstract class World implements IWorld, AutoCloseable {
+         return (CraftServer) Bukkit.getServer();
+     }
+ 
++    // Paper start
++    @Override
++    public boolean b(int x, int z) {
++        return ((ServerWorld)this).getChunkIfLoaded(x, z) != null;
++    }
++    // Paper end
++
+     protected World(ISpawnWorldInfo worlddatamutable, RegistryKey<World> resourcekey, RegistryKey<DimensionType> resourcekey1, DimensionType dimensionmanager, Supplier<IProfiler> supplier, boolean flag, boolean flag1, long i, org.bukkit.generator.ChunkGenerator gen, org.bukkit.World.Environment env, java.util.concurrent.Executor executor) {
+         this.spigotConfig = new org.spigotmc.SpigotWorldConfig(((ServerWorldInfo) worlddatamutable).func_76065_j()); // Spigot
+         this.paperConfig = new com.destroystokyo.paper.PaperWorldConfig(((ServerWorldInfo) worlddatamutable).func_76065_j(), this.spigotConfig); // Paper
+@@ -714,7 +721,7 @@ public abstract class World implements IWorld, AutoCloseable {
+         int k;
+ 
+         if (p_201676_2_ >= -30000000 && p_201676_3_ >= -30000000 && p_201676_2_ < 30000000 && p_201676_3_ < 30000000) {
+-            if (this.func_217354_b(p_201676_2_ >> 4, p_201676_3_ >> 4)) {
++            if (this.b(p_201676_2_ >> 4, p_201676_3_ >> 4)) {
+                 k = this.func_212866_a_(p_201676_2_ >> 4, p_201676_3_ >> 4).func_201576_a(p_201676_1_, p_201676_2_ & 15, p_201676_3_ & 15) + 1;
+             } else {
+                 k = 0;
+@@ -1093,14 +1100,14 @@ public abstract class World implements IWorld, AutoCloseable {
+     }
+ 
+     public boolean func_195588_v(BlockPos p_195588_1_) {
+-        return func_189509_E(p_195588_1_) ? false : this.func_72863_F().func_73149_a(p_195588_1_.func_177958_n() >> 4, p_195588_1_.func_177952_p() >> 4);
++        return func_189509_E(p_195588_1_) ? false : b(p_195588_1_.func_177958_n() >> 4, p_195588_1_.func_177952_p() >> 4); // Paper
+     }
+ 
+     public boolean func_234929_a_(BlockPos p_234929_1_, Entity p_234929_2_, Direction p_234929_3_) {
+         if (func_189509_E(p_234929_1_)) {
+             return false;
+         } else {
+-            IChunk ichunkaccess = this.func_217353_a(p_234929_1_.func_177958_n() >> 4, p_234929_1_.func_177952_p() >> 4, ChunkStatus.field_222617_m, false);
++            IChunk ichunkaccess = this.getChunkIfLoadedImmediately(p_234929_1_.func_177958_n() >> 4, p_234929_1_.func_177952_p() >> 4); // Paper
+ 
+             return ichunkaccess == null ? false : ichunkaccess.func_180495_p(p_234929_1_).func_215682_a((IBlockReader) this, p_234929_1_, p_234929_2_, p_234929_3_);
+         }
+@@ -1221,7 +1228,7 @@ public abstract class World implements IWorld, AutoCloseable {
+ 
+         for (int i1 = i; i1 < j; ++i1) {
+             for (int j1 = k; j1 < l; ++j1) {
+-                Chunk chunk = ichunkprovider.func_225313_a(i1, j1);
++                Chunk chunk = (Chunk)this.getChunkIfLoadedImmediately(i1, j1); // Paper
+ 
+                 if (chunk != null) {
+                     chunk.func_177430_a(p_225316_1_, p_225316_2_, list, p_225316_3_);
+diff --git a/src/main/java/net/minecraft/world/biome/Biome.java b/src/main/java/net/minecraft/world/biome/Biome.java
+index 43b648455108a10f786aee12ef8b2fbeade8afec..9f199193e23b1700565b6f378c7ff1b7e23a5049 100644
+--- a/src/main/java/net/minecraft/world/biome/Biome.java
++++ b/src/main/java/net/minecraft/world/biome/Biome.java
+@@ -165,7 +165,7 @@ public class Biome {
+             for (j = 0; j < i; ++j) {
+                 EntityClassification enumcreaturetype = aenumcreaturetype[j];
+ 
+-                this.field_201880_ax.put(enumcreaturetype, new MobList()); // Paper
++                this.field_201880_ax.put(enumcreaturetype, new net.minecraft.world.biome.Biome.MobList()); // Paper
+             }
+ 
+         } else {
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 28f17c1cfb2816159d91440040ce8884c262bc58..9e803a9bdd7790c4341df7ec22c976747ffda9e5 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -139,7 +139,7 @@ public class Chunk implements IChunk {
+         this.field_76652_q = new ChunkSection[16];
+         this.field_201618_i = Maps.newHashMap();
+         this.field_76634_f = Maps.newEnumMap(Heightmap.Type.class);
+-        this.field_150816_i = new TileEntityHashMap(); // Paper
++        this.field_150816_i = new net.minecraft.world.chunk.Chunk.TileEntityHashMap(); // Paper
+         this.field_201619_q = Maps.newHashMap();
+         this.field_201620_r = Maps.newHashMap();
+         this.field_201622_t = new ShortList[16];
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index b4be6b828ded48080ea958935234c3df484051c2..5ca03603e71ba29017d7fa1320e5122acdcf96fa 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -195,7 +195,7 @@ public class ServerWorld extends World implements ISeedReader {
+     }
+ 
+     @Override public Chunk getChunkIfLoaded(int x, int z) { // Paper - this was added in world too but keeping here for NMS ABI
+-        return this.field_241102_C_.func_217205_a(x, z, false);
++        return this.field_241102_C_.getChunkAtIfLoadedImmediately(x, z); // Paper
+     }
+ 
+     // Paper start - Asynchronous IO
+@@ -923,11 +923,11 @@ public class ServerWorld extends World implements ISeedReader {
+                 }
+                 // Paper end
+ 
+-                if (p_217464_1_.field_70175_ag && this.func_217354_b(p_217464_1_.field_70176_ah, p_217464_1_.field_70164_aj)) {
++                if (p_217464_1_.field_70175_ag && this.b(p_217464_1_.field_70176_ah, p_217464_1_.field_70164_aj)) {
+                     this.func_212866_a_(p_217464_1_.field_70176_ah, p_217464_1_.field_70164_aj).func_76608_a(p_217464_1_, p_217464_1_.field_70162_ai);
+                 }
+ 
+-                if (!p_217464_1_.valid && !p_217464_1_.func_233577_ch_() && !this.func_217354_b(i, k)) { // Paper - always load chunks to register valid entities location
++                if (!p_217464_1_.valid && !p_217464_1_.func_233577_ch_() && !this.b(i, k)) { // Paper - always load chunks to register valid entities location
+                     if (p_217464_1_.field_70175_ag) {
+                         ServerWorld.field_147491_a.warn("Entity {} left loaded chunk area", p_217464_1_);
+                     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaBlockState.java b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaBlockState.java
+index c6b1118943e38ade69dd2a8c0612de1d99ccb3f3..86cf864385bddf726efe6380bf5f81935e7421ad 100644
+--- a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaBlockState.java
++++ b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaBlockState.java
+@@ -68,6 +68,7 @@ import org.bukkit.craftbukkit.block.CraftSign;
+ import org.bukkit.craftbukkit.block.CraftSkull;
+ import org.bukkit.craftbukkit.block.CraftSmoker;
+ import org.bukkit.craftbukkit.block.CraftStructureBlock;
++import org.bukkit.craftbukkit.inventory.CraftMetaItem.ItemMetaKey;
+ import org.bukkit.craftbukkit.util.CraftMagicNumbers;
+ import org.bukkit.inventory.meta.BlockStateMeta;
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaLeatherArmor.java b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaLeatherArmor.java
+index 9d4a6e828519ed7b738d768f5913e7711296c3cf..801c77ab002c103ad6a301ec76e6208a80f6b54f 100644
+--- a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaLeatherArmor.java
++++ b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaLeatherArmor.java
+@@ -8,6 +8,7 @@ import net.minecraft.nbt.IntNBT;
+ import org.bukkit.Color;
+ import org.bukkit.Material;
+ import org.bukkit.configuration.serialization.DelegateDeserialization;
++import org.bukkit.craftbukkit.inventory.CraftMetaItem.ItemMetaKey;
+ import org.bukkit.craftbukkit.inventory.CraftMetaItem.SerializableMeta;
+ import org.bukkit.inventory.meta.LeatherArmorMeta;
+ 
+diff --git a/src/main/java/org/spigotmc/ActivationRange.java b/src/main/java/org/spigotmc/ActivationRange.java
+index a8cacc64f88b85e7b7c06e9235d3c6476b1833fd..b137afe740d8637bc3208e0c5c126a5e7374f177 100644
+--- a/src/main/java/org/spigotmc/ActivationRange.java
++++ b/src/main/java/org/spigotmc/ActivationRange.java
+@@ -142,9 +142,10 @@ public class ActivationRange
+             {
+                 for ( int j1 = k; j1 <= l; ++j1 )
+                 {
+-                    if ( world.getWorld().isChunkLoaded( i1, j1 ) )
++                    Chunk chunk = (Chunk) world.getChunkIfLoadedImmediately( i1, j1 );
++                    if ( chunk != null )
+                     {
+-                        activateChunkEntities( world.func_212866_a_( i1, j1 ) );
++                        activateChunkEntities( chunk );
+                     }
+                 }
+             }

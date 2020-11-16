@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 29 Nov 2017 22:18:54 -0500
+Subject: [PATCH] Avoid NPE in PathfinderGoalTempt
+
+
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/TemptGoal.java b/src/main/java/net/minecraft/entity/ai/goal/TemptGoal.java
+index 38a557f081aa13c614589df8d24782e1f8eb2591..107f53819c9634de9119492811ae42b42ccf7ed6 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/TemptGoal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/TemptGoal.java
+@@ -63,7 +63,7 @@ public class TemptGoal extends Goal {
+                 }
+                 this.field_75289_h = (event.getTarget() == null) ? null : ((CraftLivingEntity) event.getTarget()).getHandle();
+             }
+-            return tempt;
++            return tempt && this.field_75289_h != null; // Paper - must have target - plugin might of cancelled
+             // CraftBukkit end
+         }
+     }

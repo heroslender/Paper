@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Tue, 13 Aug 2019 06:35:17 -0700
+Subject: [PATCH] Fix MC-158900
+
+The problem was we were checking isExpired() on the entry, but if it
+was expired at that point, then it would be null.
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index 09cfa7251282c5eeea72e70492d9b2bcbb644b35..555bfdc8736116a0afc5d1a6b467a5687b6f9efe 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -598,8 +598,10 @@ public abstract class PlayerList {
+         Player player = entity.getBukkitEntity();
+         PlayerLoginEvent event = new PlayerLoginEvent(player, hostname, ((java.net.InetSocketAddress) socketaddress).getAddress(), ((java.net.InetSocketAddress) loginlistener.field_147333_a.getRawAddress()).getAddress());
+ 
+-        if (func_152608_h().func_152702_a(gameprofile) && !func_152608_h().func_152683_b(gameprofile).func_73682_e()) {
+-            ProfileBanEntry gameprofilebanentry = (ProfileBanEntry) this.field_72401_g.func_152683_b(gameprofile);
++        // Paper start - Fix MC-158900
++        ProfileBanEntry gameprofilebanentry;
++        if (func_152608_h().func_152702_a(gameprofile) && (gameprofilebanentry = func_152608_h().func_152683_b(gameprofile)) != null) {
++            // Paper end
+ 
+             chatmessage = new TranslationTextComponent("multiplayer.disconnect.banned.reason", new Object[]{gameprofilebanentry.func_73686_f()});
+             if (gameprofilebanentry.func_73680_d() != null) {
