@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 15 Jun 2018 20:37:03 -0400
+Subject: [PATCH] Print Error details when failing to save player data
+
+
+diff --git a/src/main/java/net/minecraft/world/storage/PlayerData.java b/src/main/java/net/minecraft/world/storage/PlayerData.java
+index 35ca5443170546b38998086275e6e496064df5b5..e556cac4a387672a5b9dfb0af1d275ad050e9ed9 100644
+--- a/src/main/java/net/minecraft/world/storage/PlayerData.java
++++ b/src/main/java/net/minecraft/world/storage/PlayerData.java
+@@ -43,7 +43,7 @@ public class PlayerData {
+ 
+             Util.func_240977_a_(file1, file, file2);
+         } catch (Exception exception) {
+-            PlayerData.field_237332_b_.warn("Failed to save player data for {}", p_237335_1_.func_200200_C_().getString());
++            PlayerData.field_237332_b_.error("Failed to save player data for {}", p_237335_1_.func_195047_I_(), exception); // Paper
+         }
+ 
+     }

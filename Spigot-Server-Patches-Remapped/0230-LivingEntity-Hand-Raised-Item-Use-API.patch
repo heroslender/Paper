@@ -1,0 +1,63 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 29 Jun 2018 00:21:28 -0400
+Subject: [PATCH] LivingEntity Hand Raised/Item Use API
+
+How long an entity has raised hands to charge an attack or use an item
+
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index e3afe064f79960e6092c8124db16d1a717f32f81..00c80e3ffc8730b16c1011588bab5fa39a4ed086 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -215,7 +215,7 @@ public abstract class LivingEntity extends Entity {
+     private float field_70746_aG;
+     private int field_70773_bE;
+     private float field_110151_bq;
+-    protected ItemStack field_184627_bm;
++    public ItemStack field_184627_bm; // Paper - public
+     protected int field_184628_bn;
+     protected int field_184629_bo;
+     private BlockPos field_184620_bC;
+@@ -3278,10 +3278,12 @@ public abstract class LivingEntity extends Entity {
+         return this.field_184627_bm;
+     }
+ 
++    public int getItemUseRemainingTime() { return this.func_184605_cv(); } // Paper - OBFHELPER
+     public int func_184605_cv() {
+         return this.field_184628_bn;
+     }
+ 
++    public int getHandRaisedTime() { return this.func_184612_cw(); } // Paper - OBFHELPER
+     public int func_184612_cw() {
+         return this.func_184587_cr() ? this.field_184627_bm.func_77988_m() - this.func_184605_cv() : 0;
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+index 0763cf9230e42fb130e2d7b720915a288f579b93..51dc408e2131d7d87c260551056313ecbd6d5ca3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+@@ -718,5 +718,25 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+     public void setShieldBlockingDelay(int delay) {
+         getHandle().setShieldBlockingDelay(delay);
+     }
++
++    @Override
++    public ItemStack getActiveItem() {
++        return getHandle().field_184627_bm.asBukkitMirror();
++    }
++
++    @Override
++    public int getItemUseRemainingTime() {
++        return getHandle().getItemUseRemainingTime();
++    }
++
++    @Override
++    public int getHandRaisedTime() {
++        return getHandle().getHandRaisedTime();
++    }
++
++    @Override
++    public boolean isHandRaised() {
++        return getHandle().func_184587_cr();
++    }
+     // Paper end
+ }

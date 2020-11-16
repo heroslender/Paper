@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Brokkonaut <hannos17@gmx.de>
+Date: Sat, 14 Apr 2018 20:20:46 +0200
+Subject: [PATCH] Configurable sprint interruption on attack
+
+If the sprint interruption is disabled players continue sprinting when they attack entities.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 924cc5b2dc7764fdf9185d32bb5c09225250778d..e3e529c00122eaf04c7085b1074c5dd124419513 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -352,4 +352,9 @@ public class PaperWorldConfig {
+     private void squidMaxSpawnHeight() {
+         squidMaxSpawnHeight = getDouble("squid-spawn-height.maximum", 0.0D);
+     }
++
++    public boolean disableSprintInterruptionOnAttack;
++    private void disableSprintInterruptionOnAttack() {
++        disableSprintInterruptionOnAttack = getBoolean("game-mechanics.disable-sprint-interruption-on-attack", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 1b6771d23ac566251fce8fa403e8471b21e425b1..93965148ffeb4fac7a5729fdd287ecd945c6e895 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -1180,7 +1180,11 @@ public abstract class PlayerEntity extends LivingEntity {
+                             }
+ 
+                             this.func_213317_d(this.func_213322_ci().func_216372_d(0.6D, 1.0D, 0.6D));
+-                            this.func_70031_b(false);
++                            // Paper start - Configuration option to disable automatic sprint interruption
++                            if (!field_70170_p.paperConfig.disableSprintInterruptionOnAttack) {
++                                this.func_70031_b(false);
++                            }
++                            // Paper end
+                         }
+ 
+                         if (flag3) {

@@ -1,0 +1,30 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: GreenMeanie <GreenMeanieMC@gmail.com>
+Date: Sat, 20 Oct 2018 22:34:02 -0400
+Subject: [PATCH] Reset players airTicks on respawn
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index b19895647d1b40c131a2b140a027ffe06418bb19..9b0a9ebaa1bcdedd613767664a3ee38b3b34e30f 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -2355,6 +2355,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+ 
+     }
+ 
++    public final int getMaxAirTicks() { return func_205010_bg(); } // Paper - OBFHELPER
+     public int func_205010_bg() {
+         return 300;
+     }
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 18b3adc00d1e303c92fee4d894eb5b9e40067ece..4937e0ea3ef45af7fb23c742d8ccf199ddf9d6e2 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -2131,6 +2131,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+         }
+ 
+         this.func_70606_j(this.func_110138_aP());
++        this.func_70050_g(this.getMaxAirTicks()); // Paper
+         this.field_190534_ay = 0;
+         this.field_70143_R = 0;
+         this.field_71100_bB = new FoodStats(this);

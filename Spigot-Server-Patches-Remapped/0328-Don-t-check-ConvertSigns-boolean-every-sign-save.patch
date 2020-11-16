@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 2 Mar 2019 11:11:29 -0500
+Subject: [PATCH] Don't check ConvertSigns boolean every sign save
+
+property lookups arent super cheap. they synchronize, validate
+and check security managers.
+
+diff --git a/src/main/java/net/minecraft/tileentity/SignTileEntity.java b/src/main/java/net/minecraft/tileentity/SignTileEntity.java
+index 8363d92155fedd7b32a1adcb6bffd1666b449f75..7cea61b2e0702715bfd13b568411ebd095e60d47 100644
+--- a/src/main/java/net/minecraft/tileentity/SignTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/SignTileEntity.java
+@@ -32,6 +32,7 @@ public class SignTileEntity extends TileEntity implements ICommandSource { // Cr
+     private final IReorderingProcessor[] field_212367_h;
+     private DyeColor field_214073_l;
+     public java.util.UUID signEditor; // Paper
++    private static final boolean CONVERT_LEGACY_SIGNS = Boolean.getBoolean("convertLegacySigns"); // Paper
+ 
+     public SignTileEntity() {
+         super(TileEntityType.field_200978_i);
+@@ -52,7 +53,7 @@ public class SignTileEntity extends TileEntity implements ICommandSource { // Cr
+         }
+ 
+         // CraftBukkit start
+-        if (Boolean.getBoolean("convertLegacySigns")) {
++        if (CONVERT_LEGACY_SIGNS) { // Paper
+             p_189515_1_.func_74757_a("Bukkit.isConverted", true);
+         }
+         // CraftBukkit end

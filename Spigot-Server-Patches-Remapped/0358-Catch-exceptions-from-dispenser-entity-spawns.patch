@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Mon, 10 Jun 2019 09:36:40 +0100
+Subject: [PATCH] Catch exceptions from dispenser entity spawns
+
+
+diff --git a/src/main/java/net/minecraft/dispenser/IDispenseItemBehavior.java b/src/main/java/net/minecraft/dispenser/IDispenseItemBehavior.java
+index 2e5e1a164bfff546984693a6db5950e2a5b0a9df..2dc01439fad45a6f509a4f3b64d7d61609bf83f3 100644
+--- a/src/main/java/net/minecraft/dispenser/IDispenseItemBehavior.java
++++ b/src/main/java/net/minecraft/dispenser/IDispenseItemBehavior.java
+@@ -54,6 +54,7 @@ import net.minecraft.item.Items;
+ import net.minecraft.item.SpawnEggItem;
+ import net.minecraft.potion.PotionUtils;
+ import net.minecraft.potion.Potions;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.state.properties.BlockStateProperties;
+ import net.minecraft.tags.BlockTags;
+ import net.minecraft.tags.FluidTags;
+@@ -234,7 +235,14 @@ public interface IDispenseItemBehavior {
+                     }
+                 }
+ 
++                try { // Paper
+                 entitytypes.func_220331_a(p_82487_1_.func_197524_h(), p_82487_2_, (PlayerEntity) null, p_82487_1_.func_180699_d().func_177972_a(enumdirection), SpawnReason.DISPENSER, enumdirection != Direction.UP, false);
++                    // Paper start
++                } catch (Exception ex){
++                    MinecraftServer.field_147145_h.warn("An exception occurred dispensing entity at {}[{}]", worldserver.getWorld().getName(), p_82487_1_.func_180699_d(), ex);
++                }
++                // Paper end
++
+                 // itemstack.subtract(1); // Handled during event processing
+                 // CraftBukkit end
+                 return p_82487_2_;

@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Fri, 10 May 2019 18:38:19 +0100
+Subject: [PATCH] Fix CB call to changed postToMainThread method
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 37c4cb6af3d2900d637c637b885496bca499c5f5..c8e74e8ecd638122848137e547c0d5f41c275fef 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -441,7 +441,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+         this.field_147371_a.getClass();
+         // CraftBukkit - Don't wait
+-        minecraftserver.func_212875_d_(networkmanager::func_179293_l);
++        minecraftserver.scheduleOnMain(networkmanager::func_179293_l); // Paper
+     }
+ 
+     private <T> void func_244533_a(T p_244533_1_, Consumer<T> p_244533_2_, BiFunction<IChatFilter, T, CompletableFuture<Optional<T>>> p_244533_3_) {

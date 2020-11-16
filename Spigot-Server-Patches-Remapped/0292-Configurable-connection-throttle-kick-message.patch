@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Tue, 2 Oct 2018 09:57:50 +0100
+Subject: [PATCH] Configurable connection throttle kick message
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index d162a5f1c5bcd394897ab1bd1ac6d31454bc94b7..74a4593853707f5dccba597fa903e5f1194cd5c5 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -273,6 +273,11 @@ public class PaperConfig {
+         authenticationServersDownKickMessage = Strings.emptyToNull(getString("messages.kick.authentication-servers-down", authenticationServersDownKickMessage));
+     }
+ 
++    public static String connectionThrottleKickMessage = "Connection throttled! Please wait before reconnecting.";
++    private static void connectionThrottleKickMessage() {
++        connectionThrottleKickMessage = getString("messages.kick.connection-throttle", connectionThrottleKickMessage);
++    }
++
+     private static void savePlayerData() {
+         Object val = config.get("settings.save-player-data");
+         if (val instanceof Boolean) {
+diff --git a/src/main/java/net/minecraft/network/handshake/ServerHandshakeNetHandler.java b/src/main/java/net/minecraft/network/handshake/ServerHandshakeNetHandler.java
+index c05cdef4198ee32f1e9d0103c8faffcc0c9ae16d..d7a50acecede2e6b60e707423582c44aeda3f633 100644
+--- a/src/main/java/net/minecraft/network/handshake/ServerHandshakeNetHandler.java
++++ b/src/main/java/net/minecraft/network/handshake/ServerHandshakeNetHandler.java
+@@ -46,7 +46,7 @@ public class ServerHandshakeNetHandler implements IHandshakeNetHandler {
+                     synchronized (throttleTracker) {
+                         if (throttleTracker.containsKey(address) && !"127.0.0.1".equals(address.getHostAddress()) && currentTime - throttleTracker.get(address) < connectionThrottle) {
+                             throttleTracker.put(address, currentTime);
+-                            TranslationTextComponent chatmessage = new TranslationTextComponent("Connection throttled! Please wait before reconnecting.");
++                            TranslationTextComponent chatmessage = new TranslationTextComponent(com.destroystokyo.paper.PaperConfig.connectionThrottleKickMessage); // Paper - Configurable connection throttle kick message
+                             this.field_147386_b.func_179290_a(new SDisconnectLoginPacket(chatmessage));
+                             this.field_147386_b.func_150718_a(chatmessage);
+                             return;

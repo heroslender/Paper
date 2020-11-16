@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 19 Dec 2016 23:07:42 -0500
+Subject: [PATCH] Prevent Pathfinding out of World Border
+
+This prevents Entities from trying to run outside of the World Border
+
+diff --git a/src/main/java/net/minecraft/pathfinding/PathNavigator.java b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+index c4dc6dba199bec8e58d56ef4a7dbb4b9a132a50d..08d9a18dda1793ba45207ab778793f5fa3a82e50 100644
+--- a/src/main/java/net/minecraft/pathfinding/PathNavigator.java
++++ b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+@@ -143,7 +143,7 @@ public abstract class PathNavigator {
+             // Paper start - Pathfind event
+             boolean copiedSet = false;
+             for (BlockPos possibleTarget : set) {
+-                if (!new com.destroystokyo.paper.event.entity.EntityPathfindEvent(getEntity().getBukkitEntity(),
++                if (!getEntity().func_130014_f_().func_175723_af().isInBounds(possibleTarget) || !new com.destroystokyo.paper.event.entity.EntityPathfindEvent(getEntity().getBukkitEntity(), // Paper - don't path out of world border
+                     MCUtil.toLocation(getEntity().field_70170_p, possibleTarget), target == null ? null : target.getBukkitEntity()).callEvent()) {
+                     if (!copiedSet) {
+                         copiedSet = true;

@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 23 Sep 2018 20:59:53 -0500
+Subject: [PATCH] Honor EntityAgeable.ageLock
+
+
+diff --git a/src/main/java/net/minecraft/entity/AgeableEntity.java b/src/main/java/net/minecraft/entity/AgeableEntity.java
+index f96ca2728be767669f6ef5861c58638e00cccc60..bbb8190d866491771c6f59d3d9a3e253df9e9fdb 100644
+--- a/src/main/java/net/minecraft/entity/AgeableEntity.java
++++ b/src/main/java/net/minecraft/entity/AgeableEntity.java
+@@ -82,6 +82,7 @@ public abstract class AgeableEntity extends CreatureEntity {
+     }
+ 
+     public void func_175501_a(int p_175501_1_, boolean p_175501_2_) {
++        if (ageLocked) return; // Paper - GH-1459
+         int j = this.func_70874_b();
+         int k = j;
+ 

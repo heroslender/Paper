@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Fri, 12 Jun 2020 16:51:39 -0700
+Subject: [PATCH] Prevent position desync in playerconnection causing tp
+ exploit
+
+Caused the server to revert to the player's overworld coordinates
+after teleporting into the end.
+
+Sidenote: The underlying issue is that the move call can teleport
+entities and do other things like kill the entity. In the future,
+to fix all exploits derieved from this usually unexpected
+behaviour, we need to move all of this dangerous logic outside
+of the move call and into an appropriate place in the tick method.
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 90d41b4bdd8de09e52697afc4e0329d1970056c2..c44dd1809fd7d9608e2879496e173f8ef3ca94b1 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1312,6 +1312,11 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+                             this.field_147369_b.func_213315_a(MoverType.PLAYER, new Vector3d(d7, d8, d9));
+                             this.field_147369_b.func_230245_c_(p_147347_1_.func_149465_i()); // CraftBukkit - SPIGOT-5810, SPIGOT-5835: reset by this.player.move
++                            // Paper start - prevent position desync
++                            if (this.field_184362_y != null) {
++                                return; // ... thanks Mojang for letting move calls teleport across dimensions.
++                            }
++                            // Paper end - prevent position desync
+                             double d12 = d8;
+ 
+                             d7 = d4 - this.field_147369_b.func_226277_ct_();

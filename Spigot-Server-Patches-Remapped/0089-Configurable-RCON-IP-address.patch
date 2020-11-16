@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 16 Apr 2016 00:39:33 -0400
+Subject: [PATCH] Configurable RCON IP address
+
+For servers with multiple IP's, ability to bind to a specific interface.
+
+diff --git a/src/main/java/net/minecraft/network/rcon/MainThread.java b/src/main/java/net/minecraft/network/rcon/MainThread.java
+index 1a7659df7641c2f767eec6dcacb44e3d1d321843..a8361b8546afb8054dbf1064fccb5bb689abe39b 100644
+--- a/src/main/java/net/minecraft/network/rcon/MainThread.java
++++ b/src/main/java/net/minecraft/network/rcon/MainThread.java
+@@ -61,7 +61,7 @@ public class MainThread extends RConThread {
+     @Nullable
+     public static MainThread func_242130_a(IServer p_242130_0_) {
+         ServerProperties dedicatedserverproperties = p_242130_0_.func_213221_d_();
+-        String s = p_242130_0_.func_71277_t();
++        String s = dedicatedserverproperties.rconIp; // Paper - Configurable rcon ip
+ 
+         if (s.isEmpty()) {
+             s = "0.0.0.0";
+diff --git a/src/main/java/net/minecraft/server/dedicated/PropertyManager.java b/src/main/java/net/minecraft/server/dedicated/PropertyManager.java
+index 5afd71846fb72d31542ed5f5f8d68f7273335859..97b09eacb4aa28d9fafa30df5c1fcf70026babfd 100644
+--- a/src/main/java/net/minecraft/server/dedicated/PropertyManager.java
++++ b/src/main/java/net/minecraft/server/dedicated/PropertyManager.java
+@@ -128,8 +128,8 @@ public abstract class PropertyManager<T extends PropertyManager<T>> {
+         };
+     }
+ 
+-    @Nullable
+-    private String func_218976_c(String p_218976_1_) {
++    @Nullable String getSettingIfExists(final String path) { return this.func_218976_c(path); } // Paper - OBFHELPER
++    @Nullable private String func_218976_c(String p_218976_1_) { // Paper - OBFHELPER
+         return (String) getOverride(p_218976_1_, this.field_73672_b.getProperty(p_218976_1_)); // CraftBukkit
+     }
+ 
+diff --git a/src/main/java/net/minecraft/server/dedicated/ServerProperties.java b/src/main/java/net/minecraft/server/dedicated/ServerProperties.java
+index 4b5eb918bbdda8abdf011bd4533a22e3bcfa2550..b2163bc42575e93c30f9086d2e64be972d8b8add 100644
+--- a/src/main/java/net/minecraft/server/dedicated/ServerProperties.java
++++ b/src/main/java/net/minecraft/server/dedicated/ServerProperties.java
+@@ -62,6 +62,8 @@ public class ServerProperties extends PropertyManager<ServerProperties> {
+     public final PropertyManager<ServerProperties>.Property<Boolean> field_219006_S;
+     public final DimensionGeneratorSettings field_241082_U_;
+ 
++    public final String rconIp; // Paper - Add rcon ip
++
+     // CraftBukkit start
+     public ServerProperties(Properties properties, DynamicRegistries iregistrycustom, OptionSet optionset) {
+         super(properties, optionset);
+@@ -113,6 +115,10 @@ public class ServerProperties extends PropertyManager<ServerProperties> {
+         this.field_244715_T = this.func_218973_a("text-filtering-config", "");
+         this.field_219005_R = this.func_218974_b("player-idle-timeout", 0);
+         this.field_219006_S = this.func_218961_b("white-list", false);
++        // Paper start - Configurable rcon ip
++        final String rconIp = this.getSettingIfExists("rcon.ip");
++        this.rconIp = rconIp == null ? this.field_219009_c : rconIp;
++        // Paper end
+         this.field_241082_U_ = DimensionGeneratorSettings.func_242753_a(iregistrycustom, properties);
+     }
+ 

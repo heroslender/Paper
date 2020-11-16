@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach@zachbr.io>
+Date: Thu, 16 Apr 2020 20:07:29 -0500
+Subject: [PATCH] Restrict vanilla teleport command to valid locations
+
+Fixes GH-3165, GH-3575
+
+diff --git a/src/main/java/net/minecraft/command/impl/TeleportCommand.java b/src/main/java/net/minecraft/command/impl/TeleportCommand.java
+index d7df50b06c27bfdae19f596dd19ff290cf60e9d9..35e32b957644c9cf38d099c5764fa493d4e7df04 100644
+--- a/src/main/java/net/minecraft/command/impl/TeleportCommand.java
++++ b/src/main/java/net/minecraft/command/impl/TeleportCommand.java
+@@ -141,6 +141,12 @@ public class TeleportCommand {
+ 
+     private static void func_201127_a(CommandSource p_201127_0_, Entity p_201127_1_, ServerWorld p_201127_2_, double p_201127_3_, double p_201127_4_, double p_201127_5_, Set<SPlayerPositionLookPacket.Flags> p_201127_6_, float p_201127_7_, float p_201127_8_, @Nullable TeleportCommand.Facing p_201127_9_) throws CommandSyntaxException {
+         BlockPos blockposition = new BlockPos(p_201127_3_, p_201127_4_, p_201127_5_);
++        // Paper start - Don't allow teleport command to invalid locations
++        if (p_201127_3_ <= -30000000 || p_201127_5_ <= -30000000 || p_201127_3_ > 30000000 || p_201127_5_ > 30000000 || p_201127_4_ > 30000000 || p_201127_4_ <= -30000000) { // Copy/pasta from BaseBlockPosition#isValidLocation
++            org.bukkit.Bukkit.getLogger().warning("Refused to teleport " + p_201127_1_.func_195047_I_() + " to " + p_201127_3_ + ", " + p_201127_4_ + ", " + p_201127_5_);
++            return;
++        }
++        // Paper end
+ 
+         if (!World.func_234935_k_(blockposition)) {
+             throw TeleportCommand.field_241077_a_.create();

@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 20 Jun 2018 23:17:24 -0400
+Subject: [PATCH] Expand Explosions API
+
+Add Entity as a Source capability, and add more API choices, and on Location.
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index eb44a70448c192e803c478813f70877d242ae031..1daa2ad9f50371d508244296727814829f42c8a5 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -871,6 +871,11 @@ public class CraftWorld implements World {
+     public boolean createExplosion(double x, double y, double z, float power, boolean setFire, boolean breakBlocks, Entity source) {
+         return !world.func_217398_a(source == null ? null : ((CraftEntity) source).getHandle(), x, y, z, power, setFire, breakBlocks ? Explosion.Mode.BREAK : Explosion.Mode.NONE).wasCanceled;
+     }
++    // Paper start
++    public boolean createExplosion(Entity source, Location loc, float power, boolean setFire, boolean breakBlocks) {
++        return !world.func_217398_a(source != null ? ((org.bukkit.craftbukkit.entity.CraftEntity) source).getHandle() : null, loc.getX(), loc.getY(), loc.getZ(), power, setFire, breakBlocks ? Explosion.Mode.BREAK : Explosion.Mode.NONE).wasCanceled;
++    }
++    // Paper end
+ 
+     @Override
+     public boolean createExplosion(Location loc, float power) {

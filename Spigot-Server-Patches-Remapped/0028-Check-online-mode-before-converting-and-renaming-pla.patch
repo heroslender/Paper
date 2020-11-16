@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Wed, 2 Mar 2016 00:03:55 -0600
+Subject: [PATCH] Check online mode before converting and renaming player data
+
+
+diff --git a/src/main/java/net/minecraft/world/storage/PlayerData.java b/src/main/java/net/minecraft/world/storage/PlayerData.java
+index ff3b3890f983f7d339aea3e3997167441f996045..35ca5443170546b38998086275e6e496064df5b5 100644
+--- a/src/main/java/net/minecraft/world/storage/PlayerData.java
++++ b/src/main/java/net/minecraft/world/storage/PlayerData.java
+@@ -56,7 +56,7 @@ public class PlayerData {
+             File file = new File(this.field_237333_c_, p_237336_1_.func_189512_bd() + ".dat");
+             // Spigot Start
+             boolean usingWrongFile = false;
+-            if ( !file.exists() )
++            if ( org.bukkit.Bukkit.getOnlineMode() && !file.exists() ) // Paper - Check online mode first
+             {
+                 file = new File( this.field_237333_c_, java.util.UUID.nameUUIDFromBytes( ( "OfflinePlayer:" + p_237336_1_.func_195047_I_() ).getBytes( "UTF-8" ) ).toString() + ".dat");
+                 if ( file.exists() )

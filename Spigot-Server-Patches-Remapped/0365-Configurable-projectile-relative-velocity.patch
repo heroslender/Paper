@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Lucavon <lucavonlp@gmail.com>
+Date: Tue, 23 Jul 2019 20:29:20 -0500
+Subject: [PATCH] Configurable projectile relative velocity
+
+This patch adds an option "disable relative projectile velocity", which, when
+nabled, will cause projectiles to ignore the shooter's current velocity,
+like they did in Minecraft 1.8 and prior.
+If a player is falling, for example, their shooting range will be drastically
+reduced, as a downwards velocity is applied to the projectile. This prevents
+players from saving themselves from falling off floating islands, for example,
+as a thrown ender pearl will not make it back to the island, while it would
+have in 1.8.
+
+While this could easily be done with plugins, too, there are multiple problems:
+P1) If multiple plugins cancel the velocity by subtracting the shooter's velocity
+from the projectile's velocity, the projectile's velocity would be different.
+As there's no way to detect whether the projectile's velocity has already been
+adjusted to ignore the player's velocity, plugins can't not do it if it's not
+necessary.
+P2) I've noticed some inconsistencies, e.g. weird velocity when shooting while
+using an elytra. Checking for those inconsistencies is possible, but not as
+efficient as just not applying the velocity in the first place.
+P3) Solutions for 1) and especially 2) might not be future-proof, while this
+server-internal fix makes this change future-proof.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 90e8defde0ef84f3146c8664805d6f11b84c593d..36eff622d5638f1bd11b7b4ebe97036205ccf88b 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -496,4 +496,9 @@ public class PaperWorldConfig {
+         }
+         log("Anti-Xray: " + (antiXray ? "enabled" : "disabled") + " / Engine Mode: " + engineMode.getDescription() + " / Up to " + ((maxChunkSectionIndex + 1) * 16) + " blocks / Update Radius: " + updateRadius);
+     }
++
++    public boolean disableRelativeProjectileVelocity;
++    private void disableRelativeProjectileVelocity() {
++        disableRelativeProjectileVelocity = getBoolean("game-mechanics.disable-relative-projectile-velocity", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/projectile/ProjectileEntity.java b/src/main/java/net/minecraft/entity/projectile/ProjectileEntity.java
+index 116c082f9b639784dc7d739ff08df1b2f8f10e40..0dd305fcd232a334df3a4e723c4d0768d431e1ac 100644
+--- a/src/main/java/net/minecraft/entity/projectile/ProjectileEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/ProjectileEntity.java
+@@ -126,7 +126,7 @@ public abstract class ProjectileEntity extends Entity {
+         this.func_70186_c((double) f5, (double) f6, (double) f7, p_234612_5_, p_234612_6_);
+         Vector3d vec3d = p_234612_1_.func_213322_ci();
+ 
+-        this.func_213317_d(this.func_213322_ci().func_72441_c(vec3d.field_72450_a, p_234612_1_.func_233570_aj_() ? 0.0D : vec3d.field_72448_b, vec3d.field_72449_c));
++        if (!p_234612_1_.field_70170_p.paperConfig.disableRelativeProjectileVelocity) this.func_213317_d(this.func_213322_ci().func_72441_c(vec3d.field_72450_a, p_234612_1_.func_233570_aj_() ? 0.0D : vec3d.field_72448_b, vec3d.field_72449_c)); // Paper - allow disabling relative velocity
+     }
+ 
+     protected void func_70227_a(RayTraceResult p_70227_1_) {

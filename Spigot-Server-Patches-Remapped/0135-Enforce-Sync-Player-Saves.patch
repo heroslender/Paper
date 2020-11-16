@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 7 Jan 2017 15:41:58 -0500
+Subject: [PATCH] Enforce Sync Player Saves
+
+Saving players async is extremely dangerous. This will force it to main
+the same way we handle async chunk loads.
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index 987bc0ec7c0934b1e7da8ab99b2b874e16c77809..9d15b6127792f27fc7aadbd9c57f5460d1f0dfc3 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -60,6 +60,7 @@ import net.minecraft.scoreboard.ScorePlayerTeam;
+ import net.minecraft.scoreboard.Scoreboard;
+ import net.minecraft.scoreboard.ServerScoreboard;
+ import net.minecraft.scoreboard.Team;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.server.dedicated.DedicatedServer;
+ import net.minecraft.stats.ServerStatisticsManager;
+@@ -1046,11 +1047,13 @@ public abstract class PlayerList {
+     }
+ 
+     public void func_72389_g() {
++        MCUtil.ensureMain("Save Players" , () -> { // Paper - Ensure main
+         MinecraftTimings.savePlayers.startTiming(); // Paper
+         for (int i = 0; i < this.field_72404_b.size(); ++i) {
+             this.func_72391_b((ServerPlayerEntity) this.field_72404_b.get(i));
+         }
+         MinecraftTimings.savePlayers.stopTiming(); // Paper
++        return null; }); // Paper - ensure main
+     }
+ 
+     public WhiteList func_152599_k() {

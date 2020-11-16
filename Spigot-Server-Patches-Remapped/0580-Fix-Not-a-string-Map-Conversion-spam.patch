@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 8 Oct 2020 00:00:25 -0400
+Subject: [PATCH] Fix "Not a string" Map Conversion spam
+
+The maps did convert successfully, but had noisy logs due to Spigot
+implementing this logic incorrectly.
+
+This stops the spam by converting the old format to new before
+requesting the world.
+
+diff --git a/src/main/java/net/minecraft/world/storage/MapData.java b/src/main/java/net/minecraft/world/storage/MapData.java
+index b268c5d88a46024e4ab22ea7221953911adf9946..d22a5aa6afe89bff67045097de5a0ea8149c5cd5 100644
+--- a/src/main/java/net/minecraft/world/storage/MapData.java
++++ b/src/main/java/net/minecraft/world/storage/MapData.java
+@@ -16,6 +16,8 @@ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.INBT;
+ import net.minecraft.nbt.ListNBT;
+ import net.minecraft.nbt.NBTDynamicOps;
++import net.minecraft.nbt.NumberNBT;
++import net.minecraft.nbt.StringNBT;
+ import net.minecraft.network.IPacket;
+ import net.minecraft.network.play.server.SMapDataPacket;
+ import net.minecraft.util.RegistryKey;
+@@ -92,7 +94,26 @@ public class MapData extends WorldSavedData {
+ 
+     @Override
+     public void func_76184_a(CompoundNBT p_76184_1_) {
+-        DataResult<RegistryKey<World>> dataresult = DimensionType.func_236025_a_(new Dynamic(NBTDynamicOps.field_210820_a, p_76184_1_.func_74781_a("dimension"))); // CraftBukkit - decompile error
++        // Paper start - fix "Not a string" spam
++        INBT dimension = p_76184_1_.func_74781_a("dimension");
++        if (dimension instanceof NumberNBT && ((NumberNBT) dimension).func_150287_d() >= CraftWorld.CUSTOM_DIMENSION_OFFSET) {
++            long least = p_76184_1_.func_74763_f("UUIDLeast");
++            long most = p_76184_1_.func_74763_f("UUIDMost");
++
++            if (least != 0L && most != 0L) {
++                this.uniqueId = new UUID(most, least);
++                CraftWorld world = (CraftWorld) server.getWorld(this.uniqueId);
++                if (world != null) {
++                    dimension = StringNBT.create("minecaft:" + world.getName().toLowerCase(java.util.Locale.ENGLISH));
++                } else {
++                    dimension = StringNBT.create("bukkit:_invalidworld_");
++                }
++            } else {
++                dimension = StringNBT.create("bukkit:_invalidworld_");
++            }
++        }
++        DataResult<RegistryKey<World>> dataresult = DimensionType.func_236025_a_(new Dynamic(NBTDynamicOps.field_210820_a, dimension)); // CraftBukkit - decompile error
++        // Paper end - fix "Not a string" spam
+         Logger logger = MapData.field_237240_k_;
+ 
+         logger.getClass();

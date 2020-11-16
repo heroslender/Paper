@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 18 Jun 2018 01:12:53 -0400
+Subject: [PATCH] PlayerReadyArrowEvent
+
+Called when a player is firing a bow and the server is choosing an arrow to use.
+Plugins can skip selection of certain arrows and control which is used.
+
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 93965148ffeb4fac7a5729fdd287ecd945c6e895..0f5b1d41df537f00ab4a8f0be2c44ccbfb00a88c 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -2138,6 +2138,17 @@ public abstract class PlayerEntity extends LivingEntity {
+         return ImmutableList.of(Pose.STANDING, Pose.CROUCHING, Pose.SWIMMING);
+     }
+ 
++    // Paper start
++    protected boolean tryReadyArrow(ItemStack bow, ItemStack itemstack) {
++        return !(this instanceof ServerPlayerEntity) ||
++                new com.destroystokyo.paper.event.player.PlayerReadyArrowEvent(
++                    ((ServerPlayerEntity) this).getBukkitEntity(),
++                    org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(bow),
++                    org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemstack)
++                ).callEvent();
++        // Paper end
++    }
++
+     @Override
+     public ItemStack func_213356_f(ItemStack p_213356_1_) {
+         if (!(p_213356_1_.func_77973_b() instanceof ShootableItem)) {
+@@ -2154,7 +2165,7 @@ public abstract class PlayerEntity extends LivingEntity {
+                 for (int i = 0; i < this.field_71071_by.func_70302_i_(); ++i) {
+                     ItemStack itemstack2 = this.field_71071_by.func_70301_a(i);
+ 
+-                    if (predicate.test(itemstack2)) {
++                    if (predicate.test(itemstack2) && tryReadyArrow(p_213356_1_, itemstack2)) { // Paper
+                         return itemstack2;
+                     }
+                 }

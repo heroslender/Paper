@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Tue, 3 Mar 2020 05:26:40 +0000
+Subject: [PATCH] Prevent teleporting dead entities
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index c1ab4a9eb5a2138ac406fe0194c03a0ede818b60..f08ce5755cbb0dc78cc273d12e23b0aa866c6a6e 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1455,6 +1455,10 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     }
+ 
+     private void internalTeleport(double d0, double d1, double d2, float f, float f1, Set<SPlayerPositionLookPacket.Flags> set) {
++        if (field_147369_b.field_70128_L) {
++            field_147370_c.info("Attempt to teleport dead player {} restricted", field_147369_b.func_195047_I_());
++            return;
++        }
+         // CraftBukkit start
+         if (Float.isNaN(f)) {
+             f = 0;

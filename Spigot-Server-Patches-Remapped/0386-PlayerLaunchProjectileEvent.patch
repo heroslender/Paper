@@ -1,0 +1,359 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 21 Jul 2018 03:11:03 -0500
+Subject: [PATCH] PlayerLaunchProjectileEvent
+
+
+diff --git a/src/main/java/net/minecraft/item/EggItem.java b/src/main/java/net/minecraft/item/EggItem.java
+index 2847d630546f254eeda5765a4db6d44e4867a29a..8737ae5404c7f41f1a263e75d457f243983feab9 100644
+--- a/src/main/java/net/minecraft/item/EggItem.java
++++ b/src/main/java/net/minecraft/item/EggItem.java
+@@ -1,10 +1,12 @@
+ package net.minecraft.item;
+ 
++import net.minecraft.entity.Entity;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.entity.projectile.EggEntity;
+ import net.minecraft.stats.Stats;
+ import net.minecraft.util.ActionResult;
++import net.minecraft.util.ActionResultType;
+ import net.minecraft.util.Hand;
+ import net.minecraft.util.SoundCategory;
+ import net.minecraft.util.SoundEvents;
+@@ -26,21 +28,35 @@ public class EggItem extends Item {
+ 
+             entityegg.func_213884_b(itemstack);
+             entityegg.func_234612_a_(p_77659_2_, p_77659_2_.field_70125_A, p_77659_2_.field_70177_z, 0.0F, 1.5F, 1.0F);
+-            // CraftBukkit start
+-            if (!p_77659_1_.func_217376_c(entityegg)) {
++            // Paper start
++            com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent event = new com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent((org.bukkit.entity.Player) p_77659_2_.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemstack), (org.bukkit.entity.Projectile) entityegg.getBukkitEntity());
++            if (event.callEvent() && p_77659_1_.func_217376_c(entityegg)) {
++                if (event.shouldConsume() && !p_77659_2_.field_71075_bZ.field_75098_d) {
++                    itemstack.func_190918_g(1);
++                } else if (p_77659_2_ instanceof ServerPlayerEntity) {
++                    ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
++                }
++
++                p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187511_aA, SoundCategory.PLAYERS, 0.5F, 0.4F / (Entity.SHARED_RANDOM.nextFloat() * 0.4F + 0.8F));
++                p_77659_2_.func_71029_a(Stats.field_75929_E.func_199076_b(this));
++            } else {
+                 if (p_77659_2_ instanceof ServerPlayerEntity) {
+                     ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
+                 }
+-                return ActionResult.func_226251_d_(itemstack);
++                return new ActionResult<ItemStack>(ActionResultType.FAIL, itemstack);
+             }
+-            // CraftBukkit end
++            // Paper end
++
++
+         }
+         p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187511_aA, SoundCategory.PLAYERS, 0.5F, 0.4F / (EggItem.field_77697_d.nextFloat() * 0.4F + 0.8F)); // CraftBukkit - from above
+ 
+-        p_77659_2_.func_71029_a(Stats.field_75929_E.func_199076_b(this));
+-        if (!p_77659_2_.field_71075_bZ.field_75098_d) {
+-            itemstack.func_190918_g(1);
++        /* // Paper start - moved up
++        entityhuman.b(StatisticList.ITEM_USED.b(this));
++        if (!entityhuman.abilities.canInstantlyBuild) {
++            itemstack.subtract(1);
+         }
++        */ // Paper end
+ 
+         return ActionResult.func_233538_a_(itemstack, p_77659_1_.func_201670_d());
+     }
+diff --git a/src/main/java/net/minecraft/item/EnderPearlItem.java b/src/main/java/net/minecraft/item/EnderPearlItem.java
+index 732da6fc839f4c72e70d3e9d4278ab3834d9fa08..1c39b128985fadb7394db46e32a8bc3a9205317b 100644
+--- a/src/main/java/net/minecraft/item/EnderPearlItem.java
++++ b/src/main/java/net/minecraft/item/EnderPearlItem.java
+@@ -1,5 +1,6 @@
+ package net.minecraft.item;
+ 
++import net.minecraft.entity.Entity;
+ import net.minecraft.entity.item.EnderPearlEntity;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.entity.player.ServerPlayerEntity;
+@@ -27,22 +28,37 @@ public class EnderPearlItem extends Item {
+ 
+             entityenderpearl.func_213884_b(itemstack);
+             entityenderpearl.func_234612_a_(p_77659_2_, p_77659_2_.field_70125_A, p_77659_2_.field_70177_z, 0.0F, 1.5F, 1.0F);
+-            if (!p_77659_1_.func_217376_c(entityenderpearl)) {
++            // Paper start
++                com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent event = new com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent((org.bukkit.entity.Player) p_77659_2_.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemstack), (org.bukkit.entity.Projectile) entityenderpearl.getBukkitEntity());
++            if (event.callEvent() && p_77659_1_.func_217376_c(entityenderpearl)) {
++                if (event.shouldConsume() && !p_77659_2_.field_71075_bZ.field_75098_d) {
++                    itemstack.func_190918_g(1);
++                } else if (p_77659_2_ instanceof ServerPlayerEntity) {
++                    ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
++                }
++
++                p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187595_bc, SoundCategory.NEUTRAL, 0.5F, 0.4F / (Entity.SHARED_RANDOM.nextFloat() * 0.4F + 0.8F));
++                p_77659_2_.func_71029_a(Stats.field_75929_E.func_199076_b(this));
++                p_77659_2_.func_184811_cZ().func_185145_a(this, 20);
++            } else {
++                // Paper end
+                 if (p_77659_2_ instanceof ServerPlayerEntity) {
+                     ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
+                 }
+-                return new ActionResult(ActionResultType.FAIL, itemstack);
++                return new ActionResult<ItemStack>(ActionResultType.FAIL, itemstack);
+             }
+         }
+ 
+-        p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187595_bc, SoundCategory.NEUTRAL, 0.5F, 0.4F / (EnderPearlItem.field_77697_d.nextFloat() * 0.4F + 0.8F));
+-        p_77659_2_.func_184811_cZ().func_185145_a(this, 20);
+-        // CraftBukkit end
+-
+-        p_77659_2_.func_71029_a(Stats.field_75929_E.func_199076_b(this));
+-        if (!p_77659_2_.field_71075_bZ.field_75098_d) {
+-            itemstack.func_190918_g(1);
+-        }
++        // Paper start - moved up
++//        world.playSound((EntityHuman) null, entityhuman.locX(), entityhuman.locY(), entityhuman.locZ(), SoundEffects.ENTITY_ENDER_PEARL_THROW, SoundCategory.NEUTRAL, 0.5F, 0.4F / (ItemEnderPearl.RANDOM.nextFloat() * 0.4F + 0.8F));
++//        entityhuman.getCooldownTracker().setCooldown(this, 20);
++//        // CraftBukkit end
++//
++//        entityhuman.b(StatisticList.ITEM_USED.b(this));
++//        if (!entityhuman.abilities.canInstantlyBuild) {
++//            itemstack.subtract(1);
++//        }
++        // Paper end - moved up
+ 
+         return ActionResult.func_233538_a_(itemstack, p_77659_1_.func_201670_d());
+     }
+diff --git a/src/main/java/net/minecraft/item/ExperienceBottleItem.java b/src/main/java/net/minecraft/item/ExperienceBottleItem.java
+index 690ff1dcf568fcd99c0557660db4ade3e149f98b..9c92f6da78a2e340e1b5cb6c78d6aa249bb5a7d8 100644
+--- a/src/main/java/net/minecraft/item/ExperienceBottleItem.java
++++ b/src/main/java/net/minecraft/item/ExperienceBottleItem.java
+@@ -1,9 +1,12 @@
+ package net.minecraft.item;
+ 
++import net.minecraft.entity.Entity;
+ import net.minecraft.entity.item.ExperienceBottleEntity;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.stats.Stats;
+ import net.minecraft.util.ActionResult;
++import net.minecraft.util.ActionResultType;
+ import net.minecraft.util.Hand;
+ import net.minecraft.util.SoundCategory;
+ import net.minecraft.util.SoundEvents;
+@@ -24,19 +27,38 @@ public class ExperienceBottleItem extends Item {
+     public ActionResult<ItemStack> func_77659_a(World p_77659_1_, PlayerEntity p_77659_2_, Hand p_77659_3_) {
+         ItemStack itemstack = p_77659_2_.func_184586_b(p_77659_3_);
+ 
+-        p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187601_be, SoundCategory.NEUTRAL, 0.5F, 0.4F / (ExperienceBottleItem.field_77697_d.nextFloat() * 0.4F + 0.8F));
++        //world.playSound((EntityHuman) null, entityhuman.locX(), entityhuman.locY(), entityhuman.locZ(), SoundEffects.ENTITY_EXPERIENCE_BOTTLE_THROW, SoundCategory.NEUTRAL, 0.5F, 0.4F / (ItemExpBottle.RANDOM.nextFloat() * 0.4F + 0.8F));  // Paper - moved down
+         if (!p_77659_1_.field_72995_K) {
+             ExperienceBottleEntity entitythrownexpbottle = new ExperienceBottleEntity(p_77659_1_, p_77659_2_);
+ 
+             entitythrownexpbottle.func_213884_b(itemstack);
+             entitythrownexpbottle.func_234612_a_(p_77659_2_, p_77659_2_.field_70125_A, p_77659_2_.field_70177_z, -20.0F, 0.7F, 1.0F);
+-            p_77659_1_.func_217376_c(entitythrownexpbottle);
++            // Paper start
++            com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent event = new com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent((org.bukkit.entity.Player) p_77659_2_.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemstack), (org.bukkit.entity.Projectile) entitythrownexpbottle.getBukkitEntity());
++            if (event.callEvent() && p_77659_1_.func_217376_c(entitythrownexpbottle)) {
++                if (event.shouldConsume() && !p_77659_2_.field_71075_bZ.field_75098_d) {
++                    itemstack.func_190918_g(1);
++                } else if (p_77659_2_ instanceof ServerPlayerEntity) {
++                    ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
++                }
++
++                p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187601_be, SoundCategory.NEUTRAL, 0.5F, 0.4F / (Entity.SHARED_RANDOM.nextFloat() * 0.4F + 0.8F));
++                p_77659_2_.func_71029_a(Stats.field_75929_E.func_199076_b(this));
++            } else {
++                if (p_77659_2_ instanceof ServerPlayerEntity) {
++                    ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
++                }
++                    return new ActionResult<ItemStack>(ActionResultType.FAIL, itemstack);
++            }
++            // Paper end
+         }
+ 
+-        p_77659_2_.func_71029_a(Stats.field_75929_E.func_199076_b(this));
+-        if (!p_77659_2_.field_71075_bZ.field_75098_d) {
+-            itemstack.func_190918_g(1);
++        /* // Paper start - moved up
++        entityhuman.b(StatisticList.ITEM_USED.b(this));
++        if (!entityhuman.abilities.canInstantlyBuild) {
++            itemstack.subtract(1);
+         }
++        */ // Paper end
+ 
+         return ActionResult.func_233538_a_(itemstack, p_77659_1_.func_201670_d());
+     }
+diff --git a/src/main/java/net/minecraft/item/FireworkRocketItem.java b/src/main/java/net/minecraft/item/FireworkRocketItem.java
+index 0bff83bdd32d2432acd73ce5ceae02179f5473b5..7c9bd40c2898cced131abae0d46fe68c8d0344bc 100644
+--- a/src/main/java/net/minecraft/item/FireworkRocketItem.java
++++ b/src/main/java/net/minecraft/item/FireworkRocketItem.java
+@@ -29,8 +29,12 @@ public class FireworkRocketItem extends Item {
+             FireworkRocketEntity entityfireworks = new FireworkRocketEntity(world, p_195939_1_.func_195999_j(), vec3d.field_72450_a + (double) enumdirection.func_82601_c() * 0.15D, vec3d.field_72448_b + (double) enumdirection.func_96559_d() * 0.15D, vec3d.field_72449_c + (double) enumdirection.func_82599_e() * 0.15D, itemstack);
+             entityfireworks.spawningEntity = p_195939_1_.func_195999_j().func_110124_au(); // Paper
+ 
+-            world.func_217376_c(entityfireworks);
+-            itemstack.func_190918_g(1);
++            // Paper start - PlayerLaunchProjectileEvent
++            com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent event = new com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent((org.bukkit.entity.Player) p_195939_1_.func_195999_j().getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemstack), (org.bukkit.entity.Firework) entityfireworks.getBukkitEntity());
++            if (!event.callEvent() || !world.func_217376_c(entityfireworks)) return ActionResultType.PASS;
++            if (event.shouldConsume() && !p_195939_1_.func_195999_j().field_71075_bZ.field_75098_d) itemstack.func_190918_g(1);
++            else if (p_195939_1_.func_195999_j() instanceof ServerPlayerEntity) ((ServerPlayerEntity) p_195939_1_.func_195999_j()).getBukkitEntity().updateInventory();
++            // Paper end
+         }
+ 
+         return ActionResultType.func_233537_a_(world.field_72995_K);
+diff --git a/src/main/java/net/minecraft/item/LingeringPotionItem.java b/src/main/java/net/minecraft/item/LingeringPotionItem.java
+index 3f01ee2e3864ad803c3d1eb7d0cca0f8c9addeb8..3970021e42da28703b3e83bf1d6044d085cd3676 100644
+--- a/src/main/java/net/minecraft/item/LingeringPotionItem.java
++++ b/src/main/java/net/minecraft/item/LingeringPotionItem.java
+@@ -2,6 +2,7 @@ package net.minecraft.item;
+ 
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.util.ActionResult;
++import net.minecraft.util.ActionResultType;
+ import net.minecraft.util.Hand;
+ import net.minecraft.util.SoundCategory;
+ import net.minecraft.util.SoundEvents;
+@@ -15,7 +16,12 @@ public class LingeringPotionItem extends ThrowablePotionItem {
+ 
+     @Override
+     public ActionResult<ItemStack> func_77659_a(World p_77659_1_, PlayerEntity p_77659_2_, Hand p_77659_3_) {
+-        p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187756_df, SoundCategory.NEUTRAL, 0.5F, 0.4F / (LingeringPotionItem.field_77697_d.nextFloat() * 0.4F + 0.8F));
+-        return super.func_77659_a(p_77659_1_, p_77659_2_, p_77659_3_);
++        // Paper start
++        ActionResult<ItemStack> wrapper = super.func_77659_a(p_77659_1_, p_77659_2_, p_77659_3_);
++        if (wrapper.getResult() != ActionResultType.FAIL) {
++            p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187756_df, SoundCategory.NEUTRAL, 0.5F, 0.4F / (LingeringPotionItem.field_77697_d.nextFloat() * 0.4F + 0.8F));
++        }
++        return wrapper;
++        // Paper end
+     }
+ }
+diff --git a/src/main/java/net/minecraft/item/SnowballItem.java b/src/main/java/net/minecraft/item/SnowballItem.java
+index ca0894707f552a028f671d4e7752141a76292aae..8eaeed17118076930f7a7b1bdc38f62ed26060c8 100644
+--- a/src/main/java/net/minecraft/item/SnowballItem.java
++++ b/src/main/java/net/minecraft/item/SnowballItem.java
+@@ -5,6 +5,7 @@ import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.entity.projectile.SnowballEntity;
+ import net.minecraft.stats.Stats;
+ import net.minecraft.util.ActionResult;
++import net.minecraft.util.ActionResultType;
+ import net.minecraft.util.Hand;
+ import net.minecraft.util.SoundCategory;
+ import net.minecraft.util.SoundEvents;
+@@ -27,14 +28,20 @@ public class SnowballItem extends Item {
+ 
+             entitysnowball.func_213884_b(itemstack);
+             entitysnowball.func_234612_a_(p_77659_2_, p_77659_2_.field_70125_A, p_77659_2_.field_70177_z, 0.0F, 1.5F, 1.0F);
+-            if (p_77659_1_.func_217376_c(entitysnowball)) {
+-                if (!p_77659_2_.field_71075_bZ.field_75098_d) {
++            // Paper start
++            com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent event = new com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent((org.bukkit.entity.Player) p_77659_2_.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemstack), (org.bukkit.entity.Projectile) entitysnowball.getBukkitEntity());
++            if (event.callEvent() && p_77659_1_.func_217376_c(entitysnowball)) {
++                if (event.shouldConsume() && !p_77659_2_.field_71075_bZ.field_75098_d) {
++                    // Paper end
+                     itemstack.func_190918_g(1);
++                } else if (p_77659_2_ instanceof ServerPlayerEntity) {  // Paper
++                    ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();  // Paper
+                 }
+ 
+                 p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187797_fA, SoundCategory.NEUTRAL, 0.5F, 0.4F / (SnowballItem.field_77697_d.nextFloat() * 0.4F + 0.8F));
+-            } else if (p_77659_2_ instanceof ServerPlayerEntity) {
+-                ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
++            } else { // Paper
++                if (p_77659_2_ instanceof ServerPlayerEntity) ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory(); // Paper
++                return new ActionResult<ItemStack>(ActionResultType.FAIL, itemstack); // Paper
+             }
+         }
+         // CraftBukkit end
+diff --git a/src/main/java/net/minecraft/item/SplashPotionItem.java b/src/main/java/net/minecraft/item/SplashPotionItem.java
+index 9ba68c41a2441765001a0b69caefb9ed25e7f387..fefc91ec6e0d94c9bd2d77c8cfee04c54fa15cbd 100644
+--- a/src/main/java/net/minecraft/item/SplashPotionItem.java
++++ b/src/main/java/net/minecraft/item/SplashPotionItem.java
+@@ -2,6 +2,7 @@ package net.minecraft.item;
+ 
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.util.ActionResult;
++import net.minecraft.util.ActionResultType;
+ import net.minecraft.util.Hand;
+ import net.minecraft.util.SoundCategory;
+ import net.minecraft.util.SoundEvents;
+@@ -15,7 +16,12 @@ public class SplashPotionItem extends ThrowablePotionItem {
+ 
+     @Override
+     public ActionResult<ItemStack> func_77659_a(World p_77659_1_, PlayerEntity p_77659_2_, Hand p_77659_3_) {
++        // Paper start
++        ActionResult<ItemStack> wrapper = super.func_77659_a(p_77659_1_, p_77659_2_, p_77659_3_);
++        if (wrapper.getResult() != ActionResultType.FAIL) {
+         p_77659_1_.func_184148_a((PlayerEntity) null, p_77659_2_.func_226277_ct_(), p_77659_2_.func_226278_cu_(), p_77659_2_.func_226281_cx_(), SoundEvents.field_187827_fP, SoundCategory.PLAYERS, 0.5F, 0.4F / (SplashPotionItem.field_77697_d.nextFloat() * 0.4F + 0.8F));
+-        return super.func_77659_a(p_77659_1_, p_77659_2_, p_77659_3_);
++        }
++        return wrapper;
++        // Paper end
+     }
+ }
+diff --git a/src/main/java/net/minecraft/item/ThrowablePotionItem.java b/src/main/java/net/minecraft/item/ThrowablePotionItem.java
+index 420361cc49b9b7a39a9abb581d843633cd0e12bf..6d3420023e2530984af2c8d22603909476dff164 100644
+--- a/src/main/java/net/minecraft/item/ThrowablePotionItem.java
++++ b/src/main/java/net/minecraft/item/ThrowablePotionItem.java
+@@ -1,9 +1,11 @@
+ package net.minecraft.item;
+ 
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.entity.projectile.PotionEntity;
+ import net.minecraft.stats.Stats;
+ import net.minecraft.util.ActionResult;
++import net.minecraft.util.ActionResultType;
+ import net.minecraft.util.Hand;
+ import net.minecraft.world.World;
+ 
+@@ -22,13 +24,31 @@ public class ThrowablePotionItem extends PotionItem {
+ 
+             entitypotion.func_213884_b(itemstack);
+             entitypotion.func_234612_a_(p_77659_2_, p_77659_2_.field_70125_A, p_77659_2_.field_70177_z, -20.0F, 0.5F, 1.0F);
+-            p_77659_1_.func_217376_c(entitypotion);
++            // Paper start
++            com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent event = new com.destroystokyo.paper.event.player.PlayerLaunchProjectileEvent((org.bukkit.entity.Player) p_77659_2_.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemstack), (org.bukkit.entity.Projectile) entitypotion.getBukkitEntity());
++            if (event.callEvent() && p_77659_1_.func_217376_c(entitypotion)) {
++                if (event.shouldConsume() && !p_77659_2_.field_71075_bZ.field_75098_d) {
++                    itemstack.func_190918_g(1);
++                } else if (p_77659_2_ instanceof ServerPlayerEntity) {
++                    ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
++                }
++
++                p_77659_2_.func_71029_a(Stats.field_75929_E.func_199076_b(this));
++            } else {
++                if (p_77659_2_ instanceof ServerPlayerEntity) {
++                    ((ServerPlayerEntity) p_77659_2_).getBukkitEntity().updateInventory();
++                }
++                    return new ActionResult<ItemStack>(ActionResultType.FAIL, itemstack);
++            }
++            // Paper end
+         }
+ 
+-        p_77659_2_.func_71029_a(Stats.field_75929_E.func_199076_b(this));
+-        if (!p_77659_2_.field_71075_bZ.field_75098_d) {
+-            itemstack.func_190918_g(1);
++        /* // Paper start - moved up
++        entityhuman.b(StatisticList.ITEM_USED.b(this));
++        if (!entityhuman.abilities.canInstantlyBuild) {
++            itemstack.subtract(1);
+         }
++        */ // Paper end
+ 
+         return ActionResult.func_233538_a_(itemstack, p_77659_1_.func_201670_d());
+     }
+diff --git a/src/main/java/net/minecraft/util/ActionResult.java b/src/main/java/net/minecraft/util/ActionResult.java
+index ca297ee49f118e0f83fb4f376a1303b477b5fe45..b9add8017287e4a0fd141c5af2aca5605866ce4b 100644
+--- a/src/main/java/net/minecraft/util/ActionResult.java
++++ b/src/main/java/net/minecraft/util/ActionResult.java
+@@ -10,6 +10,7 @@ public class ActionResult<T> {
+         this.field_188400_b = t0;
+     }
+ 
++    public ActionResultType getResult() { return this.func_188397_a(); } // Paper - OBFHELPER
+     public ActionResultType func_188397_a() {
+         return this.field_188399_a;
+     }

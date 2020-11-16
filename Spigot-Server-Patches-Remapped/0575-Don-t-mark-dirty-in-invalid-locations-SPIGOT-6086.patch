@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mariell Hoversholm <proximyst@proximyst.com>
+Date: Sun, 27 Sep 2020 16:25:24 +0200
+Subject: [PATCH] Don't mark dirty in invalid locations (SPIGOT-6086)
+
+
+diff --git a/src/main/java/net/minecraft/world/server/ChunkHolder.java b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+index 7f5206ec2a2dbd516b242ba836b1c952448a732e..629afdf134b95442cbec261bcc04a23eeb2d792e 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkHolder.java
++++ b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+@@ -383,6 +383,7 @@ public class ChunkHolder {
+     }
+ 
+     public void func_244386_a(BlockPos p_244386_1_) {
++        if (!p_244386_1_.isValidLocation()) return; // Paper - SPIGOT-6086 for all invalid locations; avoid acquiring locks
+         Chunk chunk = this.getSendingChunk(); // Paper - no-tick view distance
+ 
+         if (chunk != null) {

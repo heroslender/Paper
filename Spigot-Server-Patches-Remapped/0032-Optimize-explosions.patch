@@ -1,0 +1,148 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Byteflux <byte@byteflux.net>
+Date: Wed, 2 Mar 2016 11:59:48 -0600
+Subject: [PATCH] Optimize explosions
+
+The process of determining an entity's exposure from explosions can be
+expensive when there are hundreds or more entities in range.
+
+This patch adds a per-tick cache that is used for storing and retrieving
+an entity's exposure during an explosion.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 88f5a415770da5dfcf7af95045f547e0761adc8b..41d03030741f2bc5dd904957be546de82be61a47 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -151,4 +151,10 @@ public class PaperWorldConfig {
+         disableEndCredits = getBoolean("game-mechanics.disable-end-credits", false);
+         log("End credits disabled: " + disableEndCredits);
+     }
++
++    public boolean optimizeExplosions;
++    private void optimizeExplosions() {
++        optimizeExplosions = getBoolean("optimize-explosions", false);
++        log("Optimize explosions: " + optimizeExplosions);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index a5ee7b1d601b6564ae0c46dd703b171876671c70..0d963a6b1d50c349545fb6bc8dc6acbdd2e8190e 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -1315,6 +1315,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+ 
+             this.field_71304_b.func_76319_b();
+             this.field_71304_b.func_76319_b();
++            worldserver.explosionDensityCache.clear(); // Paper - Optimize explosions
+         }
+ 
+         this.field_71304_b.func_219895_b("connection");
+diff --git a/src/main/java/net/minecraft/world/Explosion.java b/src/main/java/net/minecraft/world/Explosion.java
+index f2d2e4a799ee9c77d010fc671fff847cfd15fb66..2c8ca3328ba572d1acbd7473968dabefec1cebb1 100644
+--- a/src/main/java/net/minecraft/world/Explosion.java
++++ b/src/main/java/net/minecraft/world/Explosion.java
+@@ -201,7 +201,7 @@ public class Explosion {
+                         d8 /= d11;
+                         d9 /= d11;
+                         d10 /= d11;
+-                        double d12 = (double) func_222259_a(vec3d, entity);
++                        double d12 = this.getBlockDensity(vec3d, entity); // Paper - Optimize explosions
+                         double d13 = (1.0D - d7) * d12;
+ 
+                         // CraftBukkit start
+@@ -420,4 +420,84 @@ public class Explosion {
+ 
+         private Mode() {}
+     }
++    // Paper start - Optimize explosions
++    private float getBlockDensity(Vector3d vec3d, Entity entity) {
++        if (!this.field_77287_j.paperConfig.optimizeExplosions) {
++            return func_222259_a(vec3d, entity);
++        }
++        net.minecraft.world.Explosion.CacheKey key = new net.minecraft.world.Explosion.CacheKey(this, entity.func_174813_aQ());
++        Float blockDensity = this.field_77287_j.explosionDensityCache.get(key);
++        if (blockDensity == null) {
++            blockDensity = func_222259_a(vec3d, entity);
++            this.field_77287_j.explosionDensityCache.put(key, blockDensity);
++        }
++
++        return blockDensity;
++    }
++
++    static class CacheKey {
++        private final World world;
++        private final double posX, posY, posZ;
++        private final double minX, minY, minZ;
++        private final double maxX, maxY, maxZ;
++
++        public CacheKey(Explosion explosion, AxisAlignedBB aabb) {
++            this.world = explosion.field_77287_j;
++            this.posX = explosion.field_77284_b;
++            this.posY = explosion.field_77285_c;
++            this.posZ = explosion.field_77282_d;
++            this.minX = aabb.field_72340_a;
++            this.minY = aabb.field_72338_b;
++            this.minZ = aabb.field_72339_c;
++            this.maxX = aabb.field_72336_d;
++            this.maxY = aabb.field_72337_e;
++            this.maxZ = aabb.field_72334_f;
++        }
++
++        @Override
++        public boolean equals(Object o) {
++            if (this == o) return true;
++            if (o == null || getClass() != o.getClass()) return false;
++
++            net.minecraft.world.Explosion.CacheKey cacheKey = (net.minecraft.world.Explosion.CacheKey) o;
++
++            if (Double.compare(cacheKey.posX, posX) != 0) return false;
++            if (Double.compare(cacheKey.posY, posY) != 0) return false;
++            if (Double.compare(cacheKey.posZ, posZ) != 0) return false;
++            if (Double.compare(cacheKey.minX, minX) != 0) return false;
++            if (Double.compare(cacheKey.minY, minY) != 0) return false;
++            if (Double.compare(cacheKey.minZ, minZ) != 0) return false;
++            if (Double.compare(cacheKey.maxX, maxX) != 0) return false;
++            if (Double.compare(cacheKey.maxY, maxY) != 0) return false;
++            if (Double.compare(cacheKey.maxZ, maxZ) != 0) return false;
++            return world.equals(cacheKey.world);
++        }
++
++        @Override
++        public int hashCode() {
++            int result;
++            long temp;
++            result = world.hashCode();
++            temp = Double.doubleToLongBits(posX);
++            result = 31 * result + (int) (temp ^ (temp >>> 32));
++            temp = Double.doubleToLongBits(posY);
++            result = 31 * result + (int) (temp ^ (temp >>> 32));
++            temp = Double.doubleToLongBits(posZ);
++            result = 31 * result + (int) (temp ^ (temp >>> 32));
++            temp = Double.doubleToLongBits(minX);
++            result = 31 * result + (int) (temp ^ (temp >>> 32));
++            temp = Double.doubleToLongBits(minY);
++            result = 31 * result + (int) (temp ^ (temp >>> 32));
++            temp = Double.doubleToLongBits(minZ);
++            result = 31 * result + (int) (temp ^ (temp >>> 32));
++            temp = Double.doubleToLongBits(maxX);
++            result = 31 * result + (int) (temp ^ (temp >>> 32));
++            temp = Double.doubleToLongBits(maxY);
++            result = 31 * result + (int) (temp ^ (temp >>> 32));
++            temp = Double.doubleToLongBits(maxZ);
++            result = 31 * result + (int) (temp ^ (temp >>> 32));
++            return result;
++        }
++    }
++    // Paper end
+ }
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 2ddb83099e5270d06bea5f29edcb81fd29e74c4d..94b481210fd26170244def6d608fa4f918220462 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -135,6 +135,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     private org.spigotmc.TickLimiter entityLimiter;
+     private org.spigotmc.TickLimiter tileLimiter;
+     private int tileTickPosition;
++    public final Map<Explosion.CacheKey, Float> explosionDensityCache = new HashMap<>(); // Paper - Optimize explosions
+ 
+     public CraftWorld getWorld() {
+         return this.world;

@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Eearslya Sleiarion <eearslya@gmail.com>
+Date: Sun, 23 Aug 2020 13:04:02 +0200
+Subject: [PATCH] Add BellRingEvent
+
+Add a new event, BellRingEvent, to trigger whenever a player rings a
+village bell. Passes along the bell block and the player who rang it.
+
+diff --git a/src/main/java/net/minecraft/block/BellBlock.java b/src/main/java/net/minecraft/block/BellBlock.java
+index b9ff5165cf1284a4d8a5a4b7aae77b89f77006bc..37c631d1623ed30a0de1f1807dfd06b2982687ec 100644
+--- a/src/main/java/net/minecraft/block/BellBlock.java
++++ b/src/main/java/net/minecraft/block/BellBlock.java
+@@ -1,5 +1,7 @@
+ package net.minecraft.block;
+ 
++import io.papermc.paper.event.block.BellRingEvent;
++
+ import javax.annotation.Nullable;
+ import net.minecraft.block.material.PushReaction;
+ import net.minecraft.entity.Entity;
+@@ -7,6 +9,7 @@ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.entity.projectile.ProjectileEntity;
+ import net.minecraft.item.BlockItemUseContext;
+ import net.minecraft.pathfinding.PathType;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.state.BooleanProperty;
+ import net.minecraft.state.DirectionProperty;
+ import net.minecraft.state.EnumProperty;
+@@ -87,7 +90,7 @@ public class BellBlock extends ContainerBlock {
+         boolean flag1 = !p_226884_5_ || this.func_220129_a(p_226884_2_, enumdirection, p_226884_3_.func_216347_e().field_72448_b - (double) blockposition.func_177956_o());
+ 
+         if (flag1) {
+-            boolean flag2 = this.func_226885_a_(p_226884_1_, blockposition, enumdirection);
++            boolean flag2 = this.handleBellRing(p_226884_1_, blockposition, enumdirection, p_226884_4_); // Paper
+ 
+             if (flag2 && p_226884_4_ != null) {
+                 p_226884_4_.func_195066_a(Stats.field_219740_ax);
+@@ -121,15 +124,21 @@ public class BellBlock extends ContainerBlock {
+     }
+ 
+     public boolean func_226885_a_(World p_226885_1_, BlockPos p_226885_2_, @Nullable Direction p_226885_3_) {
+-        TileEntity tileentity = p_226885_1_.func_175625_s(p_226885_2_);
++        // Paper start - add ringer param
++        return this.handleBellRing(p_226885_1_, p_226885_2_, p_226885_3_, null);
++    }
++    public boolean handleBellRing(World world, BlockPos blockposition, @Nullable Direction enumdirection, @Nullable Entity ringer) {
++        // Paper end
++        TileEntity tileentity = world.func_175625_s(blockposition);
+ 
+-        if (!p_226885_1_.field_72995_K && tileentity instanceof BellTileEntity) {
+-            if (p_226885_3_ == null) {
+-                p_226885_3_ = (Direction) p_226885_1_.func_180495_p(p_226885_2_).func_177229_b(BellBlock.field_220133_a);
++        if (!world.field_72995_K && tileentity instanceof BellTileEntity) {
++            if (enumdirection == null) {
++                enumdirection = (Direction) world.func_180495_p(blockposition).func_177229_b(BellBlock.field_220133_a);
+             }
+ 
+-            ((BellTileEntity) tileentity).func_213939_a(p_226885_3_);
+-            p_226885_1_.func_184133_a((PlayerEntity) null, p_226885_2_, SoundEvents.field_219603_Y, SoundCategory.BLOCKS, 2.0F, 1.0F);
++            if (!new BellRingEvent(world.getWorld().getBlockAt(MCUtil.toLocation(world, blockposition)), ringer == null ? null : ringer.getBukkitEntity()).callEvent()) return false; // Paper - BellRingEvent
++            ((BellTileEntity) tileentity).func_213939_a(enumdirection);
++            world.func_184133_a((PlayerEntity) null, blockposition, SoundEvents.field_219603_Y, SoundCategory.BLOCKS, 2.0F, 1.0F);
+             return true;
+         } else {
+             return false;

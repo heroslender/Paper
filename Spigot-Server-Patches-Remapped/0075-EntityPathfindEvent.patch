@@ -1,0 +1,126 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 28 Mar 2016 21:22:26 -0400
+Subject: [PATCH] EntityPathfindEvent
+
+Fires when an Entity decides to start moving to a location.
+
+diff --git a/src/main/java/net/minecraft/pathfinding/FlyingPathNavigator.java b/src/main/java/net/minecraft/pathfinding/FlyingPathNavigator.java
+index a12425e023cf063ad69dbebe301c33df7cd77f79..4d773a68be6ec0bf4e40383ab15df9589d4d0eb0 100644
+--- a/src/main/java/net/minecraft/pathfinding/FlyingPathNavigator.java
++++ b/src/main/java/net/minecraft/pathfinding/FlyingPathNavigator.java
+@@ -34,7 +34,7 @@ public class FlyingPathNavigator extends PathNavigator {
+ 
+     @Override
+     public Path func_75494_a(Entity p_75494_1_, int p_75494_2_) {
+-        return this.func_179680_a(p_75494_1_.func_233580_cy_(), p_75494_2_);
++        return this.a(p_75494_1_.func_233580_cy_(), p_75494_1_, p_75494_2_); // Paper - Forward target entity
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/pathfinding/GroundPathNavigator.java b/src/main/java/net/minecraft/pathfinding/GroundPathNavigator.java
+index 8ee9528295bb48a72e80aaeef88a26ffd7423f66..6ddac1040894cda18892610b896033e374e9eb17 100644
+--- a/src/main/java/net/minecraft/pathfinding/GroundPathNavigator.java
++++ b/src/main/java/net/minecraft/pathfinding/GroundPathNavigator.java
+@@ -69,7 +69,7 @@ public class GroundPathNavigator extends PathNavigator {
+ 
+     @Override
+     public Path func_75494_a(Entity p_75494_1_, int p_75494_2_) {
+-        return this.func_179680_a(p_75494_1_.func_233580_cy_(), p_75494_2_);
++        return this.a(p_75494_1_.func_233580_cy_(), p_75494_1_, p_75494_2_); // Paper - Forward target entity
+     }
+ 
+     private int func_179687_p() {
+diff --git a/src/main/java/net/minecraft/pathfinding/PathNavigator.java b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+index d464b1a4699f5c6bfb14b28d09cd16a7a335d09e..f5336a9fb9bebbd92b263a4901e38641ed3f01c7 100644
+--- a/src/main/java/net/minecraft/pathfinding/PathNavigator.java
++++ b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+@@ -12,6 +12,7 @@ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.MobEntity;
+ import net.minecraft.entity.ai.attributes.Attributes;
+ import net.minecraft.network.DebugPacketSender;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.util.Util;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.MathHelper;
+@@ -23,7 +24,7 @@ import net.minecraft.world.World;
+ 
+ public abstract class PathNavigator {
+ 
+-    protected final MobEntity field_75515_a;
++    protected final MobEntity field_75515_a; public Entity getEntity() { return field_75515_a; } // Paper - OBFHELPER
+     protected final World field_75513_b;
+     @Nullable
+     protected Path field_75514_c;
+@@ -110,36 +111,63 @@ public abstract class PathNavigator {
+ 
+     @Nullable
+     public Path func_179680_a(BlockPos p_179680_1_, int p_179680_2_) {
+-        return this.func_225464_a(ImmutableSet.of(p_179680_1_), 8, false, p_179680_2_);
++        // Paper start - add target parameter
++        return this.a(p_179680_1_, null, p_179680_2_);
++    }
++    @Nullable public Path a(BlockPos blockposition, Entity target, int i) {
++        return this.a(ImmutableSet.of(blockposition), target, 8, false, i);
++        // Paper end
+     }
+ 
+     @Nullable
+     public Path func_75494_a(Entity p_75494_1_, int p_75494_2_) {
+-        return this.func_225464_a(ImmutableSet.of(p_75494_1_.func_233580_cy_()), 16, true, p_75494_2_);
++        return this.a(ImmutableSet.of(p_75494_1_.func_233580_cy_()), p_75494_1_, 16, true, p_75494_2_); // Paper
+     }
+ 
+     @Nullable
++    // Paper start - Add target
+     protected Path func_225464_a(Set<BlockPos> p_225464_1_, int p_225464_2_, boolean p_225464_3_, int p_225464_4_) {
+-        if (p_225464_1_.isEmpty()) {
++        return this.a(p_225464_1_, null, p_225464_2_, p_225464_3_, p_225464_4_);
++    }
++    @Nullable protected Path a(Set<BlockPos> set, Entity target, int i, boolean flag, int j) {
++        // Paper end
++        if (set.isEmpty()) {
+             return null;
+         } else if (this.field_75515_a.func_226278_cu_() < 0.0D) {
+             return null;
+         } else if (!this.func_75485_k()) {
+             return null;
+-        } else if (this.field_75514_c != null && !this.field_75514_c.func_75879_b() && p_225464_1_.contains(this.field_188564_r)) {
++        } else if (this.field_75514_c != null && !this.field_75514_c.func_75879_b() && set.contains(this.field_188564_r)) {
+             return this.field_75514_c;
+         } else {
++            // Paper start - Pathfind event
++            boolean copiedSet = false;
++            for (BlockPos possibleTarget : set) {
++                if (!new com.destroystokyo.paper.event.entity.EntityPathfindEvent(getEntity().getBukkitEntity(),
++                    MCUtil.toLocation(getEntity().field_70170_p, possibleTarget), target == null ? null : target.getBukkitEntity()).callEvent()) {
++                    if (!copiedSet) {
++                        copiedSet = true;
++                        set = new java.util.HashSet<>(set);
++                    }
++                    // note: since we copy the set this remove call is safe, since we're iterating over the old copy
++                    set.remove(possibleTarget);
++                    if (set.isEmpty()) {
++                        return null;
++                    }
++                }
++            }
++            // Paper end
+             this.field_75513_b.func_217381_Z().func_76320_a("pathfind");
+             float f = (float) this.field_75515_a.func_233637_b_(Attributes.field_233819_b_);
+-            BlockPos blockposition = p_225464_3_ ? this.field_75515_a.func_233580_cy_().func_177984_a() : this.field_75515_a.func_233580_cy_();
+-            int k = (int) (f + (float) p_225464_2_);
++            BlockPos blockposition = flag ? this.field_75515_a.func_233580_cy_().func_177984_a() : this.field_75515_a.func_233580_cy_();
++            int k = (int) (f + (float) i);
+             Region chunkcache = new Region(this.field_75513_b, blockposition.func_177982_a(-k, -k, -k), blockposition.func_177982_a(k, k, k));
+-            Path pathentity = this.field_179681_j.func_227478_a_(chunkcache, this.field_75515_a, p_225464_1_, f, p_225464_4_, this.field_226334_s_);
++            Path pathentity = this.field_179681_j.func_227478_a_(chunkcache, this.field_75515_a, set, f, j, this.field_226334_s_);
+ 
+             this.field_75513_b.func_217381_Z().func_76319_b();
+             if (pathentity != null && pathentity.func_224770_k() != null) {
+                 this.field_188564_r = pathentity.func_224770_k();
+-                this.field_225468_r = p_225464_4_;
++                this.field_225468_r = j;
+                 this.func_234113_e_();
+             }
+ 

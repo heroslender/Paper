@@ -1,0 +1,57 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Wed, 6 Apr 2016 01:04:23 -0500
+Subject: [PATCH] Option to use vanilla per-world scoreboard coloring on names
+
+This change is basically a bandaid to fix CB's complete and utter lack
+of support for vanilla scoreboard name modifications.
+
+In the future, finding a way to merge the vanilla expectations in with
+bukkit's concept of a display name would be preferable. There was a PR
+for this on CB at one point but I can't find it. We may need to do this
+ourselves at some point in the future.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index f433b1e46b1e97fa60f1bd32a1403189217d3afd..004e1cdfeef75c79889a1a7334773ab933c62086 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -248,4 +248,9 @@ public class PaperWorldConfig {
+         grassUpdateRate = Math.max(0, getInt("grass-spread-tick-rate", grassUpdateRate));
+         log("Grass Spread Tick Rate: " + grassUpdateRate);
+     }
++
++    public boolean useVanillaScoreboardColoring;
++    private void useVanillaScoreboardColoring() {
++        useVanillaScoreboardColoring = getBoolean("use-vanilla-world-scoreboard-name-coloring", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 86af643546284d69f34b4e9046883ba0b0c6dd4c..cb00b91b7b569dde4af0f580535071e5c3f39e5a 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -126,6 +126,7 @@ import net.minecraft.network.play.server.SSpawnMobPacket;
+ import net.minecraft.network.play.server.STabCompletePacket;
+ import net.minecraft.network.play.server.SWorldSpawnChangedPacket;
+ import net.minecraft.potion.Effects;
++import net.minecraft.scoreboard.ScorePlayerTeam;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.tileentity.CommandBlockLogic;
+ import net.minecraft.tileentity.CommandBlockTileEntity;
+@@ -1921,7 +1922,16 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                     return;
+                 }
+ 
+-                s = String.format(event.getFormat(), event.getPlayer().getDisplayName(), event.getMessage());
++                // Paper Start - (Meh) Support for vanilla world scoreboard name coloring
++                String displayName = event.getPlayer().getDisplayName();
++                if (this.field_147369_b.func_130014_f_().paperConfig.useVanillaScoreboardColoring) {
++                    ITextComponent nameFromTeam = ScorePlayerTeam.func_237500_a_(this.field_147369_b.func_96124_cp(), ((CraftPlayer) player).getHandle().func_200200_C_());
++                    // Explicitly add a RESET here, vanilla uses components for this now...
++                    displayName = new net.md_5.bungee.api.chat.TextComponent(net.md_5.bungee.chat.ComponentSerializer.parse(ITextComponent.Serializer.componentToJson(nameFromTeam))).toLegacyText() + org.bukkit.ChatColor.RESET;
++                }
++
++                s = String.format(event.getFormat(), displayName, event.getMessage());
++                // Paper end
+                 field_147367_d.console.sendMessage(s);
+                 if (((LazyPlayerSet) event.getRecipients()).isLazy()) {
+                     for (Object recipient : field_147367_d.func_184103_al().field_72404_b) {

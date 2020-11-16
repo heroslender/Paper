@@ -1,0 +1,92 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: DigitalRegent <misterwener@gmail.com>
+Date: Sat, 11 Apr 2020 13:10:58 +0200
+Subject: [PATCH] Brand support
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 4a946931f5e0afaeccfbd981b3557999d7f20f85..d006cae73a5da58412d3a36a055fb0d573f4a89b 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -5,6 +5,7 @@ import com.google.common.primitives.Doubles;
+ import com.google.common.primitives.Floats;
+ import com.mojang.brigadier.ParseResults;
+ import com.mojang.brigadier.StringReader;
++import io.netty.buffer.Unpooled;
+ import io.netty.util.concurrent.Future;
+ import io.netty.util.concurrent.GenericFutureListener;
+ import it.unimi.dsi.fastutil.ints.Int2ShortMap;
+@@ -64,6 +65,7 @@ import net.minecraft.nbt.ListNBT;
+ import net.minecraft.nbt.StringNBT;
+ import net.minecraft.network.IPacket;
+ import net.minecraft.network.NetworkManager;
++import net.minecraft.network.PacketBuffer;
+ import net.minecraft.network.PacketThreadUtil;
+ import net.minecraft.network.play.client.CAnimateHandPacket;
+ import net.minecraft.network.play.client.CChatMessagePacket;
+@@ -258,6 +260,8 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     private static final int MAX_SIGN_LINE_LENGTH = Integer.getInteger("Paper.maxSignLength", 80);
+     private static final long KEEPALIVE_LIMIT = Long.getLong("paper.playerconnection.keepalive", 30) * 1000; // Paper - provide property to set keepalive limit
+ 
++    private String clientBrandName = null; // Paper - Brand name
++
+     public ServerPlayNetHandler(MinecraftServer minecraftserver, NetworkManager networkmanager, ServerPlayerEntity entityplayer) {
+         this.field_147367_d = minecraftserver;
+         this.field_147371_a = networkmanager;
+@@ -2977,6 +2981,8 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     private static final ResourceLocation CUSTOM_REGISTER = new ResourceLocation("register");
+     private static final ResourceLocation CUSTOM_UNREGISTER = new ResourceLocation("unregister");
+ 
++    private static final ResourceLocation MINECRAFT_BRAND = new ResourceLocation("brand"); // Paper - Brand support
++
+     @Override
+     public void func_147349_a(CCustomPayloadPacket p_147349_1_) {
+         PacketThreadUtil.func_218796_a(p_147349_1_, this, this.field_147369_b.func_71121_q());
+@@ -3004,6 +3010,16 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+             try {
+                 byte[] data = new byte[p_147349_1_.field_149561_c.readableBytes()];
+                 p_147349_1_.field_149561_c.readBytes(data);
++
++                // Paper start - Brand support
++                if (p_147349_1_.field_149562_a.equals(MINECRAFT_BRAND)) {
++                    try {
++                        this.clientBrandName = new PacketBuffer(Unpooled.copiedBuffer(data)).readUTF(256);
++                    } catch (StringIndexOutOfBoundsException ex) {
++                        this.clientBrandName = "illegal";
++                    }
++                }
++                // Paper end
+                 server.getMessenger().dispatchIncomingMessage(field_147369_b.getBukkitEntity(), p_147349_1_.field_149562_a.toString(), data);
+             } catch (Exception ex) {
+                 ServerPlayNetHandler.field_147370_c.error("Couldn\'t dispatch custom payload", ex);
+@@ -3013,6 +3029,12 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+     }
+ 
++    // Paper start - brand support
++    public String getClientBrandName() {
++        return clientBrandName;
++    }
++    // Paper end
++
+     public final boolean isDisconnected() {
+         return (!this.field_147369_b.joining && !this.field_147371_a.func_150724_d()) || this.processedDisconnect; // Paper
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index 607359b06e34d89b53d624434af09856d43a5fdb..2342b714f68abdfddd3dc0080946bd0258dceb3e 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -2189,6 +2189,13 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+         // Paper end
+     };
+ 
++    // Paper start - brand support
++    @Override
++    public String getClientBrandName() {
++        return getHandle().field_71135_a.getClientBrandName();
++    }
++    // Paper end
++
+     public Player.Spigot spigot()
+     {
+         return spigot;

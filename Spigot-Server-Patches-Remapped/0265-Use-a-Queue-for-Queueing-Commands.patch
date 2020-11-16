@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 12 Aug 2018 02:33:39 -0400
+Subject: [PATCH] Use a Queue for Queueing Commands
+
+Lists are bad as Queues mmmkay.
+
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index 005a6189d94fdc23c935cb5c8278896149fecb54..6027dde8564784ae45ea46dae1b872cac5fd6594 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -74,7 +74,7 @@ public class DedicatedServer extends MinecraftServer implements IServer {
+ 
+     private static final Logger field_155771_h = LogManager.getLogger();
+     private static final Pattern field_189647_l = Pattern.compile("^[a-fA-F0-9]{40}$");
+-    private final List<PendingCommand> field_71341_l = Collections.synchronizedList(Lists.newArrayList());
++    private final java.util.Queue<PendingCommand> field_71341_l = new java.util.concurrent.ConcurrentLinkedQueue<>(); // Paper - use a proper queue
+     private QueryThread field_71342_m;
+     public final RConConsoleSource field_184115_n;
+     private MainThread field_71339_n;
+@@ -433,8 +433,10 @@ public class DedicatedServer extends MinecraftServer implements IServer {
+ 
+     public void func_71333_ah() {
+         MinecraftTimings.serverCommandTimer.startTiming(); // Spigot
+-        while (!this.field_71341_l.isEmpty()) {
+-            PendingCommand servercommand = (PendingCommand) this.field_71341_l.remove(0);
++        // Paper start - use proper queue
++        PendingCommand servercommand;
++        while ((servercommand = this.field_71341_l.poll()) != null) {
++            // Paper end
+ 
+             // CraftBukkit start - ServerCommand for preprocessing
+             ServerCommandEvent event = new ServerCommandEvent(console, servercommand.field_73702_a);

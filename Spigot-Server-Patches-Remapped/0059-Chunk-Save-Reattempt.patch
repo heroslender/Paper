@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 4 Mar 2013 23:46:10 -0500
+Subject: [PATCH] Chunk Save Reattempt
+
+We commonly have "Stream Closed" errors on chunk saving, so this code should re-try to save the chunk in the event of failure and hopefully prevent rollbacks.
+
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java b/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
+index 5b767fd15a75dc5fb3247530ad4eb6e3af34aa85..96231d73d662d9ad1c683c06b6edf8c76b6cf772 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/RegionFile.java
+@@ -263,7 +263,7 @@ public class RegionFile implements AutoCloseable {
+                     return true;
+                 }
+             } catch (IOException ioexception) {
+-                com.destroystokyo.paper.exception.ServerInternalException.reportInternalException(ioexception); // Paper
++                com.destroystokyo.paper.util.SneakyThrow.sneaky(ioexception); // Paper - we want the upper try/catch to retry this
+                 return false;
+             }
+         }
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java b/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java
+index 2ab76d789fc96811fd09166ea9edda73354e5a8e..2dd96cfddacc89cdd711e725c1d5dd68bd53bd16 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/RegionFileCache.java
+@@ -11,6 +11,7 @@ import java.io.IOException;
+ import javax.annotation.Nullable;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.CompressedStreamTools;
++import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.math.ChunkPos;
+ 
+ public final class RegionFileCache implements AutoCloseable {
+@@ -91,6 +92,7 @@ public final class RegionFileCache implements AutoCloseable {
+ 
+     protected void func_219100_a(ChunkPos p_219100_1_, CompoundNBT p_219100_2_) throws IOException {
+         RegionFile regionfile = this.getFile(p_219100_1_, false); // CraftBukkit
++        int attempts = 0; Exception laste = null; while (attempts++ < 5) { try { // Paper
+         DataOutputStream dataoutputstream = regionfile.func_222661_c(p_219100_1_);
+         Throwable throwable = null;
+ 
+@@ -114,6 +116,18 @@ public final class RegionFileCache implements AutoCloseable {
+ 
+         }
+ 
++            // Paper start
++            return;
++        } catch (Exception ex)  {
++            laste = ex;
++        }
++        }
++
++        if (laste != null) {
++            com.destroystokyo.paper.exception.ServerInternalException.reportInternalException(laste);
++            MinecraftServer.field_147145_h.error("Failed to save chunk", laste);
++        }
++        // Paper end
+     }
+ 
+     public void close() throws IOException {

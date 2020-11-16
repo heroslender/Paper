@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sun, 11 Nov 2018 21:01:09 +0000
+Subject: [PATCH] Don't allow digging into unloaded chunks
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 6765526357087f2c1ca09219e296aea3f946b353..46ffaeaca5bbc3ea7f9fceb1886a6be6d338fc7b 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1514,6 +1514,11 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+             case START_DESTROY_BLOCK:
+             case ABORT_DESTROY_BLOCK:
+             case STOP_DESTROY_BLOCK:
++                // Paper start - Don't allow digging in unloaded chunks
++                if (this.field_147369_b.field_70170_p.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4) == null) {
++                    return;
++                }
++                // Paper end - Don't allow digging in unloaded chunks
+                 this.field_147369_b.field_71134_c.func_225416_a(blockposition, packetplayinblockdig_enumplayerdigtype, p_147345_1_.func_179714_b(), this.field_147367_d.func_71207_Z());
+                 return;
+             default:
+diff --git a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+index 0c22b8de98c703859b6d606f7d1bd4ea43cd662c..a3f2ec44af750b3372e2e82ac4f2458ada7ec1da 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
++++ b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+@@ -114,8 +114,8 @@ public class PlayerInteractionManager {
+         BlockState iblockdata;
+ 
+         if (this.field_73097_j) {
+-            iblockdata = this.field_73092_a.func_180495_p(this.field_180241_i);
+-            if (iblockdata.func_196958_f()) {
++            iblockdata = this.field_73092_a.getTypeIfLoaded(this.field_180241_i); // Paper
++            if (iblockdata == null || iblockdata.func_196958_f()) { // Paper
+                 this.field_73097_j = false;
+             } else {
+                 float f = this.func_229859_a_(iblockdata, this.field_180241_i, this.field_73093_n);
+@@ -126,7 +126,13 @@ public class PlayerInteractionManager {
+                 }
+             }
+         } else if (this.field_73088_d) {
+-            iblockdata = this.field_73092_a.func_180495_p(this.field_180240_f);
++            // Paper start - don't want to do same logic as above, return instead
++            iblockdata = this.field_73092_a.getTypeIfLoaded(this.field_180240_f);
++            if (iblockdata == null) {
++                this.field_73088_d = false;
++                return;
++            }
++            // Paper end
+             if (iblockdata.func_196958_f()) {
+                 this.field_73092_a.func_175715_c(this.field_73090_b.func_145782_y(), this.field_180240_f, -1);
+                 this.field_73094_o = -1;
+@@ -290,10 +296,12 @@ public class PlayerInteractionManager {
+                 this.field_73090_b.field_71135_a.func_147359_a(new SPlayerDiggingPacket(p_225416_1_, this.field_73092_a.func_180495_p(p_225416_1_), p_225416_2_, true, "stopped destroying"));
+             } else if (p_225416_2_ == CPlayerDiggingPacket.Action.ABORT_DESTROY_BLOCK) {
+                 this.field_73088_d = false;
+-                if (!Objects.equals(this.field_180240_f, p_225416_1_)) {
++                if (!Objects.equals(this.field_180240_f, p_225416_1_) && !BlockPos.field_177992_a.equals(this.field_180240_f)) {
+                     PlayerInteractionManager.field_225418_c.debug("Mismatch in destroy block pos: " + this.field_180240_f + " " + p_225416_1_); // CraftBukkit - SPIGOT-5457 sent by client when interact event cancelled
+-                    this.field_73092_a.func_175715_c(this.field_73090_b.func_145782_y(), this.field_180240_f, -1);
+-                    this.field_73090_b.field_71135_a.func_147359_a(new SPlayerDiggingPacket(this.field_180240_f, this.field_73092_a.func_180495_p(this.field_180240_f), p_225416_2_, true, "aborted mismatched destroying"));
++                    BlockState type = this.field_73092_a.getTypeIfLoaded(this.field_180240_f); // Paper - don't load unloaded chunks for stale records here
++                    if (type != null) this.field_73092_a.func_175715_c(this.field_73090_b.func_145782_y(), this.field_180240_f, -1); // Paper
++                    if (type != null) this.field_73090_b.field_71135_a.func_147359_a(new SPlayerDiggingPacket(this.field_180240_f, type, p_225416_2_, true, "aborted mismatched destroying")); // Paper
++                    this.field_180240_f = BlockPos.field_177992_a; // Paper
+                 }
+ 
+                 this.field_73092_a.func_175715_c(this.field_73090_b.func_145782_y(), p_225416_1_, -1);

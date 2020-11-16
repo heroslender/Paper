@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Callahan <mr.callahhh@gmail.com>
+Date: Mon, 13 Jan 2020 23:47:28 -0600
+Subject: [PATCH] Prevent sync chunk loads when villagers try to find beds
+
+
+diff --git a/src/main/java/net/minecraft/entity/ai/brain/task/SleepAtHomeTask.java b/src/main/java/net/minecraft/entity/ai/brain/task/SleepAtHomeTask.java
+index 0d4a85878479152af5e90042f966f2e70a43a080..7bbe8d04b2704b2449c4fbfb30d18602e160fc33 100644
+--- a/src/main/java/net/minecraft/entity/ai/brain/task/SleepAtHomeTask.java
++++ b/src/main/java/net/minecraft/entity/ai/brain/task/SleepAtHomeTask.java
+@@ -46,7 +46,8 @@ public class SleepAtHomeTask extends Task<LivingEntity> {
+                     }
+                 }
+ 
+-                BlockState iblockdata = p_212832_1_.func_180495_p(globalpos.func_218180_b());
++                BlockState iblockdata = p_212832_1_.getTypeIfLoaded(globalpos.func_218180_b()); // Paper
++                if (iblockdata == null) { return false; } // Paper
+ 
+                 return globalpos.func_218180_b().func_218137_a((IPosition) p_212832_2_.func_213303_ch(), 2.0D) && iblockdata.func_177230_c().func_203417_a((ITag) BlockTags.field_219747_F) && !(Boolean) iblockdata.func_177229_b(BedBlock.field_176471_b);
+             }

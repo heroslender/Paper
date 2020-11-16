@@ -1,0 +1,97 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Brokkonaut <hannos17@gmx.de>
+Date: Mon, 18 Jun 2018 15:46:23 +0200
+Subject: [PATCH] Implement EntityKnockbackByEntityEvent
+
+This event is called when an entity receives knockback by another entity.
+
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 9891e216770597521f613a6bae41080a8492d2b9..e3afe064f79960e6092c8124db16d1a717f32f81 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -1336,7 +1336,7 @@ public abstract class LivingEntity extends Entity {
+                     }
+ 
+                     this.field_70739_aP = (float) (MathHelper.func_181159_b(d1, d0) * 57.2957763671875D - (double) this.field_70177_z);
+-                    this.func_233627_a_(0.4F, d0, d1);
++                    this.doKnockback(0.4F, d0, d1, entity1); // Paper
+                 } else {
+                     this.field_70739_aP = (float) ((int) (Math.random() * 2.0D) * 180);
+                 }
+@@ -1384,7 +1384,7 @@ public abstract class LivingEntity extends Entity {
+     }
+ 
+     protected void func_213371_e(LivingEntity p_213371_1_) {
+-        p_213371_1_.func_233627_a_(0.5F, p_213371_1_.func_226277_ct_() - this.func_226277_ct_(), p_213371_1_.func_226281_cx_() - this.func_226281_cx_());
++        p_213371_1_.doKnockback(0.5F, p_213371_1_.func_226277_ct_() - this.func_226277_ct_(), p_213371_1_.func_226281_cx_() - this.func_226281_cx_(), this); // Paper
+     }
+ 
+     private boolean func_190628_d(DamageSource p_190628_1_) {
+@@ -1620,13 +1620,28 @@ public abstract class LivingEntity extends Entity {
+     }
+ 
+     public void func_233627_a_(float p_233627_1_, double p_233627_2_, double p_233627_3_) {
+-        p_233627_1_ = (float) ((double) p_233627_1_ * (1.0D - this.func_233637_b_(Attributes.field_233820_c_)));
+-        if (p_233627_1_ > 0.0F) {
++        // Paper start - add knockbacking entity parameter
++        this.doKnockback(p_233627_1_, p_233627_2_, p_233627_3_, null);
++    }
++    public void doKnockback(float f, double d0, double d1, Entity knockingBackEntity) {
++        // Paper end - add knockbacking entity parameter
++        f = (float) ((double) f * (1.0D - this.func_233637_b_(Attributes.field_233820_c_)));
++        if (f > 0.0F) {
+             this.field_70160_al = true;
+             Vector3d vec3d = this.func_213322_ci();
+-            Vector3d vec3d1 = (new Vector3d(p_233627_2_, 0.0D, p_233627_3_)).func_72432_b().func_186678_a((double) p_233627_1_);
++            Vector3d vec3d1 = (new Vector3d(d0, 0.0D, d1)).func_72432_b().func_186678_a((double) f);
++
++            this.func_213293_j(vec3d.field_72450_a / 2.0D - vec3d1.field_72450_a, this.field_70122_E ? Math.min(0.4D, vec3d.field_72448_b / 2.0D + (double) f) : vec3d.field_72448_b, vec3d.field_72449_c / 2.0D - vec3d1.field_72449_c);
+ 
+-            this.func_213293_j(vec3d.field_72450_a / 2.0D - vec3d1.field_72450_a, this.field_70122_E ? Math.min(0.4D, vec3d.field_72448_b / 2.0D + (double) p_233627_1_) : vec3d.field_72448_b, vec3d.field_72449_c / 2.0D - vec3d1.field_72449_c);
++            // Paper start - call EntityKnockbackByEntityEvent
++            Vector3d currentMot = this.func_213322_ci();
++            org.bukkit.util.Vector delta = new org.bukkit.util.Vector(currentMot.field_72450_a - vec3d.field_72450_a, currentMot.field_72448_b - vec3d.field_72448_b, currentMot.field_72449_c - vec3d.field_72449_c);
++            // Restore old velocity to be able to access it in the event
++            this.func_213317_d(vec3d);
++            if (knockingBackEntity == null || new com.destroystokyo.paper.event.entity.EntityKnockbackByEntityEvent((org.bukkit.entity.LivingEntity) getBukkitEntity(), knockingBackEntity.getBukkitEntity(), f, delta).callEvent()) {
++                this.func_213293_j(vec3d.field_72450_a + delta.getX(), vec3d.field_72448_b + delta.getY(), vec3d.field_72449_c + delta.getZ());
++            }
++            // Paper end
+         }
+     }
+ 
+diff --git a/src/main/java/net/minecraft/entity/MobEntity.java b/src/main/java/net/minecraft/entity/MobEntity.java
+index 0a8c6b260ded493a73d08ad60094f16d2b9b43ce..b47c6c9f75e2dbe705eb5ca25a272eafc67b5775 100644
+--- a/src/main/java/net/minecraft/entity/MobEntity.java
++++ b/src/main/java/net/minecraft/entity/MobEntity.java
+@@ -1570,7 +1570,7 @@ public abstract class MobEntity extends LivingEntity {
+ 
+         if (flag) {
+             if (f1 > 0.0F && p_70652_1_ instanceof LivingEntity) {
+-                ((LivingEntity) p_70652_1_).func_233627_a_(f1 * 0.5F, (double) MathHelper.func_76126_a(this.field_70177_z * 0.017453292F), (double) (-MathHelper.func_76134_b(this.field_70177_z * 0.017453292F)));
++                ((LivingEntity) p_70652_1_).doKnockback(f1 * 0.5F, (double) MathHelper.func_76126_a(this.field_70177_z * 0.017453292F), (double) (-MathHelper.func_76134_b(this.field_70177_z * 0.017453292F)), this); // Paper
+                 this.func_213317_d(this.func_213322_ci().func_216372_d(0.6D, 1.0D, 0.6D));
+             }
+ 
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 0f5b1d41df537f00ab4a8f0be2c44ccbfb00a88c..a6925104265751078f924ac8922e5e9e7f26979c 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -1174,7 +1174,7 @@ public abstract class PlayerEntity extends LivingEntity {
+                     if (flag5) {
+                         if (i > 0) {
+                             if (p_71059_1_ instanceof LivingEntity) {
+-                                ((LivingEntity) p_71059_1_).func_233627_a_((float) i * 0.5F, (double) MathHelper.func_76126_a(this.field_70177_z * 0.017453292F), (double) (-MathHelper.func_76134_b(this.field_70177_z * 0.017453292F)));
++                                ((LivingEntity) p_71059_1_).doKnockback((float) i * 0.5F, (double) MathHelper.func_76126_a(this.field_70177_z * 0.017453292F), (double) (-MathHelper.func_76134_b(this.field_70177_z * 0.017453292F)), this); // Paper
+                             } else {
+                                 p_71059_1_.func_70024_g((double) (-MathHelper.func_76126_a(this.field_70177_z * 0.017453292F) * (float) i * 0.5F), 0.1D, (double) (MathHelper.func_76134_b(this.field_70177_z * 0.017453292F) * (float) i * 0.5F));
+                             }
+@@ -1198,7 +1198,7 @@ public abstract class PlayerEntity extends LivingEntity {
+                                 if (entityliving != this && entityliving != p_71059_1_ && !this.func_184191_r(entityliving) && (!(entityliving instanceof ArmorStandEntity) || !((ArmorStandEntity) entityliving).func_181026_s()) && this.func_70068_e((Entity) entityliving) < 9.0D) {
+                                     // CraftBukkit start - Only apply knockback if the damage hits
+                                     if (entityliving.func_70097_a(DamageSource.func_76365_a(this).sweep(), f4)) {
+-                                    entityliving.func_233627_a_(0.4F, (double) MathHelper.func_76126_a(this.field_70177_z * 0.017453292F), (double) (-MathHelper.func_76134_b(this.field_70177_z * 0.017453292F)));
++                                    entityliving.doKnockback(0.4F, (double) MathHelper.func_76126_a(this.field_70177_z * 0.017453292F), (double) (-MathHelper.func_76134_b(this.field_70177_z * 0.017453292F)), this); // Paper
+                                     }
+                                     // CraftBukkit end
+                                 }

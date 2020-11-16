@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 22 Jun 2018 10:38:31 -0500
+Subject: [PATCH] Add config to disable ender dragon legacy check
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index de80d2d874d1787335fd393f3ffed0cd36e3af9e..6e7e00678295b5b714a1be4753626e21ab469fd6 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -368,4 +368,9 @@ public class PaperWorldConfig {
+     private void shieldBlockingDelay() {
+         shieldBlockingDelay = getInt("game-mechanics.shield-blocking-delay", 5);
+     }
++
++    public boolean scanForLegacyEnderDragon = true;
++    private void scanForLegacyEnderDragon() {
++        scanForLegacyEnderDragon = getBoolean("game-mechanics.scan-for-legacy-ender-dragon", true);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/world/end/DragonFightManager.java b/src/main/java/net/minecraft/world/end/DragonFightManager.java
+index 3a59ae555892ebe924827060ebce4d0843d9c738..0850e0a7c060cb74a199d6e0a94c1a8e768901e9 100644
+--- a/src/main/java/net/minecraft/world/end/DragonFightManager.java
++++ b/src/main/java/net/minecraft/world/end/DragonFightManager.java
+@@ -73,7 +73,7 @@ public class DragonFightManager {
+     private boolean field_186117_k;
+     private boolean field_186118_l;
+     public UUID field_186119_m;
+-    private boolean field_186120_n;
++    private boolean field_186120_n; private void setScanForLegacyFight(boolean scanForLegacyFight) { this.field_186120_n = scanForLegacyFight; } private boolean scanForLegacyFight() { return this.field_186120_n; } // Paper - OBFHELPER
+     public BlockPos field_186121_o;
+     public DragonSpawnState field_186122_p;
+     private int field_186123_q;
+@@ -83,6 +83,10 @@ public class DragonFightManager {
+         this.field_186109_c = (ServerBossInfo) (new ServerBossInfo(new TranslationTextComponent("entity.minecraft.ender_dragon"), BossInfo.Color.PINK, BossInfo.Overlay.PROGRESS)).func_186742_b(true).func_186743_c(true);
+         this.field_186111_e = Lists.newArrayList();
+         this.field_186120_n = true;
++        // Paper start
++        setScanForLegacyFight(worldserver.paperConfig.scanForLegacyEnderDragon);
++        if (!scanForLegacyFight()) field_186117_k = true;
++        // Paper end
+         this.field_186110_d = worldserver;
+         if (nbttagcompound.func_150297_b("DragonKilled", 99)) {
+             if (nbttagcompound.func_186855_b("Dragon")) {

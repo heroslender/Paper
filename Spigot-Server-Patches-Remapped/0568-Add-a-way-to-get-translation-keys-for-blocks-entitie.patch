@@ -1,0 +1,110 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: MeFisto94 <MeFisto94@users.noreply.github.com>
+Date: Tue, 11 Aug 2020 19:16:09 +0200
+Subject: [PATCH] Add a way to get translation keys for blocks, entities and
+ materials
+
+
+diff --git a/src/main/java/net/minecraft/block/Block.java b/src/main/java/net/minecraft/block/Block.java
+index 9372d68a2a71243a5cf084921aa47d21c2834ebd..26b50bfad5d34b6ed6cc588c95c160b2826b1b53 100644
+--- a/src/main/java/net/minecraft/block/Block.java
++++ b/src/main/java/net/minecraft/block/Block.java
+@@ -318,6 +318,7 @@ public class Block extends AbstractBlock implements IItemProvider {
+         return !this.field_149764_J.func_76220_a() && !this.field_149764_J.func_76224_d();
+     }
+ 
++    public String getDescriptionId() { return func_149739_a(); } // Paper - OBFHELPER
+     public String func_149739_a() {
+         if (this.field_149770_b == null) {
+             this.field_149770_b = Util.func_200697_a("block", Registry.field_212618_g.func_177774_c(this));
+diff --git a/src/main/java/net/minecraft/entity/EntityType.java b/src/main/java/net/minecraft/entity/EntityType.java
+index 898690015e563abda522057284648b94351e61d6..e02189862aefdd59e60c3d98fd5952dd7786538b 100644
+--- a/src/main/java/net/minecraft/entity/EntityType.java
++++ b/src/main/java/net/minecraft/entity/EntityType.java
+@@ -279,6 +279,7 @@ public class EntityType<T extends Entity> {
+         return Registry.field_212629_r.func_177774_c(p_200718_0_);
+     }
+ 
++    public static Optional<EntityType<?>> getByName(String name) { return func_220327_a(name); } // Paper - OBFHELPER
+     public static Optional<EntityType<?>> func_220327_a(String p_220327_0_) {
+         return Registry.field_212629_r.func_241873_b(ResourceLocation.func_208304_a(p_220327_0_));
+     }
+@@ -417,6 +418,7 @@ public class EntityType<T extends Entity> {
+         return this.field_220355_ba;
+     }
+ 
++    public String getDescriptionId() { return func_210760_d(); } // Paper - OBFHELPER
+     public String func_210760_d() {
+         if (this.field_210762_aX == null) {
+             this.field_210762_aX = Util.func_200697_a("entity", Registry.field_212629_r.func_177774_c(this));
+diff --git a/src/main/java/net/minecraft/item/Item.java b/src/main/java/net/minecraft/item/Item.java
+index cfd1c8983cdaaebfe3547525c545563802c19307..127595dd8399bf3cda1a23e7b68e5c22d42ce5fd 100644
+--- a/src/main/java/net/minecraft/item/Item.java
++++ b/src/main/java/net/minecraft/item/Item.java
+@@ -54,7 +54,7 @@ public class Item implements IItemProvider {
+     private final Food field_219974_q;
+ 
+     public static int func_150891_b(Item p_150891_0_) {
+-        return p_150891_0_ == null ? 0 : Registry.field_212630_s.func_148757_b((Object) p_150891_0_);
++        return p_150891_0_ == null ? 0 : Registry.field_212630_s.func_148757_b(p_150891_0_);  // Paper - Fix Decompiler Issue
+     }
+ 
+     public static Item func_150899_d(int p_150899_0_) {
+@@ -150,6 +150,7 @@ public class Item implements IItemProvider {
+         return Registry.field_212630_s.func_177774_c(this).func_110623_a();
+     }
+ 
++    public String getOrCreateDescriptionId() { return func_195935_o(); } // Paper - OBFHELPER
+     protected String func_195935_o() {
+         if (this.field_77774_bZ == null) {
+             this.field_77774_bZ = Util.func_200697_a("item", Registry.field_212630_s.func_177774_c(this));
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+index 73a2aa4c450e5f77f9b6e13c20967c52b924db3a..7fae88b9defd76ebacc8462aa97e94cdc600d7a0 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+@@ -748,5 +748,10 @@ public class CraftBlock implements Block {
+     public com.destroystokyo.paper.block.BlockSoundGroup getSoundGroup() {
+         return new com.destroystokyo.paper.block.CraftBlockSoundGroup(getNMSBlock().func_176223_P().func_215695_r());
+     }
++
++    @Override
++    public String getTranslationKey() {
++        return org.bukkit.Bukkit.getUnsafe().getTranslationKey(this);
++    }
+     // Paper end
+ }
+diff --git a/src/main/java/org/bukkit/craftbukkit/util/CraftMagicNumbers.java b/src/main/java/org/bukkit/craftbukkit/util/CraftMagicNumbers.java
+index 35f3718177ae3f2f1c6e7fa0cf281a24f1c9b110..c05f8a1e44d4d6b941854bac08890c517d7ab268 100644
+--- a/src/main/java/org/bukkit/craftbukkit/util/CraftMagicNumbers.java
++++ b/src/main/java/org/bukkit/craftbukkit/util/CraftMagicNumbers.java
+@@ -43,6 +43,7 @@ import org.bukkit.Registry;
+ import org.bukkit.UnsafeValues;
+ import org.bukkit.advancement.Advancement;
+ import org.bukkit.block.data.BlockData;
++import org.bukkit.craftbukkit.block.CraftBlock;
+ import org.bukkit.craftbukkit.block.data.CraftBlockData;
+ import org.bukkit.craftbukkit.inventory.CraftItemStack;
+ import org.bukkit.craftbukkit.legacy.CraftLegacy;
+@@ -391,6 +392,22 @@ public final class CraftMagicNumbers implements UnsafeValues {
+             throw new RuntimeException();
+         }
+     }
++
++    @Override
++    public String getTranslationKey(Material mat) {
++        return getItem(mat).getOrCreateDescriptionId();
++    }
++
++    @Override
++    public String getTranslationKey(org.bukkit.block.Block block) {
++        return ((org.bukkit.craftbukkit.block.CraftBlock)block).getNMS().func_177230_c().getDescriptionId();
++    }
++
++    @Override
++    public String getTranslationKey(org.bukkit.entity.EntityType type) {
++        return net.minecraft.entity.EntityType.getByName(type.getName()).map(net.minecraft.entity.EntityType::getDescriptionId).orElse(null);
++    }
++
+     // Paper end
+ 
+     /**

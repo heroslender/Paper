@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <blake.galbreath@gmail.com>
+Date: Sat, 13 Apr 2019 16:50:58 -0500
+Subject: [PATCH] Add option to allow iron golems to spawn in air
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 89f6de173225315783a09aae2fe77a3ede2b78d5..fd0e58574f4f07913161be489d031a011f059f8e 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -381,6 +381,11 @@ public class PaperWorldConfig {
+         scanForLegacyEnderDragon = getBoolean("game-mechanics.scan-for-legacy-ender-dragon", true);
+     }
+ 
++    public boolean ironGolemsCanSpawnInAir = false;
++    private void ironGolemsCanSpawnInAir() {
++        ironGolemsCanSpawnInAir = getBoolean("iron-golems-can-spawn-in-air", ironGolemsCanSpawnInAir);
++    }
++
+     public boolean armorStandEntityLookups = true;
+     private void armorStandEntityLookups() {
+         armorStandEntityLookups = getBoolean("armor-stands-do-collision-entity-lookups", true);
+diff --git a/src/main/java/net/minecraft/entity/passive/IronGolemEntity.java b/src/main/java/net/minecraft/entity/passive/IronGolemEntity.java
+index e906e66399322086391d0c809fd7e1996c43bf62..19ab3c9811b01f8923ff89c7f8e587c9b452ad1e 100644
+--- a/src/main/java/net/minecraft/entity/passive/IronGolemEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/IronGolemEntity.java
+@@ -297,7 +297,7 @@ public class IronGolemEntity extends GolemEntity implements IAngerable {
+         BlockPos blockposition1 = blockposition.func_177977_b();
+         BlockState iblockdata = p_205019_1_.func_180495_p(blockposition1);
+ 
+-        if (!iblockdata.func_235719_a_((IBlockReader) p_205019_1_, blockposition1, (Entity) this)) {
++        if (!iblockdata.func_235719_a_((IBlockReader) p_205019_1_, blockposition1, (Entity) this) && !field_70170_p.paperConfig.ironGolemsCanSpawnInAir) { // Paper
+             return false;
+         } else {
+             for (int i = 1; i < 3; ++i) {

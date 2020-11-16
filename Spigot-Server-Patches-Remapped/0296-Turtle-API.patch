@@ -1,0 +1,159 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 29 Sep 2018 16:08:23 -0500
+Subject: [PATCH] Turtle API
+
+
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/MoveToBlockGoal.java b/src/main/java/net/minecraft/entity/ai/goal/MoveToBlockGoal.java
+index 19b80d2e81a66a2cc7d7e064495304af3eac161b..d1c1fa3b71b3bd145471fbd01d834029227c77e4 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/MoveToBlockGoal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/MoveToBlockGoal.java
+@@ -14,7 +14,7 @@ public abstract class MoveToBlockGoal extends Goal {
+     protected int field_179496_a;
+     protected int field_179493_e;
+     private int field_179490_f;
+-    protected BlockPos field_179494_b;
++    protected BlockPos field_179494_b;public final BlockPos getTargetPosition() { return this.field_179494_b; } // Paper - OBFHELPER
+     private boolean field_179491_g;
+     private final int field_179497_h;
+     private final int field_203113_j;
+diff --git a/src/main/java/net/minecraft/entity/passive/TurtleEntity.java b/src/main/java/net/minecraft/entity/passive/TurtleEntity.java
+index fc2d02dc0224d1a5e7aceaf36cb04cb3a6757029..dbebc9f28a51c38162585c327e8f9162f7d3467b 100644
+--- a/src/main/java/net/minecraft/entity/passive/TurtleEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/TurtleEntity.java
+@@ -47,6 +47,7 @@ import net.minecraft.pathfinding.PathNavigator;
+ import net.minecraft.pathfinding.PathNodeType;
+ import net.minecraft.pathfinding.SwimmerPathNavigator;
+ import net.minecraft.pathfinding.WalkAndSwimNodeProcessor;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.stats.Stats;
+ import net.minecraft.tags.FluidTags;
+ import net.minecraft.tags.ITag;
+@@ -92,7 +93,7 @@ public class TurtleEntity extends AnimalEntity {
+         this.field_70180_af.func_187227_b(TurtleEntity.field_203030_by, p_203011_1_);
+     }
+ 
+-    private BlockPos func_203018_dA() {
++    public BlockPos func_203018_dA() { // Paper - public
+         return (BlockPos) this.field_70180_af.func_187225_a(TurtleEntity.field_203030_by);
+     }
+ 
+@@ -108,31 +109,37 @@ public class TurtleEntity extends AnimalEntity {
+         return (Boolean) this.field_70180_af.func_187225_a(TurtleEntity.field_203031_bz);
+     }
+ 
+-    private void func_203017_r(boolean p_203017_1_) {
++    public void func_203017_r(boolean p_203017_1_) { // Paper
+         this.field_70180_af.func_187227_b(TurtleEntity.field_203031_bz, p_203017_1_);
+     }
+ 
++    public final boolean isDigging() { return this.func_203023_dy(); } // Paper - OBFHELPER
+     public boolean func_203023_dy() {
+         return (Boolean) this.field_70180_af.func_187225_a(TurtleEntity.field_203024_bB);
+     }
+ 
++    public final void setDigging(boolean digging) { this.func_203015_s(digging); } // Paper - OBFHELPER
+     private void func_203015_s(boolean p_203015_1_) {
+         this.field_203028_bF = p_203015_1_ ? 1 : 0;
+         this.field_70180_af.func_187227_b(TurtleEntity.field_203024_bB, p_203015_1_);
+     }
+ 
++    public final boolean isGoingHome() { return this.func_203022_dF(); } // Paper - OBFHELPER
+     private boolean func_203022_dF() {
+         return (Boolean) this.field_70180_af.func_187225_a(TurtleEntity.field_203026_bD);
+     }
+ 
++    public final void setGoingHome(boolean goingHome) { this.func_203012_t(goingHome); } // Paper - OBFHELPER
+     private void func_203012_t(boolean p_203012_1_) {
+         this.field_70180_af.func_187227_b(TurtleEntity.field_203026_bD, p_203012_1_);
+     }
+ 
++    public final boolean isTravelling() { return this.func_203014_dG(); } // Paper - OBFHELPER
+     private boolean func_203014_dG() {
+         return (Boolean) this.field_70180_af.func_187225_a(TurtleEntity.field_203027_bE);
+     }
+ 
++    public final void setTravelling(boolean travelling) { this.func_203021_u(travelling); } // Paper - OBFHELPER
+     private void func_203021_u(boolean p_203021_1_) {
+         this.field_70180_af.func_187227_b(TurtleEntity.field_203027_bE, p_203021_1_);
+     }
+@@ -499,14 +506,17 @@ public class TurtleEntity extends AnimalEntity {
+ 
+             if (!this.field_203122_f.func_70090_H() && this.func_179487_f()) {
+                 if (this.field_203122_f.field_203028_bF < 1) {
+-                    this.field_203122_f.func_203015_s(true);
++                    this.field_203122_f.setDigging(new com.destroystokyo.paper.event.entity.TurtleStartDiggingEvent((org.bukkit.entity.Turtle) this.field_203122_f.getBukkitEntity(), MCUtil.toLocation(this.field_203122_f.field_70170_p, this.getTargetPosition())).callEvent()); // Paper
+                 } else if (this.field_203122_f.field_203028_bF > 200) {
+                     World world = this.field_203122_f.field_70170_p;
+ 
+                     // CraftBukkit start
+-                    if (!org.bukkit.craftbukkit.event.CraftEventFactory.callEntityChangeBlockEvent(this.field_203122_f, this.field_179494_b.func_177984_a(), (BlockState) Blocks.field_203213_jA.func_176223_P().func_206870_a(TurtleEggBlock.field_203171_b, this.field_203122_f.field_70146_Z.nextInt(4) + 1)).isCancelled()) {
++                    // Paper start
++                    int eggCount = this.field_203122_f.field_70146_Z.nextInt(4) + 1;
++                    com.destroystokyo.paper.event.entity.TurtleLayEggEvent layEggEvent = new com.destroystokyo.paper.event.entity.TurtleLayEggEvent((org.bukkit.entity.Turtle) this.field_203122_f.getBukkitEntity(), MCUtil.toLocation(this.field_203122_f.field_70170_p, this.field_179494_b.func_177984_a()), eggCount);
++                    if (layEggEvent.callEvent() && !org.bukkit.craftbukkit.event.CraftEventFactory.callEntityChangeBlockEvent(this.field_203122_f, this.field_179494_b.func_177984_a(), Blocks.field_203213_jA.func_176223_P().func_206870_a(TurtleEggBlock.field_203171_b, layEggEvent.getEggCount())).isCancelled()) {
+                     world.func_184133_a((PlayerEntity) null, blockposition, SoundEvents.field_203278_iw, SoundCategory.BLOCKS, 0.3F, 0.9F + world.field_73012_v.nextFloat() * 0.2F);
+-                    world.func_180501_a(this.field_179494_b.func_177984_a(), (BlockState) Blocks.field_203213_jA.func_176223_P().func_206870_a(TurtleEggBlock.field_203171_b, this.field_203122_f.field_70146_Z.nextInt(4) + 1), 3);
++                    world.func_180501_a(this.field_179494_b.func_177984_a(), (BlockState) Blocks.field_203213_jA.func_176223_P().func_206870_a(TurtleEggBlock.field_203171_b, layEggEvent.getEggCount()), 3);
+                     }
+                     // CraftBukkit end
+                     this.field_203122_f.func_203017_r(false);
+@@ -635,7 +645,7 @@ public class TurtleEntity extends AnimalEntity {
+ 
+         @Override
+         public boolean func_75250_a() {
+-            return this.field_203127_a.func_70631_g_() ? false : (this.field_203127_a.func_203020_dx() ? true : (this.field_203127_a.func_70681_au().nextInt(700) != 0 ? false : !this.field_203127_a.func_203018_dA().func_218137_a((IPosition) this.field_203127_a.func_213303_ch(), 64.0D)));
++            return this.field_203127_a.func_70631_g_() ? false : (this.field_203127_a.func_203020_dx() ? true : (this.field_203127_a.func_70681_au().nextInt(700) != 0 ? false : !this.field_203127_a.func_203018_dA().func_218137_a((IPosition) this.field_203127_a.func_213303_ch(), 64.0D))) && new com.destroystokyo.paper.event.entity.TurtleGoHomeEvent((org.bukkit.entity.Turtle) this.field_203127_a.getBukkitEntity()).callEvent(); // Paper
+         }
+ 
+         @Override
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftTurtle.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftTurtle.java
+index 33248450c1007c0dfb8b8a5fe8307bc10e67aabb..1236c4c44ff1da7e637423b974fc935d59a8c3ca 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftTurtle.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftTurtle.java
+@@ -1,6 +1,8 @@
+ package org.bukkit.craftbukkit.entity;
+ 
+ import net.minecraft.entity.passive.TurtleEntity;
++import net.minecraft.server.MCUtil;
++import org.bukkit.Location;
+ import org.bukkit.craftbukkit.CraftServer;
+ import org.bukkit.entity.EntityType;
+ import org.bukkit.entity.Turtle;
+@@ -25,4 +27,36 @@ public class CraftTurtle extends CraftAnimals implements Turtle {
+     public EntityType getType() {
+         return EntityType.TURTLE;
+     }
++
++    // Paper start
++    @Override
++    public Location getHome() {
++        return MCUtil.toLocation(getHandle().field_70170_p, getHandle().func_203018_dA());
++    }
++
++    @Override
++    public void setHome(Location location) {
++        getHandle().func_203011_g(MCUtil.toBlockPosition(location));
++    }
++
++    @Override
++    public boolean isGoingHome() {
++        return getHandle().isGoingHome();
++    }
++
++    @Override
++    public boolean isDigging() {
++        return getHandle().isDigging();
++    }
++
++    @Override
++    public boolean hasEgg() {
++        return getHandle().func_203020_dx();
++    }
++
++    @Override
++    public void setHasEgg(boolean hasEgg) {
++        getHandle().func_203017_r(hasEgg);
++    }
++    // Paper end
+ }

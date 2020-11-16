@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Thu, 17 Sep 2020 00:36:05 +0100
+Subject: [PATCH] Extend block drop capture to capture all items added to the
+ world
+
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+index 166e7b000a96cebd10efbc40b9173a334fba7160..e1a3915aed81a3a40e17fdcb0e29a73e4935a823 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
++++ b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+@@ -12,6 +12,7 @@ import net.minecraft.block.FlowerPotBlock;
+ import net.minecraft.block.JigsawBlock;
+ import net.minecraft.block.StructureBlock;
+ import net.minecraft.block.TrapDoorBlock;
++import net.minecraft.entity.item.ItemEntity;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.inventory.EquipmentSlotType;
+@@ -419,10 +420,12 @@ public class PlayerInteractionManager {
+                     // return true; // CraftBukkit
+                 }
+                 // CraftBukkit start
++                java.util.List<ItemEntity> itemsToDrop = field_73092_a.captureDrops; // Paper - store current list
++                field_73092_a.captureDrops = null; // Paper - Remove this earlier so that we can actually drop stuff
+                 if (event.isDropItems()) {
+-                    org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockDropItemEvent(bblock, state, this.field_73090_b, field_73092_a.captureDrops);
++                    org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockDropItemEvent(bblock, state, this.field_73090_b, itemsToDrop); // Paper - use stored ref
+                 }
+-                field_73092_a.captureDrops = null;
++                //world.captureDrops = null; // Paper - move up
+ 
+                 // Drop event experience
+                 if (flag && event != null) {
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 6a06b2a7208d3deeb0d991b294d44d5458495b25..9bc860053ef42de8e135cdc5540bd03f4dae0d4f 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -56,6 +56,7 @@ import net.minecraft.entity.MobEntity;
+ import net.minecraft.entity.boss.dragon.EnderDragonEntity;
+ import net.minecraft.entity.boss.dragon.EnderDragonPartEntity;
+ import net.minecraft.entity.effect.LightningBoltEntity;
++import net.minecraft.entity.item.ItemEntity;
+ import net.minecraft.entity.merchant.IReputationTracking;
+ import net.minecraft.entity.merchant.IReputationType;
+ import net.minecraft.entity.monster.DrownedEntity;
+@@ -1283,6 +1284,13 @@ public class ServerWorld extends World implements ISeedReader {
+         } else if (this.func_217478_l(entity)) {
+             return false;
+         } else {
++            // Paper start - capture all item additions to the world
++            if (captureDrops != null && entity instanceof ItemEntity) {
++                captureDrops.add((ItemEntity) entity);
++                return true;
++            }
++            // Paper end
++
+             if (!CraftEventFactory.doEntityAddEventCalling(this, entity, spawnReason)) {
+                 return false;
+             }

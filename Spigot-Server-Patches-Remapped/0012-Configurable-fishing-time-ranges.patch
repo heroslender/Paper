@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Tue, 1 Mar 2016 13:14:11 -0600
+Subject: [PATCH] Configurable fishing time ranges
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 29f35535fab41aee6d253de9f9bd566d0fc28d65..02f4342b23ad4a3ad0ed09affe7ce5e572354668 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -85,4 +85,12 @@ public class PaperWorldConfig {
+ 
+         log("Baby zombies will move at the speed of " + babyZombieMovementModifier);
+     }
++
++    public int fishingMinTicks;
++    public int fishingMaxTicks;
++    private void fishingTickRange() {
++        fishingMinTicks = getInt("fishing-time-range.MinimumTicks", 100);
++        fishingMaxTicks = getInt("fishing-time-range.MaximumTicks", 600);
++        log("Fishing time ranges are between " + fishingMinTicks +" and " + fishingMaxTicks + " ticks");
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+index 43e9611eac133bb6bb67fd310d40a3433c66f7a6..19585f721bfa6947ab9bc5afd6bb23462bf74143 100644
+--- a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+@@ -84,6 +84,10 @@ public class FishingBobberEntity extends ProjectileEntity {
+         entityhuman.field_71104_cf = this;
+         this.field_191518_aw = Math.max(0, i);
+         this.field_191519_ax = Math.max(0, j);
++        // Paper start
++        minWaitTime = world.paperConfig.fishingMinTicks;
++        maxWaitTime = world.paperConfig.fishingMaxTicks;
++        // paper end
+     }
+ 
+     public FishingBobberEntity(PlayerEntity entityhuman, World world, int i, int j) {

@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 18 Mar 2016 15:12:22 -0400
+Subject: [PATCH] Configurable Non Player Arrow Despawn Rate
+
+Can set a much shorter despawn rate for arrows that players can not pick up.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 1f229e68349f49d7c461b1d9895a70968304be7f..4c956da69261d3092cd9abb1b98f7c9a220cc91e 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -209,4 +209,19 @@ public class PaperWorldConfig {
+     private void nonPlayerEntitiesOnScoreboards() {
+         nonPlayerEntitiesOnScoreboards = getBoolean("allow-non-player-entities-on-scoreboards", false);
+     }
++
++    public int nonPlayerArrowDespawnRate = -1;
++    public int creativeArrowDespawnRate = -1;
++    private void nonPlayerArrowDespawnRate() {
++        nonPlayerArrowDespawnRate = getInt("non-player-arrow-despawn-rate", -1);
++        if (nonPlayerArrowDespawnRate == -1) {
++            nonPlayerArrowDespawnRate = spigotConfig.arrowDespawnRate;
++        }
++        creativeArrowDespawnRate = getInt("creative-arrow-despawn-rate", -1);
++        if (creativeArrowDespawnRate == -1) {
++            creativeArrowDespawnRate = spigotConfig.arrowDespawnRate;
++        }
++        log("Non Player Arrow Despawn Rate: " + nonPlayerArrowDespawnRate);
++        log("Creative Arrow Despawn Rate: " + creativeArrowDespawnRate);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java b/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java
+index 33df055be5770506c0e934f302ccce63c4834b48..21c5ad5f09eb9e4f332929e2629e8b8c8be9d95e 100644
+--- a/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/AbstractArrowEntity.java
+@@ -282,7 +282,7 @@ public abstract class AbstractArrowEntity extends ProjectileEntity {
+ 
+     protected void func_225516_i_() {
+         ++this.field_70252_j;
+-        if (this.field_70252_j >= ((this instanceof TridentEntity) ? field_70170_p.spigotConfig.tridentDespawnRate : field_70170_p.spigotConfig.arrowDespawnRate)) { // Spigot
++        if (this.field_70252_j >= (field_70251_a == PickupStatus.CREATIVE_ONLY ? field_70170_p.paperConfig.creativeArrowDespawnRate : (field_70251_a == PickupStatus.DISALLOWED ? field_70170_p.paperConfig.nonPlayerArrowDespawnRate : ((this instanceof TridentEntity) ? field_70170_p.spigotConfig.tridentDespawnRate : field_70170_p.spigotConfig.arrowDespawnRate)))) { // Spigot // Paper - TODO: Extract this to init?
+             this.func_70106_y();
+         }
+ 

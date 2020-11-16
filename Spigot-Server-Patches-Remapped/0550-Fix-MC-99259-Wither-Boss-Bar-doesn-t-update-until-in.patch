@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: jmp <jasonpenilla2@me.com>
+Date: Thu, 20 Aug 2020 19:24:13 -0700
+Subject: [PATCH] Fix MC-99259 Wither Boss Bar doesn't update until
+ invulnerability period is over
+
+
+diff --git a/src/main/java/net/minecraft/entity/boss/WitherEntity.java b/src/main/java/net/minecraft/entity/boss/WitherEntity.java
+index 80a60adf44ac651774d3fe67ec2c8123c8b7d87b..dfe71b6900fdd9e8397df8945373256b992a61f8 100644
+--- a/src/main/java/net/minecraft/entity/boss/WitherEntity.java
++++ b/src/main/java/net/minecraft/entity/boss/WitherEntity.java
+@@ -391,8 +391,9 @@ public class WitherEntity extends MonsterEntity implements IRangedAttackMob {
+                 this.heal(1.0F, EntityRegainHealthEvent.RegainReason.REGEN); // CraftBukkit
+             }
+ 
+-            this.field_184744_bE.func_186735_a(this.func_110143_aJ() / this.func_110138_aP());
++            //this.bossBattle.setProgress(this.getHealth() / this.getMaxHealth()); // Paper - Moved down
+         }
++        this.field_184744_bE.func_186735_a(this.func_110143_aJ() / this.func_110138_aP()); // Paper - Fix MC-99259 (Boss bar does not update until Wither invulnerability period ends)
+     }
+ 
+     public static boolean func_181033_a(BlockState p_181033_0_) {

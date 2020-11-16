@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Fri, 12 Jun 2020 13:33:19 -0700
+Subject: [PATCH] Fix sand duping
+
+If the falling block dies during teleportation (entity#move), then we need
+to detect that by placing a check after the move.
+
+diff --git a/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java b/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java
+index c9ff432ab20b3cc74837b23eca64681db6aaf1ad..615917437ebababbab201fbc155cc3f8031d0525 100644
+--- a/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java
++++ b/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java
+@@ -102,6 +102,11 @@ public class FallingBlockEntity extends Entity {
+ 
+     @Override
+     public void func_70071_h_() {
++        // Paper start - fix sand duping
++        if (this.field_70128_L) {
++            return;
++        }
++        // Paper end - fix sand duping
+         if (this.field_175132_d.func_196958_f()) {
+             this.func_70106_y();
+         } else {
+@@ -124,6 +129,12 @@ public class FallingBlockEntity extends Entity {
+ 
+             this.func_213315_a(MoverType.SELF, this.func_213322_ci());
+ 
++            // Paper start - fix sand duping
++            if (this.field_70128_L) {
++                return;
++            }
++            // Paper end - fix sand duping
++
+             // Paper start - Configurable EntityFallingBlock height nerf
+             if (this.field_70170_p.paperConfig.fallingBlockHeightNerf != 0 && this.func_226278_cu_() > this.field_70170_p.paperConfig.fallingBlockHeightNerf) {
+                 if (this.field_145813_c && this.field_70170_p.func_82736_K().func_223586_b(GameRules.field_223604_g)) {

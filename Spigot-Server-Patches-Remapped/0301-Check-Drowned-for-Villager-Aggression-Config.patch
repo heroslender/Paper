@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Wed, 10 Oct 2018 21:22:44 -0500
+Subject: [PATCH] Check Drowned for Villager Aggression Config
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/DrownedEntity.java b/src/main/java/net/minecraft/entity/monster/DrownedEntity.java
+index 88b3fa40066ed05a65a2b8d5ee8dcb7fe1a6034f..6edfa3da984181694b27cfef7290a311689218c8 100644
+--- a/src/main/java/net/minecraft/entity/monster/DrownedEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/DrownedEntity.java
+@@ -83,7 +83,7 @@ public class DrownedEntity extends ZombieEntity implements IRangedAttackMob {
+         this.field_70714_bg.func_75776_a(7, new RandomWalkingGoal(this, 1.0D));
+         this.field_70715_bh.func_75776_a(1, (new HurtByTargetGoal(this, new Class[]{DrownedEntity.class})).func_220794_a(ZombifiedPiglinEntity.class));
+         this.field_70715_bh.func_75776_a(2, new NearestAttackableTargetGoal<>(this, PlayerEntity.class, 10, true, false, this::func_204714_e));
+-        this.field_70715_bh.func_75776_a(3, new NearestAttackableTargetGoal<>(this, AbstractVillagerEntity.class, false));
++        if ( field_70170_p.spigotConfig.zombieAggressiveTowardsVillager ) this.field_70715_bh.func_75776_a(3, new NearestAttackableTargetGoal<>(this, AbstractVillagerEntity.class, false)); // Paper
+         this.field_70715_bh.func_75776_a(3, new NearestAttackableTargetGoal<>(this, IronGolemEntity.class, true));
+         this.field_70715_bh.func_75776_a(5, new NearestAttackableTargetGoal<>(this, TurtleEntity.class, 10, true, false, TurtleEntity.field_203029_bx));
+     }

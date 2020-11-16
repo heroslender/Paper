@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mariell Hoversholm <proximyst@proximyst.com>
+Date: Fri, 14 Aug 2020 23:59:26 +0200
+Subject: [PATCH] Remove armour stand double add to world
+
+
+diff --git a/src/main/java/net/minecraft/item/ArmorStandItem.java b/src/main/java/net/minecraft/item/ArmorStandItem.java
+index fa6b3b4b23349ea176f7c2c4c1ec296d27fcba8f..eecb7402261f61899e738339a80afbf6df7155a3 100644
+--- a/src/main/java/net/minecraft/item/ArmorStandItem.java
++++ b/src/main/java/net/minecraft/item/ArmorStandItem.java
+@@ -51,7 +51,7 @@ public class ArmorStandItem extends Item {
+                         return ActionResultType.FAIL;
+                     }
+ 
+-                    worldserver.func_242417_l(entityarmorstand);
++                    // Paper - moved down
+                     float f = (float) MathHelper.func_76141_d((MathHelper.func_76142_g(p_195939_1_.func_195990_h() - 180.0F) + 22.5F) / 45.0F) * 45.0F;
+ 
+                     entityarmorstand.func_70012_b(entityarmorstand.func_226277_ct_(), entityarmorstand.func_226278_cu_(), entityarmorstand.func_226281_cx_(), f, 0.0F);
+@@ -61,7 +61,7 @@ public class ArmorStandItem extends Item {
+                         return ActionResultType.FAIL;
+                     }
+                     // CraftBukkit end
+-                    world.func_217376_c(entityarmorstand);
++                    worldserver.func_242417_l(entityarmorstand); // Paper - moved down
+                     world.func_184148_a((PlayerEntity) null, entityarmorstand.func_226277_ct_(), entityarmorstand.func_226278_cu_(), entityarmorstand.func_226281_cx_(), SoundEvents.field_187710_m, SoundCategory.BLOCKS, 0.75F, 0.8F);
+                 }
+ 

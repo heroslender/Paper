@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Thu, 16 Nov 2017 12:12:41 +0000
+Subject: [PATCH] use CB BlockState implementations for captured blocks
+
+When modifying the world, CB will store a copy of the affected
+blocks in order to restore their state in the case that the event
+is cancelled. This change only modifies the collection of blocks
+in the world by normal means, e.g. not during tree population,
+as the potentially marginal overheads would serve no advantage.
+
+CB was using a CraftBlockState for all blocks, which causes issues
+should any block that uses information beyond a data ID would suffer
+from missing information, e.g. Skulls.
+
+By using CBs CraftBlock#getState(), we will maintain a proper copy of
+the blockstate that will be valid for restoration, as opposed to dropping
+information on restoration when the event is cancelled.
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index d54909c2f59df832984e971e99447c7766f07cc7..451cb6186131d70fcf32abeb73f7082d73b150c7 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -123,7 +123,7 @@ public abstract class World implements IWorld, AutoCloseable {
+ 
+     public boolean captureBlockStates = false;
+     public boolean captureTreeGeneration = false;
+-    public Map<BlockPos, CapturedBlockState> capturedBlockStates = new java.util.LinkedHashMap<>();
++    public Map<BlockPos, org.bukkit.craftbukkit.block.CraftBlockState> capturedBlockStates = new java.util.LinkedHashMap<>(); // Paper
+     public Map<BlockPos, TileEntity> capturedTileEntities = new HashMap<>();
+     public List<ItemEntity> captureDrops;
+     public long ticksPerAnimalSpawns;
+@@ -345,7 +345,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     public boolean func_241211_a_(BlockPos p_241211_1_, BlockState p_241211_2_, int p_241211_3_, int p_241211_4_) {
+         // CraftBukkit start - tree generation
+         if (this.captureTreeGeneration) {
+-            CapturedBlockState blockstate = capturedBlockStates.get(p_241211_1_);
++            CraftBlockState blockstate = capturedBlockStates.get(p_241211_1_);
+             if (blockstate == null) {
+                 blockstate = CapturedBlockState.getTreeBlockState(this, p_241211_1_, p_241211_3_);
+                 this.capturedBlockStates.put(p_241211_1_.func_185334_h(), blockstate);
+@@ -365,7 +365,7 @@ public abstract class World implements IWorld, AutoCloseable {
+             // CraftBukkit start - capture blockstates
+             boolean captured = false;
+             if (this.captureBlockStates && !this.capturedBlockStates.containsKey(p_241211_1_)) {
+-                CapturedBlockState blockstate = CapturedBlockState.getBlockState(this, p_241211_1_, p_241211_3_);
++                CraftBlockState blockstate = (CraftBlockState) world.getBlockAt(p_241211_1_.func_177958_n(), p_241211_1_.func_177956_o(), p_241211_1_.func_177952_p()).getState(); // Paper - use CB getState to get a suitable snapshot
+                 this.capturedBlockStates.put(p_241211_1_.func_185334_h(), blockstate);
+                 captured = true;
+             }
+@@ -623,7 +623,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     public BlockState func_180495_p(BlockPos p_180495_1_) {
+         // CraftBukkit start - tree generation
+         if (captureTreeGeneration) {
+-            CapturedBlockState previous = capturedBlockStates.get(p_180495_1_);
++            CraftBlockState previous = capturedBlockStates.get(p_180495_1_); // Paper
+             if (previous != null) {
+                 return previous.getHandle();
+             }

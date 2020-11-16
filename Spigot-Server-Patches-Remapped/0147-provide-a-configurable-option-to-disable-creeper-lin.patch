@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sun, 11 Jun 2017 21:01:18 +0100
+Subject: [PATCH] provide a configurable option to disable creeper lingering
+ effect spawns
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 7f22cdc26d26d6d937506f901a8a0ed1d0a9f780..295b27d122d84d6b1147aaedc9bbfb0f278e1cba 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -330,4 +330,10 @@ public class PaperWorldConfig {
+         parrotsHangOnBetter = getBoolean("parrots-are-unaffected-by-player-movement", false);
+         log("Parrots are unaffected by player movement: " + parrotsHangOnBetter);
+     }
++
++    public boolean disableCreeperLingeringEffect;
++    private void setDisableCreeperLingeringEffect() {
++        disableCreeperLingeringEffect = getBoolean("disable-creeper-lingering-effect", false);
++        log("Creeper lingering effect: " + disableCreeperLingeringEffect);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/monster/CreeperEntity.java b/src/main/java/net/minecraft/entity/monster/CreeperEntity.java
+index 9eeaaec12a8b5db6bebc06d43e29bcec5ebb63a2..895bd0a742a9cef33f859384af48cbfd145fffb6 100644
+--- a/src/main/java/net/minecraft/entity/monster/CreeperEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/CreeperEntity.java
+@@ -261,7 +261,7 @@ public class CreeperEntity extends MonsterEntity {
+     private void func_190741_do() {
+         Collection<EffectInstance> collection = this.func_70651_bq();
+ 
+-        if (!collection.isEmpty()) {
++        if (!collection.isEmpty() && !field_70170_p.paperConfig.disableCreeperLingeringEffect) { // Paper
+             AreaEffectCloudEntity entityareaeffectcloud = new AreaEffectCloudEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_());
+ 
+             entityareaeffectcloud.func_184481_a(this); // CraftBukkit

@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kashike <kashike@vq.lc>
+Date: Thu, 3 Mar 2016 02:15:57 -0600
+Subject: [PATCH] Expose server CommandMap
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 7f539a901bfb972d7374ff29369108d8f2c76681..d60da8cbd4bf72195fb353780b653ec8a0c60db6 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -1705,6 +1705,7 @@ public final class CraftServer implements Server {
+         return helpMap;
+     }
+ 
++    @Override // Paper - add override
+     public SimpleCommandMap getCommandMap() {
+         return commandMap;
+     }

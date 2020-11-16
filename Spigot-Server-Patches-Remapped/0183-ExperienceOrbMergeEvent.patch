@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 19 Dec 2017 22:57:26 -0500
+Subject: [PATCH] ExperienceOrbMergeEvent
+
+Fired when the server is about to merge 2 experience orbs
+Plugins can cancel this if they want to ensure experience orbs do not lose important
+metadata such as spawn reason, or conditionally move data from source to target.
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+index 381b3c9fd3e3c0391ebea09ce21a0d0b3bfc81b9..4d7da5c34fade744facf173a3fc0f3d412c290ac 100644
+--- a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
++++ b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+@@ -590,7 +590,7 @@ public class CraftEventFactory {
+                     if (e instanceof ExperienceOrbEntity) {
+                         ExperienceOrbEntity loopItem = (ExperienceOrbEntity) e;
+                         // Paper start
+-                        if (!loopItem.field_70128_L && !(maxValue > 0 && loopItem.field_70530_e >= maxValue)) {
++                        if (!loopItem.field_70128_L && !(maxValue > 0 && loopItem.field_70530_e >= maxValue)  && new com.destroystokyo.paper.event.entity.ExperienceOrbMergeEvent((org.bukkit.entity.ExperienceOrb) entity.getBukkitEntity(), (org.bukkit.entity.ExperienceOrb) loopItem.getBukkitEntity()).callEvent()) { // Paper
+                             long newTotal = (long)xp.field_70530_e + (long)loopItem.field_70530_e;
+                             if ((int) newTotal < 0) continue; // Overflow
+                             if (maxValue > 0 && newTotal > (long)maxValue) {

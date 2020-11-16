@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Toon Schoenmakers <nighteyes1993@gmail.com>
+Date: Fri, 23 Oct 2020 15:01:44 +0200
+Subject: [PATCH] Avoid error bubbling up when item stack is empty in fishing
+ loot
+
+This can realistically only happen if there's custom loot active on fishing
+which can return 0 items. This would disconnect the player who's fishing.
+
+diff --git a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+index 1324dc8eb739a40f9c33d6d56eb00d5db84eb85a..5d39d33ac3851dc0c4a8cb7b93509c192c9087f2 100644
+--- a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+@@ -483,9 +483,15 @@ public class FishingBobberEntity extends ProjectileEntity {
+ 
+                 while (iterator.hasNext()) {
+                     ItemStack itemstack1 = (ItemStack) iterator.next();
+-                    ItemEntity entityitem = new ItemEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), itemstack1);
++                    // Paper start, new EntityItem would throw if for whatever reason (mostly shitty datapacks) the itemstack1 turns out to be empty
++                    // if the item stack is empty we instead just have our entityitem as null
++                    ItemEntity entityitem = null;
++                    if (!itemstack1.func_190926_b()) {
++                        entityitem = new ItemEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), itemstack1);
++                    }
++                    // Paper end
+                     // CraftBukkit start
+-                    PlayerFishEvent playerFishEvent = new PlayerFishEvent((Player) entityhuman.getBukkitEntity(), entityitem.getBukkitEntity(), (FishHook) this.getBukkitEntity(), PlayerFishEvent.State.CAUGHT_FISH);
++                    PlayerFishEvent playerFishEvent = new PlayerFishEvent((Player) entityhuman.getBukkitEntity(), entityitem != null ? entityitem.getBukkitEntity() : null, (FishHook) this.getBukkitEntity(), PlayerFishEvent.State.CAUGHT_FISH); // Paper - entityitem may be null
+                     playerFishEvent.setExpToDrop(this.field_70146_Z.nextInt(6) + 1);
+                     this.field_70170_p.getServer().getPluginManager().callEvent(playerFishEvent);
+ 
+@@ -498,8 +504,12 @@ public class FishingBobberEntity extends ProjectileEntity {
+                     double d2 = entityhuman.func_226281_cx_() - this.func_226281_cx_();
+                     double d3 = 0.1D;
+ 
+-                    entityitem.func_213293_j(d0 * 0.1D, d1 * 0.1D + Math.sqrt(Math.sqrt(d0 * d0 + d1 * d1 + d2 * d2)) * 0.08D, d2 * 0.1D);
+-                    this.field_70170_p.func_217376_c(entityitem);
++                    // Paper start, entity item can be null, so we need to check against this
++                    if (entityitem != null) {
++                        entityitem.func_213293_j(d0 * 0.1D, d1 * 0.1D + Math.sqrt(Math.sqrt(d0 * d0 + d1 * d1 + d2 * d2)) * 0.08D, d2 * 0.1D);
++                        this.field_70170_p.func_217376_c(entityitem);
++                    }
++                    // Paper end
+                     // CraftBukkit start - this.random.nextInt(6) + 1 -> playerFishEvent.getExpToDrop()
+                     if (playerFishEvent.getExpToDrop() > 0) {
+                         entityhuman.field_70170_p.func_217376_c(new ExperienceOrbEntity(entityhuman.field_70170_p, entityhuman.func_226277_ct_(), entityhuman.func_226278_cu_() + 0.5D, entityhuman.func_226281_cx_() + 0.5D, playerFishEvent.getExpToDrop(), org.bukkit.entity.ExperienceOrb.SpawnReason.FISHING, this.func_234606_i_(), this)); // Paper

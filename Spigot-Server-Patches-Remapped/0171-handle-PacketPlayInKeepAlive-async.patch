@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Thu, 5 Oct 2017 01:54:07 +0100
+Subject: [PATCH] handle PacketPlayInKeepAlive async
+
+In 1.12.2, Mojang moved the processing of PacketPlayInKeepAlive off the main
+thread, while entirely correct for the server, this causes issues with
+plugins which are expecting the PlayerQuitEvent on the main thread.
+
+In order to counteract some bad behavior, we will post handling of the
+disconnection to the main thread, but leave the actual processing of the packet
+off the main thread.
+
+also adding some additional logging in order to help work out what is causing
+random disconnections for clients.
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 29ad6b60e11d92057082e9cf67ed1e2066fd289b..aa23163642950dbbc6048a71ca2f5500f9a7ef19 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -2765,14 +2765,18 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+     @Override
+     public void func_147353_a(CKeepAlivePacket p_147353_1_) {
+-        PacketThreadUtil.func_218796_a(p_147353_1_, this, this.field_147369_b.func_71121_q()); // CraftBukkit
++        //PlayerConnectionUtils.ensureMainThread(packetplayinkeepalive, this, this.player.getWorldServer()); // CraftBukkit // Paper - This shouldn't be on the main thread
+         if (this.field_194403_g && p_147353_1_.func_149460_c() == this.field_194404_h) {
+             int i = (int) (Util.func_211177_b() - this.field_194402_f);
+ 
+             this.field_147369_b.field_71138_i = (this.field_147369_b.field_71138_i * 3 + i) / 4;
+             this.field_194403_g = false;
+         } else if (!this.func_217264_d()) {
++            // Paper start - This needs to be handled on the main thread for plugins
++            field_147367_d.scheduleOnMain(() -> {
+             this.func_194028_b(new TranslationTextComponent("disconnect.timeout"));
++            });
++            // Paper end
+         }
+ 
+     }

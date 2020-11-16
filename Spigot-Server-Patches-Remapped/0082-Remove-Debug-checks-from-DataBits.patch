@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 5 Apr 2016 21:38:58 -0400
+Subject: [PATCH] Remove Debug checks from DataBits
+
+These are super hot and causing noticeable hits
+
+Before: http://i.imgur.com/nQsMzAE.png
+After: http://i.imgur.com/nJ46crB.png
+
+diff --git a/src/main/java/net/minecraft/util/BitArray.java b/src/main/java/net/minecraft/util/BitArray.java
+index cd99aff801c241a312c14566c487ee6a61e31142..ec298ec1a83ccd1a019eb11db8aaca2c0fe5c70a 100644
+--- a/src/main/java/net/minecraft/util/BitArray.java
++++ b/src/main/java/net/minecraft/util/BitArray.java
+@@ -53,8 +53,8 @@ public class BitArray {
+     }
+ 
+     public int func_219789_a(int p_219789_1_, int p_219789_2_) {
+-        Validate.inclusiveBetween(0L, (long) (this.field_188148_d - 1), (long) p_219789_1_);
+-        Validate.inclusiveBetween(0L, this.field_188147_c, (long) p_219789_2_);
++        //Validate.inclusiveBetween(0L, (long) (this.e - 1), (long) i); // Paper
++        //Validate.inclusiveBetween(0L, this.d, (long) j); // Paper
+         int k = this.func_232986_b_(p_219789_1_);
+         long l = this.field_188145_a[k];
+         int i1 = (p_219789_1_ - k * this.field_232982_f_) * this.field_188146_b;
+@@ -65,8 +65,8 @@ public class BitArray {
+     }
+ 
+     public void func_188141_a(int p_188141_1_, int p_188141_2_) {
+-        Validate.inclusiveBetween(0L, (long) (this.field_188148_d - 1), (long) p_188141_1_);
+-        Validate.inclusiveBetween(0L, this.field_188147_c, (long) p_188141_2_);
++        //Validate.inclusiveBetween(0L, (long) (this.e - 1), (long) i); // Paper
++        //Validate.inclusiveBetween(0L, this.d, (long) j); // Paper
+         int k = this.func_232986_b_(p_188141_1_);
+         long l = this.field_188145_a[k];
+         int i1 = (p_188141_1_ - k * this.field_232982_f_) * this.field_188146_b;
+@@ -75,7 +75,7 @@ public class BitArray {
+     }
+ 
+     public int func_188142_a(int p_188142_1_) {
+-        Validate.inclusiveBetween(0L, (long) (this.field_188148_d - 1), (long) p_188142_1_);
++        //Validate.inclusiveBetween(0L, (long) (this.e - 1), (long) i); // Paper
+         int j = this.func_232986_b_(p_188142_1_);
+         long k = this.field_188145_a[j];
+         int l = (p_188142_1_ - j * this.field_232982_f_) * this.field_188146_b;

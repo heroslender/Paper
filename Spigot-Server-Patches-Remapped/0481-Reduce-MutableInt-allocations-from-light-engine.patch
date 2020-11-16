@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Mon, 27 Apr 2020 02:48:06 -0700
+Subject: [PATCH] Reduce MutableInt allocations from light engine
+
+We can abuse the fact light is single threaded and share an instance
+per light engine instance
+
+diff --git a/src/main/java/net/minecraft/world/lighting/BlockLightEngine.java b/src/main/java/net/minecraft/world/lighting/BlockLightEngine.java
+index 8cdb7f9bd5b49b3b903c6d25fbf869312ed31936..ad77f907f75960a11e6cfde576c68c1aafbedbff 100644
+--- a/src/main/java/net/minecraft/world/lighting/BlockLightEngine.java
++++ b/src/main/java/net/minecraft/world/lighting/BlockLightEngine.java
+@@ -16,6 +16,7 @@ public final class BlockLightEngine extends LightEngine<BlockLightStorage.Storag
+ 
+     private static final Direction[] field_215636_d = Direction.values();
+     private final BlockPos.Mutable field_215637_e = new BlockPos.Mutable();
++    private final MutableInt mutableint = new MutableInt(); // Paper
+ 
+     public BlockLightEngine(IChunkLightProvider ilightaccess) {
+         super(ilightaccess, LightType.BLOCK, new BlockLightStorage(ilightaccess));
+@@ -47,7 +48,7 @@ public final class BlockLightEngine extends LightEngine<BlockLightStorage.Storag
+             if (enumdirection == null) {
+                 return 15;
+             } else {
+-                MutableInt mutableint = new MutableInt();
++                //MutableInt mutableint = new MutableInt(); // Paper - share mutableint, single threaded
+                 BlockState iblockdata = this.func_227468_a_(p_215480_2_, mutableint);
+ 
+                 if (mutableint.getValue() >= 15) {
+diff --git a/src/main/java/net/minecraft/world/lighting/SkyLightEngine.java b/src/main/java/net/minecraft/world/lighting/SkyLightEngine.java
+index 8d10bf299aff58a2b6c066c2d584995aa77a953b..2811663e41812ae0593e9be2856b4855232ebf3c 100644
+--- a/src/main/java/net/minecraft/world/lighting/SkyLightEngine.java
++++ b/src/main/java/net/minecraft/world/lighting/SkyLightEngine.java
+@@ -15,6 +15,7 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+ 
+     private static final Direction[] field_215633_d = Direction.values();
+     private static final Direction[] field_215634_e = new Direction[]{Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST};
++    private final MutableInt mutableint = new MutableInt(); // Paper
+ 
+     public SkyLightEngine(IChunkLightProvider ilightaccess) {
+         super(ilightaccess, LightType.SKY, new SkyLightStorage(ilightaccess));
+@@ -36,7 +37,7 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+             if (p_215480_3_ >= 15) {
+                 return p_215480_3_;
+             } else {
+-                MutableInt mutableint = new MutableInt();
++                //MutableInt mutableint = new MutableInt(); // Paper - share mutableint, single threaded
+                 BlockState iblockdata = this.func_227468_a_(p_215480_2_, mutableint);
+ 
+                 if (mutableint.getValue() >= 15) {

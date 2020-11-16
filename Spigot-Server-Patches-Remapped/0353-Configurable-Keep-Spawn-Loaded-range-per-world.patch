@@ -1,0 +1,253 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 13 Sep 2014 23:14:43 -0400
+Subject: [PATCH] Configurable Keep Spawn Loaded range per world
+
+This lets you disable it for some worlds and lower it for others.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index a9a3dbbe7608d1f0dc122fe8d49928e7e3fa1438..e9c03546c42657dd5f5d4c6f71bd7e0cc7e2cb15 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -434,4 +434,10 @@ public class PaperWorldConfig {
+                 break;
+         }
+     }
++
++    public short keepLoadedRange;
++    private void keepLoadedRange() {
++        keepLoadedRange = (short) (getInt("keep-spawn-loaded-range", Math.min(spigotConfig.viewDistance, 10)) * 16);
++        log( "Keep Spawn Loaded Range: " + (keepLoadedRange/16));
++    }
+ }
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 12544660d3c703ec431ff90e6c9bb918d3d1e5f1..6faa1acfd5f8d88ea0229b5b0be6ca829943900e 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -115,7 +115,6 @@ import net.minecraft.util.IProgressUpdate;
+ import net.minecraft.util.RegistryKey;
+ import net.minecraft.util.ResourceLocation;
+ import net.minecraft.util.SharedConstants;
+-import net.minecraft.util.Unit;
+ import net.minecraft.util.Util;
+ import net.minecraft.util.concurrent.RecursiveEventLoop;
+ import net.minecraft.util.concurrent.TickDelayedTask;
+@@ -156,7 +155,6 @@ import net.minecraft.world.gen.feature.template.TemplateManager;
+ import net.minecraft.world.gen.settings.DimensionGeneratorSettings;
+ import net.minecraft.world.server.ServerChunkProvider;
+ import net.minecraft.world.server.ServerWorld;
+-import net.minecraft.world.server.TicketType;
+ import net.minecraft.world.spawner.CatSpawner;
+ import net.minecraft.world.spawner.ISpecialSpawner;
+ import net.minecraft.world.spawner.PatrolSpawner;
+@@ -714,6 +712,14 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         this.forceTicks = true;
+         // CraftBukkit end
+ 
++        // Paper start - configurable spawn reason
++        int radiusBlocks = worldserver.paperConfig.keepLoadedRange;
++        int radiusChunks = radiusBlocks / 16 + ((radiusBlocks & 15) != 0 ? 1 : 0);
++        int totalChunks = ((radiusChunks) * 2 + 1);
++        totalChunks *= totalChunks;
++        worldloadlistener.setChunkRadius(radiusBlocks / 16);
++        // Paper end
++
+         MinecraftServer.field_147145_h.info("Preparing start region for dimension {}", worldserver.func_234923_W_().func_240901_a_());
+         BlockPos blockposition = worldserver.getSpawn();
+ 
+@@ -722,14 +728,12 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+ 
+         chunkproviderserver.func_212863_j_().func_215598_a(500);
+         this.field_211151_aa = Util.func_211177_b();
+-        chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(blockposition), 11, Unit.INSTANCE);
+-
+-        while (chunkproviderserver.func_217229_b() != 441) {
+-            // CraftBukkit start
+-            // this.nextTick = SystemUtils.getMonotonicMillis() + 10L;
+-            this.executeModerately();
+-            // CraftBukkit end
++        // Paper start - Configurable spawn radius
++        if (worldserver.keepSpawnInMemory) {
++            worldserver.addTicketsForSpawn(radiusBlocks, blockposition);
+         }
++        // Paper end
++        field_147145_h.info("Loaded " + chunkproviderserver.func_217229_b() + " spawn chunks for world " + worldserver.getWorld().getName()); // Paper
+ 
+         // CraftBukkit start
+         // this.nextTick = SystemUtils.getMonotonicMillis() + 10L;
+diff --git a/src/main/java/net/minecraft/world/chunk/listener/IChunkStatusListener.java b/src/main/java/net/minecraft/world/chunk/listener/IChunkStatusListener.java
+index aaa49ea86d4b3687b10094e00f64d58fce97ba40..7bec57e4c04267fd79fde6a01075402694b5aeb1 100644
+--- a/src/main/java/net/minecraft/world/chunk/listener/IChunkStatusListener.java
++++ b/src/main/java/net/minecraft/world/chunk/listener/IChunkStatusListener.java
+@@ -11,4 +11,6 @@ public interface IChunkStatusListener {
+     void func_219508_a(ChunkPos p_219508_1_, @Nullable ChunkStatus p_219508_2_);
+ 
+     void func_219510_b();
++
++    void setChunkRadius(int radius); // Paper - allow changing chunk radius
+ }
+diff --git a/src/main/java/net/minecraft/world/chunk/listener/LoggingChunkStatusListener.java b/src/main/java/net/minecraft/world/chunk/listener/LoggingChunkStatusListener.java
+index 10dc4dfc877b09c735cbad536ac2b79c15778497..58945aad88a6c12527e6e996f49307cc7fc35940 100644
+--- a/src/main/java/net/minecraft/world/chunk/listener/LoggingChunkStatusListener.java
++++ b/src/main/java/net/minecraft/world/chunk/listener/LoggingChunkStatusListener.java
+@@ -12,16 +12,24 @@ import org.apache.logging.log4j.Logger;
+ public class LoggingChunkStatusListener implements IChunkStatusListener {
+ 
+     private static final Logger field_219512_a = LogManager.getLogger();
+-    private final int field_219513_b;
++    private int field_219513_b; // Paper - remove final
+     private int field_219514_c;
+     private long field_219515_d;
+     private long field_219516_e = Long.MAX_VALUE;
+ 
+     public LoggingChunkStatusListener(int p_i50697_1_) {
+-        int j = p_i50697_1_ * 2 + 1;
++        // Paper start - Allow changing radius later for configurable spawn patch
++        this.setChunkRadius(p_i50697_1_); // Move to method
++    }
++
++    @Override
++    public void setChunkRadius(int radius) {
++        // Paper - copied from above
++        int j = radius * 2 + 1;
+ 
+         this.field_219513_b = j * j;
+     }
++    // Paper end
+ 
+     @Override
+     public void func_219509_a(ChunkPos p_219509_1_) {
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 3e8f377a58d6e18997cdf81a599b5e2192f97d12..ac66a81e5c38116cdedce976945159ecd4f9d8dd 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -82,6 +82,7 @@ import net.minecraft.particles.IParticleData;
+ import net.minecraft.pathfinding.PathNavigator;
+ import net.minecraft.profiler.IProfiler;
+ import net.minecraft.scoreboard.ServerScoreboard;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.tags.ITagCollectionSupplier;
+ import net.minecraft.tileentity.TileEntity;
+@@ -1654,12 +1655,88 @@ public class ServerWorld extends World implements ISeedReader {
+         return ((MapIdTracker) this.func_73046_m().func_241755_D_().func_217481_x().func_215752_a(MapIdTracker::new, "idcounts")).func_215162_a();
+     }
+ 
++    // Paper start - helper function for configurable spawn radius
++    public void addTicketsForSpawn(int radiusInBlocks, BlockPos spawn) {
++        // In order to respect vanilla behavior, which is ensuring everything but the spawn border can tick, we add tickets
++        // with level 31 for the non-border spawn chunks
++        ServerChunkProvider chunkproviderserver = this.func_72863_F();
++        int tickRadius = radiusInBlocks - 16;
++
++        // add ticking chunks
++        for (int x = -tickRadius; x <= tickRadius; x += 16) {
++            for (int z = -tickRadius; z <= tickRadius; z += 16) {
++                // radius of 2 will have the current chunk be level 31
++                chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.add(x, 0, z)), 2, Unit.INSTANCE);
++            }
++        }
++
++        // add border chunks
++
++        // add border along x axis (including corner chunks)
++        for (int x = -radiusInBlocks; x <= radiusInBlocks; x += 16) {
++            // top
++            chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.add(x, 0, radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++            // bottom
++            chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.add(x, 0, -radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++        }
++
++        // add border along z axis (excluding corner chunks)
++        for (int z = -radiusInBlocks + 16; z < radiusInBlocks; z += 16) {
++            // right
++            chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.add(radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++            // left
++            chunkproviderserver.func_217228_a(TicketType.field_219488_a, new ChunkPos(spawn.add(-radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++        }
++
++        MCUtil.getSpiralOutChunks(spawn, radiusInBlocks >> 4).forEach(pair -> {
++            func_72863_F().getChunkAtMainThread(pair.field_77276_a, pair.field_77275_b);
++        });
++    }
++    public void removeTicketsForSpawn(int radiusInBlocks, BlockPos spawn) {
++        // In order to respect vanilla behavior, which is ensuring everything but the spawn border can tick, we added tickets
++        // with level 31 for the non-border spawn chunks
++        ServerChunkProvider chunkproviderserver = this.func_72863_F();
++        int tickRadius = radiusInBlocks - 16;
++
++        // remove ticking chunks
++        for (int x = -tickRadius; x <= tickRadius; x += 16) {
++            for (int z = -tickRadius; z <= tickRadius; z += 16) {
++                // radius of 2 will have the current chunk be level 31
++                chunkproviderserver.func_217222_b(TicketType.field_219488_a, new ChunkPos(spawn.add(x, 0, z)), 2, Unit.INSTANCE);
++            }
++        }
++
++        // remove border chunks
++
++        // remove border along x axis (including corner chunks)
++        for (int x = -radiusInBlocks; x <= radiusInBlocks; x += 16) {
++            // top
++            chunkproviderserver.func_217222_b(TicketType.field_219488_a, new ChunkPos(spawn.add(x, 0, radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++            // bottom
++            chunkproviderserver.func_217222_b(TicketType.field_219488_a, new ChunkPos(spawn.add(x, 0, -radiusInBlocks)), 1, Unit.INSTANCE); // level 32
++        }
++
++        // remove border along z axis (excluding corner chunks)
++        for (int z = -radiusInBlocks + 16; z < radiusInBlocks; z += 16) {
++            // right
++            chunkproviderserver.func_217222_b(TicketType.field_219488_a, new ChunkPos(spawn.add(radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++            // left
++            chunkproviderserver.func_217222_b(TicketType.field_219488_a, new ChunkPos(spawn.add(-radiusInBlocks, 0, z)), 1, Unit.INSTANCE); // level 32
++        }
++    }
++    // Paper end
++
+     public void func_241124_a__(BlockPos p_241124_1_, float p_241124_2_) {
+-        ChunkPos chunkcoordintpair = new ChunkPos(new BlockPos(this.field_72986_A.func_76079_c(), 0, this.field_72986_A.func_76074_e()));
++        // Paper - configurable spawn radius
++        BlockPos prevSpawn = this.getSpawn();
++        //ChunkCoordIntPair chunkcoordintpair = new ChunkCoordIntPair(new BlockPosition(this.worldData.a(), 0, this.worldData.c()));
+ 
+         this.field_72986_A.func_176143_a(p_241124_1_, p_241124_2_);
+-        this.func_72863_F().func_217222_b(TicketType.field_219488_a, chunkcoordintpair, 11, Unit.INSTANCE);
+-        this.func_72863_F().func_217228_a(TicketType.field_219488_a, new ChunkPos(p_241124_1_), 11, Unit.INSTANCE);
++        if (this.keepSpawnInMemory) {
++            // if this keepSpawnInMemory is false a plugin has already removed our tickets, do not re-add
++            this.removeTicketsForSpawn(this.paperConfig.keepLoadedRange, prevSpawn);
++            this.addTicketsForSpawn(this.paperConfig.keepLoadedRange, p_241124_1_);
++        }
+         this.func_73046_m().func_184103_al().func_148540_a(new SWorldSpawnChangedPacket(p_241124_1_, p_241124_2_));
+     }
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index 95b7cf9329eef59e5978078e3e88356da3b2db5a..795ab2bd46b1d14baf901f2c478acf5f8a4359bd 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -1931,15 +1931,21 @@ public class CraftWorld implements World {
+ 
+     @Override
+     public void setKeepSpawnInMemory(boolean keepLoaded) {
++        // Paper start - Configurable spawn radius
++        if (keepLoaded == world.keepSpawnInMemory) {
++            // do nothing, nothing has changed
++            return;
++        }
+         world.keepSpawnInMemory = keepLoaded;
+         // Grab the worlds spawn chunk
+-        BlockPos chunkcoordinates = this.world.getSpawn();
++        BlockPos prevSpawn = this.world.getSpawn();
+         if (keepLoaded) {
+-            world.func_72863_F().func_217228_a(TicketType.field_219488_a, new ChunkPos(chunkcoordinates), 11, Unit.INSTANCE);
++            world.addTicketsForSpawn(world.paperConfig.keepLoadedRange, prevSpawn);
+         } else {
+-            // TODO: doesn't work well if spawn changed....
+-            world.func_72863_F().func_217222_b(TicketType.field_219488_a, new ChunkPos(chunkcoordinates), 11, Unit.INSTANCE);
++            // TODO: doesn't work well if spawn changed.... // paper - resolved
++            world.removeTicketsForSpawn(world.paperConfig.keepLoadedRange, prevSpawn);
+         }
++        // Paper end
+     }
+ 
+     @Override

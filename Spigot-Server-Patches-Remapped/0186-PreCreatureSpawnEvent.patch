@@ -1,0 +1,125 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 14 Jan 2018 17:01:31 -0500
+Subject: [PATCH] PreCreatureSpawnEvent
+
+Adds an event to fire before an Entity is created, so that plugins that need to cancel
+CreatureSpawnEvent can do so from this event instead.
+
+Cancelling CreatureSpawnEvent rapidly causes a lot of garbage collection and CPU waste
+as it's done after the Entity object has been fully created.
+
+Mob Limiting plugins and blanket "ban this type of monster" plugins should use this event
+instead and save a lot of server resources.
+
+See: https://github.com/PaperMC/Paper/issues/917
+
+diff --git a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+index 565241c2ef6198449a680da12f0f9309e838fc92..13464082fe61a4f42accafaa1eed15a7947e6553 100644
+--- a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+@@ -14,6 +14,7 @@ import net.minecraft.entity.SpawnReason;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.ListNBT;
+ import net.minecraft.particles.ParticleTypes;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.util.ResourceLocation;
+ import net.minecraft.util.ResourceLocationException;
+ import net.minecraft.util.StringUtils;
+@@ -129,6 +130,27 @@ public abstract class AbstractSpawner {
+                         ServerWorld worldserver = (ServerWorld) world;
+ 
+                         if (EntitySpawnPlacementRegistry.func_223515_a((EntityType) optional.get(), worldserver, SpawnReason.SPAWNER, new BlockPos(d3, d4, d5), world.func_201674_k())) {
++                            // Paper start
++                            EntityType<?> entityType = optional.get();
++                            String key = EntityType.func_200718_a(entityType).func_110623_a();
++
++                            org.bukkit.entity.EntityType type = org.bukkit.entity.EntityType.fromName(key);
++                            if (type != null) {
++                                com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent event;
++                                event = new com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent(
++                                    MCUtil.toLocation(world, d3, d4, d5),
++                                    type,
++                                    org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SPAWNER
++                                );
++                                if (!event.callEvent()) {
++                                    flag = true;
++                                    if (event.shouldAbortSpawn()) {
++                                        break;
++                                    }
++                                    continue;
++                                }
++                            }
++                            // Paper end
+                             Entity entity = EntityType.func_220335_a(nbttagcompound, world, (entity1) -> {
+                                 entity1.func_70012_b(d3, d4, d5, entity1.field_70177_z, entity1.field_70125_A);
+                                 return entity1;
+diff --git a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+index 715be09839e986892bfccc4414923cf59e4750b7..1a0059f9248833b5ae3debcb2cb2369946602db4 100644
+--- a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+@@ -23,6 +23,7 @@ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.fluid.FluidState;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.pathfinding.PathType;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.tags.BlockTags;
+ import net.minecraft.tags.FluidTags;
+ import net.minecraft.tags.ITag;
+@@ -223,9 +224,16 @@ public final class WorldEntitySpawner {
+                                         j1 = biomesettingsmobs_c.field_242589_d + p_234966_1_.field_73012_v.nextInt(1 + biomesettingsmobs_c.field_242590_e - biomesettingsmobs_c.field_242589_d);
+                                     }
+ 
+-                                    if (func_234975_a_(p_234966_1_, p_234966_0_, structuremanager, chunkgenerator, biomesettingsmobs_c, blockposition_mutableblockposition, d2) && p_234966_4_.test(biomesettingsmobs_c.field_242588_c, blockposition_mutableblockposition, p_234966_2_)) {
++                                    // Paper start
++                                    Boolean doSpawning = a(p_234966_1_, p_234966_0_, structuremanager, chunkgenerator, biomesettingsmobs_c, blockposition_mutableblockposition, d2);
++                                    if (doSpawning == null) {
++                                        return;
++                                    }
++                                    if (doSpawning && p_234966_4_.test(biomesettingsmobs_c.field_242588_c, blockposition_mutableblockposition, p_234966_2_)) {
++                                        // Paper end
+                                         MobEntity entityinsentient = func_234973_a_(p_234966_1_, biomesettingsmobs_c.field_242588_c);
+ 
++
+                                         if (entityinsentient == null) {
+                                             return;
+                                         }
+@@ -277,17 +285,33 @@ public final class WorldEntitySpawner {
+         }
+     }
+ 
+-    private static boolean func_234975_a_(ServerWorld p_234975_0_, EntityClassification p_234975_1_, StructureManager p_234975_2_, ChunkGenerator p_234975_3_, MobSpawnInfo.Spawners p_234975_4_, BlockPos.Mutable p_234975_5_, double p_234975_6_) {
+-        EntityType<?> entitytypes = p_234975_4_.field_242588_c;
++    private static Boolean a(ServerWorld worldserver, EntityClassification enumcreaturetype, StructureManager structuremanager, ChunkGenerator chunkgenerator, MobSpawnInfo.Spawners biomesettingsmobs_c, BlockPos.Mutable blockposition_mutableblockposition, double d0) { // Paper
++        EntityType<?> entitytypes = biomesettingsmobs_c.field_242588_c;
++        // Paper start
++        com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent event;
++        org.bukkit.entity.EntityType type = org.bukkit.entity.EntityType.fromName(EntityType.func_200718_a(entitytypes).func_110623_a());
++        if (type != null) {
++            event = new com.destroystokyo.paper.event.entity.PreCreatureSpawnEvent(
++                MCUtil.toLocation(worldserver, blockposition_mutableblockposition),
++                type, SpawnReason.NATURAL
++            );
++            if (!event.callEvent()) {
++                if (event.shouldAbortSpawn()) {
++                    return null;
++                }
++                return false;
++            }
++        }
++        // Paper end
+ 
+         if (entitytypes.func_220339_d() == EntityClassification.MISC) {
+             return false;
+-        } else if (!entitytypes.func_225437_d() && p_234975_6_ > (double) (entitytypes.func_220339_d().func_233671_f_() * entitytypes.func_220339_d().func_233671_f_())) {
++        } else if (!entitytypes.func_225437_d() && d0 > (double) (entitytypes.func_220339_d().func_233671_f_() * entitytypes.func_220339_d().func_233671_f_())) {
+             return false;
+-        } else if (entitytypes.func_200720_b() && func_234976_a_(p_234975_0_, p_234975_2_, p_234975_3_, p_234975_1_, p_234975_4_, (BlockPos) p_234975_5_)) {
++        } else if (entitytypes.func_200720_b() && func_234976_a_(worldserver, structuremanager, chunkgenerator, enumcreaturetype, biomesettingsmobs_c, (BlockPos) blockposition_mutableblockposition)) {
+             EntitySpawnPlacementRegistry.PlacementType entitypositiontypes_surface = EntitySpawnPlacementRegistry.func_209344_a(entitytypes);
+ 
+-            return !func_209382_a(entitypositiontypes_surface, (IWorldReader) p_234975_0_, p_234975_5_, entitytypes) ? false : (!EntitySpawnPlacementRegistry.func_223515_a(entitytypes, p_234975_0_, net.minecraft.entity.SpawnReason.NATURAL, p_234975_5_, p_234975_0_.field_73012_v) ? false : p_234975_0_.func_226664_a_(entitytypes.func_220328_a((double) p_234975_5_.func_177958_n() + 0.5D, (double) p_234975_5_.func_177956_o(), (double) p_234975_5_.func_177952_p() + 0.5D)));
++            return !func_209382_a(entitypositiontypes_surface, (IWorldReader) worldserver, blockposition_mutableblockposition, entitytypes) ? false : (!EntitySpawnPlacementRegistry.func_223515_a(entitytypes, worldserver, net.minecraft.entity.SpawnReason.NATURAL, blockposition_mutableblockposition, worldserver.field_73012_v) ? false : worldserver.func_226664_a_(entitytypes.func_220328_a((double) blockposition_mutableblockposition.func_177958_n() + 0.5D, (double) blockposition_mutableblockposition.func_177956_o(), (double) blockposition_mutableblockposition.func_177952_p() + 0.5D)));
+         } else {
+             return false;
+         }

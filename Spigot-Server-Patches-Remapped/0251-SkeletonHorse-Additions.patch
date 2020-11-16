@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 27 Jul 2018 22:36:31 -0500
+Subject: [PATCH] SkeletonHorse Additions
+
+
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/TriggerSkeletonTrapGoal.java b/src/main/java/net/minecraft/entity/ai/goal/TriggerSkeletonTrapGoal.java
+index 5c0a911e881279a3086dbf86a478622331956c6f..dd4d2c9b96f90cf5cc667ecb467db954c4bef681 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/TriggerSkeletonTrapGoal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/TriggerSkeletonTrapGoal.java
+@@ -32,6 +32,7 @@ public class TriggerSkeletonTrapGoal extends Goal {
+     @Override
+     public void func_75246_d() {
+         ServerWorld worldserver = (ServerWorld) this.field_188516_a.field_70170_p;
++        if (!new com.destroystokyo.paper.event.entity.SkeletonHorseTrapEvent((org.bukkit.entity.SkeletonHorse) this.field_188516_a.getBukkitEntity()).callEvent()) return; // Paper
+         DifficultyInstance difficultydamagescaler = worldserver.func_175649_E(this.field_188516_a.func_233580_cy_());
+ 
+         this.field_188516_a.func_190691_p(false);
+diff --git a/src/main/java/net/minecraft/entity/passive/horse/SkeletonHorseEntity.java b/src/main/java/net/minecraft/entity/passive/horse/SkeletonHorseEntity.java
+index 34d319d283987a907541bbd7fee2121aba8cebf7..4ed3525185f37666bc5f0517f5d5eaefa023746d 100644
+--- a/src/main/java/net/minecraft/entity/passive/horse/SkeletonHorseEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/horse/SkeletonHorseEntity.java
+@@ -27,7 +27,7 @@ public class SkeletonHorseEntity extends AbstractHorseEntity {
+ 
+     private final TriggerSkeletonTrapGoal field_184792_bN = new TriggerSkeletonTrapGoal(this);
+     private boolean field_184793_bU;
+-    private int field_184794_bV;
++    private int field_184794_bV; public int getTrapTime() { return this.field_184794_bV; } // Paper - OBFHELPER
+ 
+     public SkeletonHorseEntity(EntityType<? extends SkeletonHorseEntity> entitytypes, World world) {
+         super(entitytypes, world);
+@@ -146,10 +146,12 @@ public class SkeletonHorseEntity extends AbstractHorseEntity {
+         return 0.96F;
+     }
+ 
++    public boolean isTrap() { return this.func_190690_dh(); } // Paper - OBFHELPER
+     public boolean func_190690_dh() {
+         return this.field_184793_bU;
+     }
+ 
++    public void setTrap(boolean trap) { this.func_190691_p(trap); } // Paper - OBFHELPER
+     public void func_190691_p(boolean p_190691_1_) {
+         if (p_190691_1_ != this.field_184793_bU) {
+             this.field_184793_bU = p_190691_1_;
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftSkeletonHorse.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftSkeletonHorse.java
+index b64a888c9e754c559b13d6becc67f06350dd7dbd..225a40da4e4bf5faa3129c1e2724aeae884c80c1 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftSkeletonHorse.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftSkeletonHorse.java
+@@ -26,4 +26,26 @@ public class CraftSkeletonHorse extends CraftAbstractHorse implements SkeletonHo
+     public Variant getVariant() {
+         return Variant.SKELETON_HORSE;
+     }
++
++    // Paper start
++    @Override
++    public SkeletonHorseEntity getHandle() {
++        return (SkeletonHorseEntity) super.getHandle();
++    }
++
++    @Override
++    public int getTrapTime() {
++        return getHandle().getTrapTime();
++    }
++
++    @Override
++    public boolean isTrap() {
++        return getHandle().isTrap();
++    }
++
++    @Override
++    public void setTrap(boolean trap) {
++        getHandle().setTrap(trap);
++    }
++    // Paper end
+ }

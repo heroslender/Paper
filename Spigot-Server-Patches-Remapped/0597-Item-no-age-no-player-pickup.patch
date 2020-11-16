@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alfie Smith <alfie@alfiesmith.net>
+Date: Sat, 7 Nov 2020 01:20:33 +0000
+Subject: [PATCH] Item no age & no player pickup
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftItem.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftItem.java
+index 828fba2ccb81cdb345412d14a35320ac96382117..db391c6e7b9088553835d7a16c209d84a2d08232 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftItem.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftItem.java
+@@ -10,6 +10,12 @@ import org.bukkit.entity.Item;
+ import org.bukkit.inventory.ItemStack;
+ 
+ public class CraftItem extends CraftEntity implements Item {
++
++    // Paper start
++    private final static int NO_AGE_TIME = (int) Short.MIN_VALUE;
++    private final static int NO_PICKUP_TIME = (int) Short.MAX_VALUE;
++    // Paper end
++
+     private final ItemEntity item;
+ 
+     public CraftItem(CraftServer server, Entity entity, ItemEntity item) {
+@@ -57,6 +63,26 @@ public class CraftItem extends CraftEntity implements Item {
+     public void setCanMobPickup(boolean canMobPickup) {
+         item.canMobPickup = canMobPickup;
+     }
++
++     @Override
++     public boolean canPlayerPickup() {
++        return item.field_145804_b != NO_PICKUP_TIME;
++     }
++
++     @Override
++     public void setCanPlayerPickup(boolean canPlayerPickup) {
++        item.field_145804_b = canPlayerPickup ? 0 : NO_PICKUP_TIME;
++     }
++
++     @Override
++     public boolean willAge() {
++        return item.field_70292_b != NO_AGE_TIME;
++     }
++
++     @Override
++     public void setWillAge(boolean willAge) {
++        item.field_70292_b = willAge ? 0 : NO_AGE_TIME;
++     }
+     // Paper End
+ 
+     @Override

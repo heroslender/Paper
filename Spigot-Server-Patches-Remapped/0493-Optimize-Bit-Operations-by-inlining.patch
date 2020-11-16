@@ -1,0 +1,220 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 4 Jun 2020 02:24:49 -0400
+Subject: [PATCH] Optimize Bit Operations by inlining
+
+Inline bit operations and reduce instruction count to make these hot
+operations faster
+
+diff --git a/src/main/java/net/minecraft/util/math/BlockPos.java b/src/main/java/net/minecraft/util/math/BlockPos.java
+index aeec4e309bebcf5fa26acd297b2cf9d1d3af0c0b..e07c668435c83e5ae9ac7bf68151f298c7e34542 100644
+--- a/src/main/java/net/minecraft/util/math/BlockPos.java
++++ b/src/main/java/net/minecraft/util/math/BlockPos.java
+@@ -32,14 +32,16 @@ public class BlockPos extends Vector3i {
+     }).stable();
+     private static final Logger field_185335_c = LogManager.getLogger();
+     public static final BlockPos field_177992_a = new BlockPos(0, 0, 0);
+-    private static final int field_177990_b = 1 + MathHelper.func_151239_c(MathHelper.func_151236_b(30000000));
+-    private static final int field_177991_c = BlockPos.field_177990_b;
+-    private static final int field_177989_d = 64 - BlockPos.field_177990_b - BlockPos.field_177991_c;
+-    private static final long field_177994_h = (1L << BlockPos.field_177990_b) - 1L;
+-    private static final long field_177995_i = (1L << BlockPos.field_177989_d) - 1L;
+-    private static final long field_177993_j = (1L << BlockPos.field_177991_c) - 1L;
+-    private static final int field_218292_j = BlockPos.field_177989_d;
+-    private static final int field_218293_k = BlockPos.field_177989_d + BlockPos.field_177991_c;
++    // Paper start - static constants
++    private static final int field_177990_b = 26;
++    private static final int field_177991_c = 26;
++    private static final int field_177989_d = 12;
++    private static final long field_177994_h = 67108863;
++    private static final long field_177995_i = 4095;
++    private static final long field_177993_j = 67108863;
++    private static final int field_218292_j = 12;
++    private static final int field_218293_k = 38;
++    // Paper end
+ 
+     public BlockPos(int p_i46030_1_, int p_i46030_2_, int p_i46030_3_) {
+         super(p_i46030_1_, p_i46030_2_, p_i46030_3_);
+@@ -61,28 +63,29 @@ public class BlockPos extends Vector3i {
+         this(baseblockposition.func_177958_n(), baseblockposition.func_177956_o(), baseblockposition.func_177952_p());
+     }
+ 
++    public static long getAdjacent(int baseX, int baseY, int baseZ, Direction enumdirection) { return asLong(baseX + enumdirection.func_82601_c(), baseY + enumdirection.func_96559_d(), baseZ + enumdirection.func_82599_e()); } // Paper
+     public static long func_218289_a(long p_218289_0_, Direction p_218289_1_) {
+         return func_218291_a(p_218289_0_, p_218289_1_.func_82601_c(), p_218289_1_.func_96559_d(), p_218289_1_.func_82599_e());
+     }
+ 
+     public static long func_218291_a(long p_218291_0_, int p_218291_1_, int p_218291_2_, int p_218291_3_) {
+-        return func_218276_a(func_218290_b(p_218291_0_) + p_218291_1_, func_218274_c(p_218291_0_) + p_218291_2_, func_218282_d(p_218291_0_) + p_218291_3_);
++        return func_218276_a((int) (p_218291_0_ >> 38) + p_218291_1_, (int) ((p_218291_0_ << 52) >> 52) + p_218291_2_, (int) ((p_218291_0_ << 26) >> 38) + p_218291_3_); // Paper - simplify/inline
+     }
+ 
+     public static int func_218290_b(long p_218290_0_) {
+-        return (int) (p_218290_0_ << 64 - BlockPos.field_218293_k - BlockPos.field_177990_b >> 64 - BlockPos.field_177990_b);
++        return (int) (p_218290_0_ >> 38); // Paper - simplify/inline
+     }
+ 
+     public static int func_218274_c(long p_218274_0_) {
+-        return (int) (p_218274_0_ << 64 - BlockPos.field_177989_d >> 64 - BlockPos.field_177989_d);
++        return (int) ((p_218274_0_ << 52) >> 52); // Paper - simplify/inline
+     }
+ 
+     public static int func_218282_d(long p_218282_0_) {
+-        return (int) (p_218282_0_ << 64 - BlockPos.field_218292_j - BlockPos.field_177991_c >> 64 - BlockPos.field_177991_c);
++        return (int) ((p_218282_0_ << 26) >> 38);  // Paper - simplify/inline
+     }
+ 
+     public static BlockPos func_218283_e(long p_218283_0_) {
+-        return new BlockPos(func_218290_b(p_218283_0_), func_218274_c(p_218283_0_), func_218282_d(p_218283_0_));
++        return new BlockPos((int) (p_218283_0_ >> 38), (int) ((p_218283_0_ << 52) >> 52), (int) ((p_218283_0_ << 26) >> 38)); // Paper - simplify/inline
+     }
+ 
+     public long func_218275_a() {
+@@ -91,12 +94,7 @@ public class BlockPos extends Vector3i {
+ 
+     public static long asLong(int x, int y, int z) { return func_218276_a(x, y, z); } // Paper - OBFHELPER
+     public static long func_218276_a(int p_218276_0_, int p_218276_1_, int p_218276_2_) {
+-        long l = 0L;
+-
+-        l |= ((long) p_218276_0_ & BlockPos.field_177994_h) << BlockPos.field_218293_k;
+-        l |= ((long) p_218276_1_ & BlockPos.field_177995_i) << 0;
+-        l |= ((long) p_218276_2_ & BlockPos.field_177993_j) << BlockPos.field_218292_j;
+-        return l;
++        return (((long) p_218276_0_ & (long) 67108863) << 38) | (((long) p_218276_1_ & (long) 4095)) | (((long) p_218276_2_ & (long) 67108863) << 12); // Paper - inline constants and simplify
+     }
+ 
+     public static long func_218288_f(long p_218288_0_) {
+diff --git a/src/main/java/net/minecraft/util/math/SectionPos.java b/src/main/java/net/minecraft/util/math/SectionPos.java
+index 738053fad3d724ca41a19c23319986486f8e375d..c00bad3a5997cb4f6729dab27b79714ba3143c11 100644
+--- a/src/main/java/net/minecraft/util/math/SectionPos.java
++++ b/src/main/java/net/minecraft/util/math/SectionPos.java
+@@ -19,7 +19,7 @@ public class SectionPos extends Vector3i {
+     }
+ 
+     public static SectionPos func_218167_a(BlockPos p_218167_0_) {
+-        return new SectionPos(func_218159_a(p_218167_0_.func_177958_n()), func_218159_a(p_218167_0_.func_177956_o()), func_218159_a(p_218167_0_.func_177952_p()));
++        return new SectionPos(p_218167_0_.func_177958_n() >> 4, p_218167_0_.func_177956_o() >> 4, p_218167_0_.func_177952_p() >> 4); // Paper
+     }
+ 
+     public static SectionPos func_218156_a(ChunkPos p_218156_0_, int p_218156_1_) {
+@@ -31,15 +31,23 @@ public class SectionPos extends Vector3i {
+     }
+ 
+     public static SectionPos func_218170_a(long p_218170_0_) {
+-        return new SectionPos(func_218173_b(p_218170_0_), func_218144_c(p_218170_0_), func_218153_d(p_218170_0_));
++        return new SectionPos((int) (p_218170_0_ >> 42), (int) (p_218170_0_ << 44 >> 44), (int) (p_218170_0_ << 22 >> 42)); // Paper
+     }
+ 
+     public static long func_218172_a(long p_218172_0_, Direction p_218172_1_) {
+         return func_218174_a(p_218172_0_, p_218172_1_.func_82601_c(), p_218172_1_.func_96559_d(), p_218172_1_.func_82599_e());
+     }
+ 
++    // Paper start
++    public static long getAdjacentFromBlockPos(int x, int y, int z, Direction enumdirection) {
++        return (((long) ((x >> 4) + enumdirection.func_82601_c()) & 4194303L) << 42) | (((long) ((y >> 4) + enumdirection.func_96559_d()) & 1048575L)) | (((long) ((z >> 4) + enumdirection.func_82599_e()) & 4194303L) << 20);
++    }
++    public static long getAdjacentFromSectionPos(int x, int y, int z, Direction enumdirection) {
++        return (((long) (x + enumdirection.func_82601_c()) & 4194303L) << 42) | (((long) ((y) + enumdirection.func_96559_d()) & 1048575L)) | (((long) (z + enumdirection.func_82599_e()) & 4194303L) << 20);
++    }
++    // Paper end
+     public static long func_218174_a(long p_218174_0_, int p_218174_1_, int p_218174_2_, int p_218174_3_) {
+-        return func_218166_b(func_218173_b(p_218174_0_) + p_218174_1_, func_218144_c(p_218174_0_) + p_218174_2_, func_218153_d(p_218174_0_) + p_218174_3_);
++        return (((long) ((int) (p_218174_0_ >> 42) + p_218174_1_) & 4194303L) << 42) | (((long) ((int) (p_218174_0_ << 44 >> 44) + p_218174_2_) & 1048575L)) | (((long) ((int) (p_218174_0_ << 22 >> 42) + p_218174_3_) & 4194303L) << 20); // Simplify to reduce instruction count
+     }
+ 
+     public static int func_218159_a(int p_218159_0_) {
+@@ -51,11 +59,7 @@ public class SectionPos extends Vector3i {
+     }
+ 
+     public static short func_218150_b(BlockPos p_218150_0_) {
+-        int i = func_218171_b(p_218150_0_.func_177958_n());
+-        int j = func_218171_b(p_218150_0_.func_177956_o());
+-        int k = func_218171_b(p_218150_0_.func_177952_p());
+-
+-        return (short) (i << 8 | k << 4 | j << 0);
++        return (short) ((p_218150_0_.func_177958_n() & 15) << 8 | (p_218150_0_.func_177952_p() & 15) << 4 | p_218150_0_.func_177956_o() & 15); // Paper - simplify/inline
+     }
+ 
+     public static int func_243641_a(short p_243641_0_) {
+@@ -114,16 +118,16 @@ public class SectionPos extends Vector3i {
+         return this.func_177952_p();
+     }
+ 
+-    public int func_218161_d() {
+-        return this.func_218149_a() << 4;
++    public final int func_218161_d() { // Paper
++        return this.func_177958_n() << 4; // Paper
+     }
+ 
+-    public int func_218151_e() {
+-        return this.func_218163_b() << 4;
++    public final int func_218151_e() { // Paper
++        return this.func_177956_o() << 4; // Paper
+     }
+ 
+-    public int func_218164_f() {
+-        return this.func_218148_c() << 4;
++    public final int func_218164_f() { // Paper
++        return this.func_177952_p() << 4; // Paper
+     }
+ 
+     public int func_218152_g() {
+@@ -138,8 +142,10 @@ public class SectionPos extends Vector3i {
+         return (this.func_218148_c() << 4) + 15;
+     }
+ 
++    public static long blockToSection(long i) { return func_218162_e(i); } // Paper - OBFHELPER
+     public static long func_218162_e(long p_218162_0_) {
+-        return func_218166_b(func_218159_a(BlockPos.func_218290_b(p_218162_0_)), func_218159_a(BlockPos.func_218274_c(p_218162_0_)), func_218159_a(BlockPos.func_218282_d(p_218162_0_)));
++        // b(a(BlockPosition.b(i)), a(BlockPosition.c(i)), a(BlockPosition.d(i)));
++        return (((long) (int) (p_218162_0_ >> 42) & 4194303L) << 42) | (((long) (int) ((p_218162_0_ << 52) >> 56) & 1048575L)) | (((long) (int) ((p_218162_0_ << 26) >> 42) & 4194303L) << 20); // Simplify to reduce instruction count
+     }
+ 
+     public static long func_218169_f(long p_218169_0_) {
+@@ -160,17 +166,18 @@ public class SectionPos extends Vector3i {
+         return new ChunkPos(this.func_218149_a(), this.func_218148_c());
+     }
+ 
++    // Paper start
++    public static long blockPosAsSectionLong(int i, int j, int k) {
++        return (((long) (i >> 4) & 4194303L) << 42) | (((long) (j >> 4) & 1048575L)) | (((long) (k >> 4) & 4194303L) << 20);
++    }
++    // Paper end
++    public static long asLong(int i, int j, int k) { return func_218166_b(i, j, k); } // Paper - OBFHELPER
+     public static long func_218166_b(int p_218166_0_, int p_218166_1_, int p_218166_2_) {
+-        long l = 0L;
+-
+-        l |= ((long) p_218166_0_ & 4194303L) << 42;
+-        l |= ((long) p_218166_1_ & 1048575L) << 0;
+-        l |= ((long) p_218166_2_ & 4194303L) << 20;
+-        return l;
++        return (((long) p_218166_0_ & 4194303L) << 42) | (((long) p_218166_1_ & 1048575L)) | (((long) p_218166_2_ & 4194303L) << 20); // Paper - Simplify to reduce instruction count
+     }
+ 
+     public long func_218146_v() {
+-        return func_218166_b(this.func_218149_a(), this.func_218163_b(), this.func_218148_c());
++        return (((long) func_177958_n() & 4194303L) << 42) | (((long) func_177956_o() & 1048575L)) | (((long) func_177952_p() & 4194303L) << 20); // Paper - Simplify to reduce instruction count
+     }
+ 
+     public Stream<BlockPos> func_218145_w() {
+@@ -178,18 +185,11 @@ public class SectionPos extends Vector3i {
+     }
+ 
+     public static Stream<SectionPos> func_218158_a(SectionPos p_218158_0_, int p_218158_1_) {
+-        int j = p_218158_0_.func_218149_a();
+-        int k = p_218158_0_.func_218163_b();
+-        int l = p_218158_0_.func_218148_c();
+-
+-        return func_218168_a(j - p_218158_1_, k - p_218158_1_, l - p_218158_1_, j + p_218158_1_, k + p_218158_1_, l + p_218158_1_);
++        return func_218168_a(p_218158_0_.func_177958_n() - p_218158_1_, p_218158_0_.func_177956_o() - p_218158_1_, p_218158_0_.func_177952_p() - p_218158_1_, p_218158_0_.func_177958_n() + p_218158_1_, p_218158_0_.func_177956_o() + p_218158_1_, p_218158_0_.func_177952_p() + p_218158_1_); // Paper - simplify/inline
+     }
+ 
+     public static Stream<SectionPos> func_229421_b_(ChunkPos p_229421_0_, int p_229421_1_) {
+-        int j = p_229421_0_.field_77276_a;
+-        int k = p_229421_0_.field_77275_b;
+-
+-        return func_218168_a(j - p_229421_1_, 0, k - p_229421_1_, j + p_229421_1_, 15, k + p_229421_1_);
++        return func_218168_a(p_229421_0_.field_77276_a - p_229421_1_, 0, p_229421_0_.field_77275_b - p_229421_1_, p_229421_0_.field_77276_a + p_229421_1_, 15, p_229421_0_.field_77275_b + p_229421_1_); // Paper - simplify/inline
+     }
+ 
+     public static Stream<SectionPos> func_218168_a(final int p_218168_0_, final int p_218168_1_, final int p_218168_2_, final int p_218168_3_, final int p_218168_4_, final int p_218168_5_) {

@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Mon, 13 Apr 2020 07:31:44 +0100
+Subject: [PATCH] Prevent opening inventories when frozen
+
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 929fe2609d4c42fe53543725a0c2bb8303a08e0e..b2a1015f1ca9973c54cafc95fed40606581d359e 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -554,7 +554,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+             containerUpdateDelay = field_70170_p.paperConfig.containerUpdateTickRate;
+         }
+         // Paper end
+-        if (!this.field_70170_p.field_72995_K && !this.field_71070_bA.func_75145_c(this)) {
++        if (!this.field_70170_p.field_72995_K && this.field_71070_bA != this.field_71069_bz && (func_70610_aX() || !this.field_71070_bA.func_75145_c(this))) { // Paper - auto close while frozen
+             this.func_71053_j(org.bukkit.event.inventory.InventoryCloseEvent.Reason.CANT_USE); // Paper
+             this.field_71070_bA = this.field_71069_bz;
+         }
+@@ -1382,7 +1382,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+             } else {
+                 // CraftBukkit start
+                 this.field_71070_bA = container;
+-                this.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, container.func_216957_a(), container.getTitle()));
++                if (!func_70610_aX()) this.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, container.func_216957_a(), container.getTitle())); // Paper
+                 // CraftBukkit end
+                 container.func_75132_a(this);
+                 return OptionalInt.of(this.field_71139_cq);
+@@ -2178,7 +2178,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     }
+ 
+     @Override
+-    protected boolean func_70610_aX() {
++    public boolean func_70610_aX() { // Paper - protected > public
+         return super.func_70610_aX() || (this.field_71135_a != null && this.field_71135_a.isDisconnected()); // Paper
+     }
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
+index fbb8c46d13b20bc1a233e46c37a38fa9936219f2..fb62fe58281166a96753bd885854b1ec6c18ab62 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
+@@ -318,7 +318,7 @@ public class CraftHumanEntity extends CraftLivingEntity implements HumanEntity {
+ 
+         String title = container.getBukkitView().getTitle();
+ 
+-        player.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, windowType, CraftChatMessage.fromString(title)[0]));
++        if (!player.func_70610_aX()) player.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, windowType, CraftChatMessage.fromString(title)[0])); // Paper
+         getHandle().field_71070_bA = container;
+         getHandle().field_71070_bA.func_75132_a(player);
+     }
+@@ -388,7 +388,7 @@ public class CraftHumanEntity extends CraftLivingEntity implements HumanEntity {
+         // Now open the window
+         ContainerType<?> windowType = CraftContainer.getNotchInventoryType(inventory.getTopInventory());
+         String title = inventory.getTitle();
+-        player.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, windowType, CraftChatMessage.fromString(title)[0]));
++        if (!player.func_70610_aX()) player.field_71135_a.func_147359_a(new SOpenWindowPacket(container.field_75152_c, windowType, CraftChatMessage.fromString(title)[0])); // Paper
+         player.field_71070_bA = container;
+         player.field_71070_bA.func_75132_a(player);
+     }

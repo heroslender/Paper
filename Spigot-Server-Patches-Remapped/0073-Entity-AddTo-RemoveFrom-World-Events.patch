@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 28 Mar 2016 20:32:58 -0400
+Subject: [PATCH] Entity AddTo/RemoveFrom World Events
+
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index fd15132cf2c08958081bc62cb36c9ca6a26569dc..4a335f23df5f8cac8cb335657eedb36d1df94471 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1205,7 +1205,7 @@ public class ServerWorld extends World implements ISeedReader {
+         if (p_217484_1_ instanceof MobEntity) {
+             this.field_217495_I.remove(((MobEntity) p_217484_1_).func_70661_as());
+         }
+-
++        new com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent(p_217484_1_.getBukkitEntity()).callEvent(); // Paper - fire while valid
+         p_217484_1_.valid = false; // CraftBukkit
+     }
+ 
+@@ -1243,6 +1243,7 @@ public class ServerWorld extends World implements ISeedReader {
+                 p_217465_1_.origin = p_217465_1_.getBukkitEntity().getLocation();
+             }
+             // Paper end
++            new com.destroystokyo.paper.event.entity.EntityAddToWorldEvent(p_217465_1_.getBukkitEntity()).callEvent(); // Paper - fire while valid
+         }
+ 
+     }

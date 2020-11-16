@@ -1,0 +1,93 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Tue, 1 Mar 2016 23:58:50 -0600
+Subject: [PATCH] Configurable top of nether void damage
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 60c38406c599b5952855b3dc18fc3defa9d62ca4..a005c4398336dba3b5e3ef716f44f2eda7306442 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -130,4 +130,19 @@ public class PaperWorldConfig {
+         if (fallingBlockHeightNerf != 0) log("Falling Block Height Limit set to Y: " + fallingBlockHeightNerf);
+         if (entityTNTHeightNerf != 0) log("TNT Entity Height Limit set to Y: " + entityTNTHeightNerf);
+     }
++
++    public int netherVoidTopDamageHeight;
++    public boolean doNetherTopVoidDamage() { return netherVoidTopDamageHeight > 0; }
++    private void netherVoidTopDamageHeight() {
++        netherVoidTopDamageHeight = getInt("nether-ceiling-void-damage-height", 0);
++        log("Top of the nether void damage height: " + netherVoidTopDamageHeight);
++
++        if (PaperConfig.version < 18) {
++            boolean legacy = getBoolean("nether-ceiling-void-damage", false);
++            if (legacy) {
++                netherVoidTopDamageHeight = 128;
++                set("nether-ceiling-void-damage-height", netherVoidTopDamageHeight);
++            }
++        }
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index d18e74f695039db0bd8cae99564bcd61c7f8becf..32d93a096c1642c8e64832133c858acbb35bf44a 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -505,9 +505,16 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             this.field_70143_R *= 0.5F;
+         }
+ 
+-        if (this.func_226278_cu_() < -64.0D) {
+-            this.func_70076_C();
++        // Paper start - Configurable nether ceiling damage
++
++        // Extracted to own function
++        /*
++        if (this.locY() < -64.0D) {
++            this.an();
+         }
++        */
++        this.performVoidDamage();
++        // Paper end
+ 
+         if (!this.field_70170_p.field_72995_K) {
+             this.func_70052_a(0, this.field_190534_ay > 0);
+@@ -600,6 +607,17 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         this.func_241209_g_(0);
+     }
+ 
++    // Paper start
++    protected void performVoidDamage() {
++        if (this.func_226278_cu_() < -64.0D || (this.field_70170_p.getWorld().getEnvironment() == org.bukkit.World.Environment.NETHER
++            && field_70170_p.paperConfig.doNetherTopVoidDamage()
++            && this.func_226278_cu_() >= field_70170_p.paperConfig.netherVoidTopDamageHeight)) {
++            this.doVoidDamage();
++        }
++    }
++    // Paper end
++
++    protected final void doVoidDamage() { this.func_70076_C(); } // Paper - OBFHELPER
+     protected void func_70076_C() {
+         this.func_70106_y();
+     }
+diff --git a/src/main/java/net/minecraft/entity/item/minecart/AbstractMinecartEntity.java b/src/main/java/net/minecraft/entity/item/minecart/AbstractMinecartEntity.java
+index 369e54456002b589c3e1bce9d73283917edaba97..b612ca3d7955533585ab99cf53d1f1c01f121ac2 100644
+--- a/src/main/java/net/minecraft/entity/item/minecart/AbstractMinecartEntity.java
++++ b/src/main/java/net/minecraft/entity/item/minecart/AbstractMinecartEntity.java
+@@ -331,9 +331,15 @@ public abstract class AbstractMinecartEntity extends Entity {
+             this.func_70492_c(this.func_70491_i() - 1.0F);
+         }
+ 
+-        if (this.func_226278_cu_() < -64.0D) {
+-            this.func_70076_C();
++        // Paper start - Configurable nether ceiling damage
++        // Extracted to own function
++        /*
++        if (this.locY() < -64.0D) {
++            this.an();
+         }
++        */
++        this.performVoidDamage();
++        // Paper end
+ 
+         // this.doPortalTick(); // CraftBukkit - handled in postTick
+         if (this.field_70170_p.field_72995_K) {

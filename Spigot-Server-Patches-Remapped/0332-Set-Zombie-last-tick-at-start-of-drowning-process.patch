@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach@zachbr.io>
+Date: Mon, 4 Mar 2019 02:23:28 -0500
+Subject: [PATCH] Set Zombie last tick at start of drowning process
+
+Fixes GH-1887
+
+diff --git a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+index 47fde33848c571a0abd414ee38380677a103e91f..b3782c410b500283783cc3bd865a11b4911d016c 100644
+--- a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+@@ -223,6 +223,7 @@ public class ZombieEntity extends MonsterEntity {
+                     ++this.field_204707_bD;
+                     if (this.field_204707_bD >= 600) {
+                         this.func_204704_a(300);
++                        this.lastTick = MinecraftServer.currentTick; // Paper - Make sure this is set at start of process - GH-1887
+                     }
+                 } else {
+                     this.field_204707_bD = -1;

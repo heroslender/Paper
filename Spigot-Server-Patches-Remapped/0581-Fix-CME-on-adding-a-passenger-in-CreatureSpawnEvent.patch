@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: jmp <jasonpenilla2@me.com>
+Date: Sun, 4 Oct 2020 19:55:25 -0700
+Subject: [PATCH] Fix CME on adding a passenger in CreatureSpawnEvent
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 38bbe1a44f1e4a8cc0f592a551d4ee7ef6733eb4..50469bf03210f5a29ad325956ba382a3bf7b5479 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -3174,7 +3174,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     public Stream<Entity> func_226276_cg_() {
+-        return Stream.concat(Stream.of(this), this.field_184244_h.stream().flatMap(Entity::func_226276_cg_));
++        return Stream.concat(Stream.of(this), com.google.common.collect.ImmutableList.copyOf(this.field_184244_h).stream().flatMap(Entity::func_226276_cg_)); // Paper
+     }
+ 
+     public boolean func_200601_bK() {

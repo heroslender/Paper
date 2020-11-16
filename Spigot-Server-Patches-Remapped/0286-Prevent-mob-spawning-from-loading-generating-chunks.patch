@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 12 Sep 2018 21:12:57 -0400
+Subject: [PATCH] Prevent mob spawning from loading/generating chunks
+
+also prevents if out of world border bounds
+
+diff --git a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+index 82f60869fc5fc5d5060ae2002ecbdc570a12c908..84e95bdd7ba473d2c8c884f9e71861d33747900a 100644
+--- a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+@@ -183,9 +183,9 @@ public final class WorldEntitySpawner {
+         StructureManager structuremanager = p_234966_1_.func_241112_a_();
+         ChunkGenerator chunkgenerator = p_234966_1_.func_72863_F().func_201711_g();
+         int i = p_234966_3_.func_177956_o();
+-        BlockState iblockdata = p_234966_2_.func_180495_p(p_234966_3_);
++        BlockState iblockdata = p_234966_1_.getTypeIfLoadedAndInBounds(p_234966_3_); // Paper - don't load chunks for mob spawn
+ 
+-        if (!iblockdata.func_215686_e(p_234966_2_, p_234966_3_)) {
++        if (iblockdata != null && !iblockdata.func_215686_e(p_234966_2_, p_234966_3_)) { // Paper - don't load chunks for mob spawn
+             BlockPos.Mutable blockposition_mutableblockposition = new BlockPos.Mutable();
+             int j = 0;
+             int k = 0;
+@@ -214,7 +214,7 @@ public final class WorldEntitySpawner {
+                             if (entityhuman != null) {
+                                 double d2 = entityhuman.func_70092_e(d0, (double) i, d1);
+ 
+-                                if (func_234978_a_(p_234966_1_, p_234966_2_, blockposition_mutableblockposition, d2)) {
++                                if (func_234978_a_(p_234966_1_, p_234966_2_, blockposition_mutableblockposition, d2) && p_234966_1_.isLoadedAndInBounds(blockposition_mutableblockposition)) { // Paper - don't load chunks for mob spawn
+                                     if (biomesettingsmobs_c == null) {
+                                         biomesettingsmobs_c = func_234977_a_(p_234966_1_, structuremanager, chunkgenerator, p_234966_0_, p_234966_1_.field_73012_v, (BlockPos) blockposition_mutableblockposition);
+                                         if (biomesettingsmobs_c == null) {

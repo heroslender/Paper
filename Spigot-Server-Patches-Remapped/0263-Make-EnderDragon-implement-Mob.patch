@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 10 Aug 2018 22:11:49 -0400
+Subject: [PATCH] Make EnderDragon implement Mob
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftComplexLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftComplexLivingEntity.java
+index a6427c4df2059648fb41f11328f925f4291a7241..b30675ae3c3d51517c543c7e0f4473c290123245 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftComplexLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftComplexLivingEntity.java
+@@ -1,17 +1,17 @@
+ package org.bukkit.craftbukkit.entity;
+ 
+-import net.minecraft.entity.LivingEntity;
++import net.minecraft.entity.MobEntity;
+ import org.bukkit.craftbukkit.CraftServer;
+ import org.bukkit.entity.ComplexLivingEntity;
+ 
+-public abstract class CraftComplexLivingEntity extends CraftLivingEntity implements ComplexLivingEntity {
+-    public CraftComplexLivingEntity(CraftServer server, LivingEntity entity) {
++public abstract class CraftComplexLivingEntity extends CraftMob implements ComplexLivingEntity { // Paper
++    public CraftComplexLivingEntity(CraftServer server, MobEntity entity) { // Paper
+         super(server, entity);
+     }
+ 
+     @Override
+-    public LivingEntity getHandle() {
+-        return (LivingEntity) entity;
++    public MobEntity getHandle() { // Paper
++        return (MobEntity) entity; // Paper
+     }
+ 
+     @Override

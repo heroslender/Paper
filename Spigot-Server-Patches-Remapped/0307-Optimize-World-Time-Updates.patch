@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 2 Nov 2018 23:11:51 -0400
+Subject: [PATCH] Optimize World Time Updates
+
+Splits time updates into incremental updates as well as does
+the updates per world, so that we can re-use the same packet
+object for every player unless they have per-player time enabled.
+
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 8f2a32629be42fd80edcf2917a50835d74ad164c..56ecf9446cfb8bf087a1ae97591635a16cd9bd13 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -1304,12 +1304,24 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+ 
+         MinecraftTimings.timeUpdateTimer.startTiming(); // Spigot // Paper
+         // Send time updates to everyone, it will get the right time from the world the player is in.
+-        if (this.field_71315_w % 20 == 0) {
+-            for (int i = 0; i < this.func_184103_al().field_72404_b.size(); ++i) {
+-                ServerPlayerEntity entityplayer = (ServerPlayerEntity) this.func_184103_al().field_72404_b.get(i);
+-                entityplayer.field_71135_a.func_147359_a(new SUpdateTimePacket(entityplayer.field_70170_p.func_82737_E(), entityplayer.getPlayerTime(), entityplayer.field_70170_p.func_82736_K().func_223586_b(GameRules.field_223607_j))); // Add support for per player time
++        // Paper start - optimize time updates
++        for (final ServerWorld world : this.func_212370_w()) {
++            final boolean doDaylight = world.func_82736_K().func_223586_b(GameRules.field_223607_j);
++            final long dayTime = world.func_72820_D();
++            long worldTime = world.func_82737_E();
++            final SUpdateTimePacket worldPacket = new SUpdateTimePacket(worldTime, dayTime, doDaylight);
++            for (PlayerEntity entityhuman : world.func_217369_A()) {
++                if (!(entityhuman instanceof ServerPlayerEntity) || (field_71315_w + entityhuman.func_145782_y()) % 20 != 0) {
++                    continue;
++                }
++                ServerPlayerEntity entityplayer = (ServerPlayerEntity) entityhuman;
++                long playerTime = entityplayer.getPlayerTime();
++                SUpdateTimePacket packet = (playerTime == dayTime) ? worldPacket :
++                    new SUpdateTimePacket(worldTime, playerTime, doDaylight);
++                entityplayer.field_71135_a.func_147359_a(packet); // Add support for per player time
+             }
+         }
++        // Paper end
+         MinecraftTimings.timeUpdateTimer.stopTiming(); // Spigot // Paper
+ 
+         while (iterator.hasNext()) {

@@ -1,0 +1,32 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sat, 9 Jun 2018 14:08:39 +0200
+Subject: [PATCH] Implement EntityTeleportEndGatewayEvent
+
+
+diff --git a/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java b/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
+index 50988b82f52e21400409ab9d4a875d9f08e39305..be84c5002c418bfddf8a06ffcec0e2e9d62e810c 100644
+--- a/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
+@@ -192,9 +192,20 @@ public class EndGatewayTileEntity extends EndPortalTileEntity implements ITickab
+ 
+                 }
+                 // CraftBukkit end
++                // Paper start - EntityTeleportEndGatewayEvent - replicated from above
++                org.bukkit.craftbukkit.entity.CraftEntity bukkitEntity = p_195496_1_.getBukkitEntity();
++                org.bukkit.Location location = new Location(field_145850_b.getWorld(), (double) blockposition.func_177958_n() + 0.5D, (double) blockposition.func_177956_o() + 0.5D, (double) blockposition.func_177952_p() + 0.5D);
++                location.setPitch(bukkitEntity.getLocation().getPitch());
++                location.setYaw(bukkitEntity.getLocation().getYaw());
++
++                com.destroystokyo.paper.event.entity.EntityTeleportEndGatewayEvent event = new com.destroystokyo.paper.event.entity.EntityTeleportEndGatewayEvent(bukkitEntity, bukkitEntity.getLocation(), location, new org.bukkit.craftbukkit.block.CraftEndGateway(MCUtil.toLocation(field_145850_b, this.func_174877_v()).getBlock()));
++                if (!event.callEvent()) {
++                    return;
++                }
++                // Paper end
+ 
+                 entity1.func_242279_ag();
+-                entity1.func_223102_j((double) blockposition.func_177958_n() + 0.5D, (double) blockposition.func_177956_o(), (double) blockposition.func_177952_p() + 0.5D);
++                entity1.func_223102_j(event.getTo().getX(), event.getTo().getY(), event.getTo().getZ()); // Paper
+             }
+ 
+             this.func_195490_f();

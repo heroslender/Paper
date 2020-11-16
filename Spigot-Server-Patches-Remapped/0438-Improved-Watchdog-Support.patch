@@ -1,0 +1,576 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 12 Apr 2020 15:50:48 -0400
+Subject: [PATCH] Improved Watchdog Support
+
+Forced Watchdog Crash support and Improve Async Shutdown
+
+If the request to shut down the server is received while we are in
+a watchdog hang, immediately treat it as a crash and begin the shutdown
+process. Shutdown process is now improved to also shutdown cleanly when
+not using restart scripts either.
+
+If a server is deadlocked, a server owner can send SIGUP (or any other signal
+the JVM understands to shut down as it currently does) and the watchdog
+will no longer need to wait until the full timeout, allowing you to trigger
+a close process and try to shut the server down gracefully, saving player and
+world data.
+
+Previously there was no way to trigger this outside of waiting for a full watchdog
+timeout, which may be set to a really long time...
+
+Additionally, fix everything to do with shutting the server down asynchronously.
+
+Previously, nearly everything about the process was fragile and unsafe. Main might
+not have actually been frozen, and might still be manipulating state.
+
+Or, some reuest might ask main to do something in the shutdown but main is dead.
+
+Or worse, other things might start closing down items such as the Console or Thread Pool
+before we are fully shutdown.
+
+This change tries to resolve all of these issues by moving everything into the stop
+method and guaranteeing only one thread is stopping the server.
+
+We then issue Thread Death to the main thread of another thread initiates the stop process.
+We have to ensure Thread Death propagates correctly though to stop main completely.
+
+This is to ensure that if main isn't truely stuck, it's not manipulating state we are trying to save.
+
+This also moves all plugins who register "delayed init" tasks to occur just before "Done" so they
+are properly accounted for and wont trip watchdog on init.
+
+diff --git a/src/main/java/com/destroystokyo/paper/Metrics.java b/src/main/java/com/destroystokyo/paper/Metrics.java
+index f2a0a9f5d86820ce8098301256d2faf3d1a7c697..8a19c96499c22f0d4705613ffec38d5677e1a72d 100644
+--- a/src/main/java/com/destroystokyo/paper/Metrics.java
++++ b/src/main/java/com/destroystokyo/paper/Metrics.java
+@@ -86,6 +86,9 @@ public class Metrics {
+         timer.scheduleAtFixedRate(new TimerTask() {
+             @Override
+             public void run() {
++                if (MinecraftServer.getServer().hasStopped()) {
++                    return;
++                }
+                 submitData();
+             }
+         }, 1000 * 60 * 5, 1000 * 60 * 30);
+diff --git a/src/main/java/net/minecraft/crash/CrashReport.java b/src/main/java/net/minecraft/crash/CrashReport.java
+index 0b39879479d9c431d92d7044e7cda735794c124c..77ef6017232ad4c1a63198942c0d1e247c163bf5 100644
+--- a/src/main/java/net/minecraft/crash/CrashReport.java
++++ b/src/main/java/net/minecraft/crash/CrashReport.java
+@@ -259,6 +259,7 @@ public class CrashReport {
+     }
+ 
+     public static CrashReport func_85055_a(Throwable p_85055_0_, String p_85055_1_) {
++        if (p_85055_0_ instanceof ThreadDeath) com.destroystokyo.paper.util.SneakyThrow.sneaky(p_85055_0_); // Paper
+         while (p_85055_0_ instanceof CompletionException && p_85055_0_.getCause() != null) {
+             p_85055_0_ = p_85055_0_.getCause();
+         }
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 62843dcfb4ef84f40d983d3ce95704e429d14392..c4085845a1bc1c17e6b77d58f452ceaf41e9d727 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -267,7 +267,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+     public int autosavePeriod;
+     public boolean serverAutoSave = false; // Paper
+     public Commands vanillaCommandDispatcher;
+-    private boolean forceTicks;
++    public boolean forceTicks; // Paper
+     // CraftBukkit end
+     // Spigot start
+     public static final int TPS = 20;
+@@ -277,6 +277,8 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+     public final SlackActivityAccountant slackActivityAccountant = new SlackActivityAccountant();
+     // Spigot end
+ 
++    public volatile Thread shutdownThread; // Paper
++
+     public static <S extends MinecraftServer> S func_240784_a_(Function<Thread, S> p_240784_0_) {
+         AtomicReference<S> atomicreference = new AtomicReference();
+         Thread thread = new Thread(() -> {
+@@ -844,6 +846,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+ 
+     // CraftBukkit start
+     private boolean hasStopped = false;
++    public volatile boolean hasFullyShutdown = false; // Paper
+     private final Object stopLock = new Object();
+     public final boolean hasStopped() {
+         synchronized (stopLock) {
+@@ -858,6 +861,19 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+             if (hasStopped) return;
+             hasStopped = true;
+         }
++        // Paper start - kill main thread, and kill it hard
++        shutdownThread = Thread.currentThread();
++        org.spigotmc.WatchdogThread.doStop(); // Paper
++        if (!func_213162_bc()) {
++            MinecraftServer.field_147145_h.info("Stopping main thread (Ignore any thread death message you see! - DO NOT REPORT THREAD DEATH TO PAPER)");
++            while (this.func_213170_ax().isAlive()) {
++                this.func_213170_ax().stop();
++                try {
++                    Thread.sleep(1);
++                } catch (InterruptedException e) {}
++            }
++        }
++        // Paper end
+         // CraftBukkit end
+         MinecraftServer.field_147145_h.info("Stopping server");
+         MinecraftTimings.stopServer(); // Paper
+@@ -923,7 +939,18 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+             this.func_152358_ax().b(false); // Paper
+         }
+         // Spigot end
++        // Paper start - move final shutdown items here
++        field_147145_h.info("Flushing Chunk IO");
+         com.destroystokyo.paper.io.PaperFileIOThread.Holder.INSTANCE.close(true, true); // Paper
++        field_147145_h.info("Closing Thread Pool");
++        Util.shutdownServerThreadPool(); // Paper
++        field_147145_h.info("Closing Server");
++        try {
++            net.minecrell.terminalconsole.TerminalConsoleAppender.close(); // Paper - Use TerminalConsoleAppender
++        } catch (Exception e) {
++        }
++        this.func_71240_o();
++        // Paper end
+     }
+ 
+     public String func_71211_k() {
+@@ -1016,6 +1043,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+ 
+     protected void func_240802_v_() {
+         try {
++            long serverStartTime = Util.func_211178_c(); // Paper
+             if (this.func_71197_b()) {
+                 this.field_211151_aa = Util.func_211177_b();
+                 this.field_147147_p.func_151315_a(new StringTextComponent(this.field_71286_C));
+@@ -1023,6 +1051,18 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+                 this.func_184107_a(this.field_147147_p);
+ 
+                 // Spigot start
++                // Paper start - move done tracking
++                field_147145_h.info("Running delayed init tasks");
++                this.server.getScheduler().mainThreadHeartbeat(this.field_71315_w); // run all 1 tick delay tasks during init,
++                // this is going to be the first thing the tick process does anyways, so move done and run it after
++                // everything is init before watchdog tick.
++                // anything at 3+ won't be caught here but also will trip watchdog....
++                // tasks are default scheduled at -1 + delay, and first tick will tick at 1
++                String doneTime = String.format(java.util.Locale.ROOT, "%.3fs", (double) (Util.func_211178_c() - serverStartTime) / 1.0E9D);
++                field_147145_h.info("Done ({})! For help, type \"help\"", doneTime);
++                // Paper end
++
++                org.spigotmc.WatchdogThread.tick(); // Paper
+                 org.spigotmc.WatchdogThread.hasStarted = true; // Paper
+                 Arrays.fill( recentTps, 20 );
+                 long start = System.nanoTime(), curTime, tickSection = start; // Paper - Further improve server tick loop
+@@ -1078,6 +1118,12 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+                 this.func_71228_a((CrashReport) null);
+             }
+         } catch (Throwable throwable) {
++            // Paper start
++            if (throwable instanceof ThreadDeath) {
++                MinecraftServer.field_147145_h.error("Main thread terminated by WatchDog due to hard crash", throwable);
++                return;
++            }
++            // Paper end
+             MinecraftServer.field_147145_h.error("Encountered an unexpected exception", throwable);
+             // Spigot Start
+             if ( throwable.getCause() != null )
+@@ -1109,14 +1155,14 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+             } catch (Throwable throwable1) {
+                 MinecraftServer.field_147145_h.error("Exception stopping the server", throwable1);
+             } finally {
+-                org.spigotmc.WatchdogThread.doStop(); // Spigot
++                //org.spigotmc.WatchdogThread.doStop(); // Spigot // Paper - move into stop
+                 // CraftBukkit start - Restore terminal to original settings
+                 try {
+-                    net.minecrell.terminalconsole.TerminalConsoleAppender.close(); // Paper - Use TerminalConsoleAppender
++                    //net.minecrell.terminalconsole.TerminalConsoleAppender.close(); // Paper - Move into stop
+                 } catch (Exception ignored) {
+                 }
+                 // CraftBukkit end
+-                this.func_71240_o();
++                //this.exit(); // Paper - moved into stop
+             }
+ 
+         }
+@@ -1172,6 +1218,12 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+ 
+     @Override
+     protected TickDelayedTask func_212875_d_(Runnable p_212875_1_) {
++        // Paper start - anything that does try to post to main during watchdog crash, run on watchdog
++        if (this.hasStopped && Thread.currentThread().equals(shutdownThread)) {
++            p_212875_1_.run();
++            p_212875_1_ = () -> {};
++        }
++        // Paper end
+         return new TickDelayedTask(this.field_71315_w, p_212875_1_);
+     }
+ 
+@@ -1414,6 +1466,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+                 try {
+                     crashreport = CrashReport.func_85055_a(throwable, "Exception ticking world");
+                 } catch (Throwable t) {
++                    if (throwable instanceof ThreadDeath) { throw (ThreadDeath)throwable; } // Paper
+                     throw new RuntimeException("Error generating crash report", t);
+                 }
+                 // Spigot End
+@@ -1871,7 +1924,8 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+             this.field_195577_ad.func_198985_a(p_240780_1_);
+             this.field_240768_i_.func_230410_a_(func_240771_a_(this.field_195577_ad));
+             datapackresources.func_240971_i_();
+-            this.func_184103_al().func_72389_g();
++            if (Thread.currentThread() != this.field_175590_aa) return; // Paper
++            //this.getPlayerList().savePlayers(); // Paper - we don't need to do this
+             this.func_184103_al().func_193244_w();
+             this.field_200258_al.func_240946_a_(this.field_195576_ac.func_240960_a_());
+             this.field_240765_ak_.func_195410_a(this.field_195576_ac.func_240970_h_());
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index 4d4b24677f3b8cba904e36bec52917a496b6b996..c0aa8dcab59073981748b90fca8b5e38b5104982 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -278,7 +278,7 @@ public class DedicatedServer extends MinecraftServer implements IServer {
+             long j = Util.func_211178_c() - i;
+             String s = String.format(Locale.ROOT, "%.3fs", (double) j / 1.0E9D);
+ 
+-            DedicatedServer.field_155771_h.info("Done ({})! For help, type \"help\"", s);
++            //DedicatedServer.LOGGER.info("Done ({})! For help, type \"help\"", s); // Paper moved to after init
+             if (dedicatedserverproperties.field_219027_u != null) {
+                 ((GameRules.BooleanValue) this.func_200252_aR().func_223585_a(GameRules.field_223620_w)).func_223570_a(dedicatedserverproperties.field_219027_u, (MinecraftServer) this);
+             }
+@@ -406,6 +406,7 @@ public class DedicatedServer extends MinecraftServer implements IServer {
+             //this.remoteStatusListener.b(); // Paper - don't wait for remote connections
+         }
+ 
++        hasFullyShutdown = true; // Paper
+         System.exit(0); // CraftBukkit
+     }
+ 
+@@ -739,7 +740,7 @@ public class DedicatedServer extends MinecraftServer implements IServer {
+     @Override
+     public void func_71260_j() {
+         super.func_71260_j();
+-        Util.func_240993_h_();
++        //SystemUtils.h(); // Paper - moved into super
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index 54037c29a75d8cced9459bfdf7b964bcb6a00139..18b066740740be0e3ee1fd8e71f64020c5169ca2 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -506,7 +506,7 @@ public abstract class PlayerList {
+         cserver.getPluginManager().callEvent(playerQuitEvent);
+         entityplayer.getBukkitEntity().disconnect(playerQuitEvent.getQuitMessage());
+ 
+-        entityplayer.func_71127_g(); // SPIGOT-924
++        if (field_72400_f.func_213162_bc()) entityplayer.func_71127_g(); // SPIGOT-924 // Paper - don't tick during emergency shutdowns (Watchdog)
+         // CraftBukkit end
+ 
+         // Paper start - Remove from collideRule team if needed
+diff --git a/src/main/java/net/minecraft/util/Util.java b/src/main/java/net/minecraft/util/Util.java
+index 4c5ce77b072fd876b6364de8a541b536b1e0d1a8..377e22ec94f62196ba854e17983daf2f2edadfed 100644
+--- a/src/main/java/net/minecraft/util/Util.java
++++ b/src/main/java/net/minecraft/util/Util.java
+@@ -128,6 +128,7 @@ public class Util {
+         return Util.field_240975_f_;
+     }
+ 
++    public static void shutdownServerThreadPool() { func_240993_h_(); } // Paper - OBFHELPER
+     public static void func_240993_h_() {
+         func_240985_a_(Util.field_215091_c);
+         func_240985_a_(Util.field_240975_f_);
+diff --git a/src/main/java/net/minecraft/util/concurrent/ThreadTaskExecutor.java b/src/main/java/net/minecraft/util/concurrent/ThreadTaskExecutor.java
+index 0259de933d22117dbadd907bb40fc68567d9ae47..0630fd04608ae1a79f7106eafa0604eaf6ec52b1 100644
+--- a/src/main/java/net/minecraft/util/concurrent/ThreadTaskExecutor.java
++++ b/src/main/java/net/minecraft/util/concurrent/ThreadTaskExecutor.java
+@@ -135,6 +135,7 @@ public abstract class ThreadTaskExecutor<R extends Runnable> implements ITaskExe
+         try {
+             p_213166_1_.run();
+         } catch (Exception exception) {
++            if (exception.getCause() instanceof ThreadDeath) throw exception; // Paper
+             ThreadTaskExecutor.field_213172_c.fatal("Error executing task on {}", this.func_213142_bd(), exception);
+         }
+ 
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 05a38f0bdc65ffedcf0c9ac007c2127715b4d106..d7252a71f663fa778c8267d9b0e611896ea0fa79 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -856,6 +856,7 @@ public abstract class World implements IWorld, AutoCloseable {
+ 
+                         gameprofilerfiller.func_76319_b();
+                     } catch (Throwable throwable) {
++                        if (throwable instanceof ThreadDeath) throw throwable; // Paper
+                         // Paper start - Prevent tile entity and entity crashes
+                         String msg = "TileEntity threw exception at " + tileentity.field_145850_b.getWorld().getName() + ":" + tileentity.field_174879_c.func_177958_n() + "," + tileentity.field_174879_c.func_177956_o() + "," + tileentity.field_174879_c.func_177952_p();
+                         System.err.println(msg);
+@@ -931,6 +932,7 @@ public abstract class World implements IWorld, AutoCloseable {
+         try {
+             p_217390_1_.accept(p_217390_2_);
+         } catch (Throwable throwable) {
++            if (throwable instanceof ThreadDeath) throw throwable; // Paper
+             // Paper start - Prevent tile entity and entity crashes
+             String msg = "Entity threw exception at " + p_217390_2_.field_70170_p.getWorld().getName() + ":" + p_217390_2_.func_226277_ct_() + "," + p_217390_2_.func_226278_cu_() + "," + p_217390_2_.func_226281_cx_();
+             System.err.println(msg);
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 59d219f0a3cc077f97809b78b707084a800dbf28..0656aa1802a02697b671d0bb16fa273ca7207863 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -540,6 +540,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+             MutableBoolean mutableboolean = new MutableBoolean();
+ 
+             do {
++                boolean isShuttingDown = field_219255_i.func_73046_m().hasStopped(); // Paper
+                 mutableboolean.setFalse();
+                 list.stream().map((playerchunk) -> {
+                     CompletableFuture completablefuture;
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index e39512301fa16a862dc88d6790f8f5039c85c296..5736a19e7f4d1de57924e325e81e6be9cf447db4 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -1786,7 +1786,7 @@ public final class CraftServer implements Server {
+ 
+     @Override
+     public boolean isPrimaryThread() {
+-        return Thread.currentThread().equals(console.field_175590_aa); // Paper - Fix issues with detecting main thread properly
++        return Thread.currentThread().equals(console.field_175590_aa) || Thread.currentThread().equals(net.minecraft.server.MinecraftServer.getServer().shutdownThread); // Paper - Fix issues with detecting main thread properly, the only time Watchdog will be used is during a crash shutdown which is a "try our best" scenario
+     }
+ 
+     @Override
+diff --git a/src/main/java/org/bukkit/craftbukkit/Main.java b/src/main/java/org/bukkit/craftbukkit/Main.java
+index 0176b72d8a1b54e57a462272dac16d3416fa7cd8..b9e14473ed7e1e07f14246f06ef4070a90f03f3f 100644
+--- a/src/main/java/org/bukkit/craftbukkit/Main.java
++++ b/src/main/java/org/bukkit/craftbukkit/Main.java
+@@ -150,6 +150,37 @@ public class Main {
+ 
+         OptionSet options = null;
+ 
++        // Paper start - preload logger classes to avoid plugins mixing versions
++        tryPreloadClass("com.destroystokyo.paper.log.LogFullPolicy");
++        tryPreloadClass("org.apache.logging.log4j.core.Core");
++        tryPreloadClass("org.apache.logging.log4j.core.Appender");
++        tryPreloadClass("org.apache.logging.log4j.core.ContextDataInjector");
++        tryPreloadClass("org.apache.logging.log4j.core.Filter");
++        tryPreloadClass("org.apache.logging.log4j.core.ErrorHandler");
++        tryPreloadClass("org.apache.logging.log4j.core.LogEvent");
++        tryPreloadClass("org.apache.logging.log4j.core.Logger");
++        tryPreloadClass("org.apache.logging.log4j.core.LoggerContext");
++        tryPreloadClass("org.apache.logging.log4j.core.LogEventListener");
++        tryPreloadClass("org.apache.logging.log4j.core.AbstractLogEvent");
++        tryPreloadClass("org.apache.logging.log4j.message.AsynchronouslyFormattable");
++        tryPreloadClass("org.apache.logging.log4j.message.FormattedMessage");
++        tryPreloadClass("org.apache.logging.log4j.message.ParameterizedMessage");
++        tryPreloadClass("org.apache.logging.log4j.message.Message");
++        tryPreloadClass("org.apache.logging.log4j.message.MessageFactory");
++        tryPreloadClass("org.apache.logging.log4j.message.TimestampMessage");
++        tryPreloadClass("org.apache.logging.log4j.message.SimpleMessage");
++        tryPreloadClass("org.apache.logging.log4j.core.async.AsyncLogger");
++        tryPreloadClass("org.apache.logging.log4j.core.async.AsyncLoggerContext");
++        tryPreloadClass("org.apache.logging.log4j.core.async.AsyncQueueFullPolicy");
++        tryPreloadClass("org.apache.logging.log4j.core.async.AsyncLoggerDisruptor");
++        tryPreloadClass("org.apache.logging.log4j.core.async.RingBufferLogEvent");
++        tryPreloadClass("org.apache.logging.log4j.core.async.DisruptorUtil");
++        tryPreloadClass("org.apache.logging.log4j.core.async.RingBufferLogEventHandler");
++        tryPreloadClass("org.apache.logging.log4j.core.impl.ThrowableProxy");
++        tryPreloadClass("org.apache.logging.log4j.core.impl.ThrowableProxy$CacheEntry");
++        tryPreloadClass("org.apache.logging.log4j.core.impl.ExtendedClassInfo");
++        tryPreloadClass("org.apache.logging.log4j.core.impl.ExtendedStackTraceElement");
++        // Paper end
+         try {
+             options = parser.parse(args);
+         } catch (joptsimple.OptionException ex) {
+@@ -245,8 +276,65 @@ public class Main {
+             } catch (Throwable t) {
+                 t.printStackTrace();
+             }
++            // Paper start
++            // load some required classes to avoid errors during shutdown if jar is replaced
++            // also to guarantee our version loads over plugins
++            tryPreloadClass("com.destroystokyo.paper.util.SneakyThrow");
++            tryPreloadClass("com.google.common.collect.Iterators$PeekingImpl");
++            tryPreloadClass("com.google.common.collect.MapMakerInternalMap$Values");
++            tryPreloadClass("com.google.common.collect.MapMakerInternalMap$ValueIterator");
++            tryPreloadClass("com.google.common.collect.MapMakerInternalMap$WriteThroughEntry");
++            tryPreloadClass("com.google.common.collect.Iterables");
++            for (int i = 1; i <= 15; i++) {
++                tryPreloadClass("com.google.common.collect.Iterables$" + i, false);
++            }
++            tryPreloadClass("org.apache.commons.lang3.mutable.MutableBoolean");
++            tryPreloadClass("org.apache.commons.lang3.mutable.MutableInt");
++            tryPreloadClass("org.jline.terminal.impl.MouseSupport");
++            tryPreloadClass("org.jline.terminal.impl.MouseSupport$1");
++            tryPreloadClass("org.jline.terminal.Terminal$MouseTracking");
++            tryPreloadClass("co.aikar.timings.TimingHistory");
++            tryPreloadClass("co.aikar.timings.TimingHistory$MinuteReport");
++            tryPreloadClass("io.netty.channel.AbstractChannelHandlerContext");
++            tryPreloadClass("io.netty.channel.AbstractChannelHandlerContext$11");
++            tryPreloadClass("io.netty.channel.AbstractChannelHandlerContext$12");
++            tryPreloadClass("io.netty.channel.AbstractChannelHandlerContext$13");
++            tryPreloadClass("io.netty.channel.AbstractChannel$AbstractUnsafe$8");
++            tryPreloadClass("io.netty.util.concurrent.DefaultPromise");
++            tryPreloadClass("io.netty.util.concurrent.DefaultPromise$1");
++            tryPreloadClass("io.netty.util.internal.PromiseNotificationUtil");
++            tryPreloadClass("io.netty.util.internal.SystemPropertyUtil");
++            tryPreloadClass("org.bukkit.craftbukkit.scheduler.CraftScheduler");
++            tryPreloadClass("org.bukkit.craftbukkit.scheduler.CraftScheduler$1");
++            tryPreloadClass("org.bukkit.craftbukkit.scheduler.CraftScheduler$2");
++            tryPreloadClass("org.bukkit.craftbukkit.scheduler.CraftScheduler$3");
++            tryPreloadClass("org.bukkit.craftbukkit.scheduler.CraftScheduler$4");
++            tryPreloadClass("org.slf4j.helpers.MessageFormatter");
++            tryPreloadClass("org.slf4j.helpers.FormattingTuple");
++            tryPreloadClass("org.slf4j.helpers.BasicMarker");
++            tryPreloadClass("org.slf4j.helpers.Util");
++            tryPreloadClass("com.destroystokyo.paper.event.player.PlayerConnectionCloseEvent");
++            tryPreloadClass("com.destroystokyo.paper.event.entity.EntityRemoveFromWorldEvent");
++            // Minecraft, seen during saving
++            tryPreloadClass("net.minecraft.server.LightEngineLayerEventListener$Void");
++            tryPreloadClass("net.minecraft.server.LightEngineLayerEventListener");
++            tryPreloadClass("net.minecraft.server.ExceptionSuppressor");
++            // Paper end
++        }
++    }
++
++    // Paper start
++    private static void tryPreloadClass(String className) {
++        tryPreloadClass(className, true);
++    }
++    private static void tryPreloadClass(String className, boolean printError) {
++        try {
++            Class.forName(className);
++        } catch (ClassNotFoundException e) {
++            if (printError) System.err.println("An expected class  " + className + " was not found for preloading: " + e.getMessage());
+         }
+     }
++    // Paper end
+ 
+     private static List<String> asList(String... params) {
+         return Arrays.asList(params);
+diff --git a/src/main/java/org/bukkit/craftbukkit/util/ServerShutdownThread.java b/src/main/java/org/bukkit/craftbukkit/util/ServerShutdownThread.java
+index 449e99d1b673870ed6892f6ab2c715a2db35c35d..c7ed6e0f8a989cec97700df2b15198c9c481c549 100644
+--- a/src/main/java/org/bukkit/craftbukkit/util/ServerShutdownThread.java
++++ b/src/main/java/org/bukkit/craftbukkit/util/ServerShutdownThread.java
+@@ -12,12 +12,27 @@ public class ServerShutdownThread extends Thread {
+     @Override
+     public void run() {
+         try {
++            // Paper start - try to shutdown on main
++            server.safeShutdown(false, false);
++            for (int i = 1000; i > 0 && !server.hasStopped(); i -= 100) {
++                Thread.sleep(100);
++            }
++            if (server.hasStopped()) {
++                while (!server.hasFullyShutdown) Thread.sleep(1000);
++                return;
++            }
++            // Looks stalled, close async
+             org.spigotmc.AsyncCatcher.enabled = false; // Spigot
+             org.spigotmc.AsyncCatcher.shuttingDown = true; // Paper
++            server.forceTicks = true;
+             server.close();
++            while (!server.hasFullyShutdown) Thread.sleep(1000);
++        } catch (InterruptedException e) {
++            e.printStackTrace();
++            // Paper end
+         } finally {
+             try {
+-                net.minecrell.terminalconsole.TerminalConsoleAppender.close(); // Paper - Use TerminalConsoleAppender
++                //net.minecrell.terminalconsole.TerminalConsoleAppender.close(); // Paper - Move into stop
+             } catch (Exception e) {
+             }
+         }
+diff --git a/src/main/java/org/spigotmc/RestartCommand.java b/src/main/java/org/spigotmc/RestartCommand.java
+index 2070544d15b1a773a624a7d4d69bbec4c312e626..41cc8b889b6a405b0319e808bcf9a4bc40b4698d 100644
+--- a/src/main/java/org/spigotmc/RestartCommand.java
++++ b/src/main/java/org/spigotmc/RestartCommand.java
+@@ -139,7 +139,7 @@ public class RestartCommand extends Command
+     // Paper end
+ 
+     // Paper start - copied from above and modified to return if the hook registered
+-    private static boolean addShutdownHook(String restartScript)
++    public static boolean addShutdownHook(String restartScript)
+     {
+         String[] split = restartScript.split( " " );
+         if ( split.length > 0 && new File( split[0] ).isFile() )
+diff --git a/src/main/java/org/spigotmc/WatchdogThread.java b/src/main/java/org/spigotmc/WatchdogThread.java
+index 93c8701c4da2c96284f8d22e2be69c13bc7c0b43..fc9af35f7f9e20798cb430b487ed1a3aaa9e8c17 100644
+--- a/src/main/java/org/spigotmc/WatchdogThread.java
++++ b/src/main/java/org/spigotmc/WatchdogThread.java
+@@ -13,6 +13,7 @@ import org.bukkit.Bukkit;
+ public class WatchdogThread extends Thread
+ {
+ 
++    public static final boolean DISABLE_WATCHDOG = Boolean.getBoolean("disable.watchdog"); // Paper
+     private static WatchdogThread instance;
+     private final long timeoutTime;
+     private final long earlyWarningEvery; // Paper - Timeout time for just printing a dump but not restarting
+@@ -41,6 +42,7 @@ public class WatchdogThread extends Thread
+     {
+         if ( instance == null )
+         {
++            if (timeoutTime <= 0) timeoutTime = 300; // Paper
+             instance = new WatchdogThread( timeoutTime * 1000L, restart );
+             instance.start();
+         }
+@@ -67,12 +69,13 @@ public class WatchdogThread extends Thread
+             // Paper start
+             Logger log = Bukkit.getServer().getLogger();
+             long currentTime = monotonicMillis();
+-            if ( lastTick != 0 && currentTime > lastTick + earlyWarningEvery && !Boolean.getBoolean("disable.watchdog") )
++            MinecraftServer server = MinecraftServer.getServer();
++            if (lastTick != 0 && hasStarted && (!server.func_71278_l() || (currentTime > lastTick + earlyWarningEvery && !DISABLE_WATCHDOG) ))
+             {
+-                boolean isLongTimeout = currentTime > lastTick + timeoutTime;
++                boolean isLongTimeout = currentTime > lastTick + timeoutTime || (!server.func_71278_l() && !server.hasStopped() && currentTime > lastTick + 1000);
+                 // Don't spam early warning dumps
+                 if ( !isLongTimeout && (earlyWarningEvery <= 0 || !hasStarted || currentTime < lastEarlyWarning + earlyWarningEvery || currentTime < lastTick + earlyWarningDelay)) continue;
+-                if ( !isLongTimeout && MinecraftServer.getServer().hasStopped()) continue; // Don't spam early watchdog warnings during shutdown, we'll come back to this...
++                if ( !isLongTimeout && server.hasStopped()) continue; // Don't spam early watchdog warnings during shutdown, we'll come back to this...
+                 lastEarlyWarning = currentTime;
+                 if (isLongTimeout) {
+                 // Paper end
+@@ -114,7 +117,7 @@ public class WatchdogThread extends Thread
+                 log.log( Level.SEVERE, "------------------------------" );
+                 log.log( Level.SEVERE, "Server thread dump (Look for plugins here before reporting to Paper!):" ); // Paper
+                 ChunkTaskManager.dumpAllChunkLoadInfo(); // Paper
+-                dumpThread( ManagementFactory.getThreadMXBean().getThreadInfo( MinecraftServer.getServer().field_175590_aa.getId(), Integer.MAX_VALUE ), log );
++                dumpThread( ManagementFactory.getThreadMXBean().getThreadInfo( server.field_175590_aa.getId(), Integer.MAX_VALUE ), log );
+                 log.log( Level.SEVERE, "------------------------------" );
+                 //
+                 // Paper start - Only print full dump on long timeouts
+@@ -135,9 +138,24 @@ public class WatchdogThread extends Thread
+ 
+                 if ( isLongTimeout )
+                 {
+-                if ( restart && !MinecraftServer.getServer().hasStopped() )
++                if ( !server.hasStopped() )
+                 {
+-                    RestartCommand.restart();
++                    AsyncCatcher.enabled = false; // Disable async catcher incase it interferes with us
++                    AsyncCatcher.shuttingDown = true;
++                    server.forceTicks = true;
++                    if (restart) {
++                        RestartCommand.addShutdownHook( SpigotConfig.restartScript );
++                    }
++                    // try one last chance to safe shutdown on main incase it 'comes back'
++                    server.safeShutdown(false, restart);
++                    try {
++                        Thread.sleep(1000);
++                    } catch (InterruptedException e) {
++                        e.printStackTrace();
++                    }
++                    if (!server.hasStopped()) {
++                        server.close();
++                    }
+                 }
+                 break;
+                 } // Paper end
+diff --git a/src/main/resources/log4j2.xml b/src/main/resources/log4j2.xml
+index 476f4a5cbe664ddd05474cb88553018bd334a5b8..8af159abd3d0cc94cf155fec5b384c42f69551bf 100644
+--- a/src/main/resources/log4j2.xml
++++ b/src/main/resources/log4j2.xml
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+-<Configuration status="WARN" packages="com.mojang.util">
++<Configuration status="WARN" packages="com.mojang.util" shutdownHook="disable">
+     <Appenders>
+         <Queue name="ServerGuiConsole">
+             <PatternLayout pattern="[%d{HH:mm:ss} %level]: %msg%n" />

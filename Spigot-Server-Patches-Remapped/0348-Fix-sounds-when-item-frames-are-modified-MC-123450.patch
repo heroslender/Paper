@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Phoenix616 <mail@moep.tv>
+Date: Sat, 27 Apr 2019 20:00:43 +0100
+Subject: [PATCH] Fix sounds when item frames are modified (MC-123450)
+
+This also fixes the adding sound playing when the item frame direction is changed.
+
+diff --git a/src/main/java/net/minecraft/entity/item/ItemFrameEntity.java b/src/main/java/net/minecraft/entity/item/ItemFrameEntity.java
+index 390af0316e562a4068ff1bd5712b2e8270d41806..f32dbbd4f6d4712156fa2f03100405c4d3f44f80 100644
+--- a/src/main/java/net/minecraft/entity/item/ItemFrameEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ItemFrameEntity.java
+@@ -277,7 +277,7 @@ public class ItemFrameEntity extends HangingEntity {
+         }
+ 
+         this.func_184212_Q().func_187227_b(ItemFrameEntity.field_184525_c, itemstack);
+-        if (!itemstack.func_190926_b() && playSound) { // CraftBukkit
++        if (!itemstack.func_190926_b() && flag && playSound) { // CraftBukkit // Paper - only play sound when update flag is set
+             this.func_184185_a(SoundEvents.field_187620_cL, 1.0F, 1.0F);
+         }
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftItemFrame.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftItemFrame.java
+index 7b772e3368e2628b2d997f319c36e6c05acba22b..edf8fdb6b4d4690d26401dfa21d409c3c947bfa7 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftItemFrame.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftItemFrame.java
+@@ -49,7 +49,7 @@ public class CraftItemFrame extends CraftHanging implements ItemFrame {
+         old.func_70106_y();
+ 
+         ItemFrameEntity frame = new ItemFrameEntity(world, position, direction);
+-        frame.func_82334_a(item);
++        frame.setItem(item, true, false); // Paper - fix itemframe sound
+         world.func_217376_c(frame);
+         this.entity = frame;
+     }

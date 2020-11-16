@@ -1,0 +1,630 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 27 Apr 2016 22:09:52 -0400
+Subject: [PATCH] Optimize Hoppers
+
+* Removes unnecessary extra calls to .update() that are very expensive
+* Lots of itemstack cloning removed. Only clone if the item is actually moved
+* Return true when a plugin cancels inventory move item event instead of false, as false causes pulls to cycle through all items.
+  However, pushes do not exhibit the same behavior, so this is not something plugins could of been relying on.
+* Add option (Default on) to cooldown hoppers when they fail to move an item due to full inventory
+* Skip subsequent InventoryMoveItemEvents if a plugin does not use the item after first event fire for an iteration
+* Don't check for Entities with Inventories if the block above us is also occluding (not just Inventoried)
+* Remove Streams from Item Suck In and restore restore 1.12 AABB checks which is simpler and no voxel allocations (was doing TWO Item Suck ins)
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 7453becf8c56bd41a7e532c08c4f274026eadefb..4438d567dd779650533c7128ae8b25b8fd369836 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -574,4 +574,13 @@ public class PaperWorldConfig {
+     private void entitiesTargetWithFollowRange() {
+         entitiesTargetWithFollowRange = getBoolean("entities-target-with-follow-range", entitiesTargetWithFollowRange);
+     }
++
++    public boolean cooldownHopperWhenFull = true;
++    public boolean disableHopperMoveEvents = false;
++    private void hopperOptimizations() {
++        cooldownHopperWhenFull = getBoolean("hopper.cooldown-when-full", cooldownHopperWhenFull);
++        log("Cooldown Hoppers when Full: " + (cooldownHopperWhenFull ? "enabled" : "disabled"));
++        disableHopperMoveEvents = getBoolean("hopper.disable-move-event", disableHopperMoveEvents);
++        log("Hopper Move Item Events: " + (disableHopperMoveEvents ? "disabled" : "enabled"));
++    }
+ }
+diff --git a/src/main/java/net/minecraft/item/ItemStack.java b/src/main/java/net/minecraft/item/ItemStack.java
+index ea35152e4991dccaac4928033c1c00aea3c69a32..981bd79f9052bf94706d6f07d0ab1c6238df1ab7 100644
+--- a/src/main/java/net/minecraft/item/ItemStack.java
++++ b/src/main/java/net/minecraft/item/ItemStack.java
+@@ -539,11 +539,12 @@ public final class ItemStack {
+         return this.func_77973_b().func_111207_a(this, p_111282_1_, p_111282_2_, p_111282_3_);
+     }
+ 
+-    public ItemStack func_77946_l() {
+-        if (this.func_190926_b()) {
++    public ItemStack func_77946_l() { return cloneItemStack(false); } // Paper
++    public ItemStack cloneItemStack(boolean origItem) { // Paper
++        if (!origItem && this.func_190926_b()) { // Paper
+             return ItemStack.field_190927_a;
+         } else {
+-            ItemStack itemstack = new ItemStack(this.func_77973_b(), this.field_77994_a);
++            ItemStack itemstack = new ItemStack(origItem ? this.field_151002_e : this.func_77973_b(), this.field_77994_a); // Paper
+ 
+             itemstack.func_190915_d(this.func_190921_D());
+             if (this.field_77990_d != null) {
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 0d76219d42ca1f6064d20ff7aef0443fedfe90ad..5192dd1f9b044c6ad578b2f28f06fd923dee67d7 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -108,6 +108,7 @@ import net.minecraft.server.management.WhiteList;
+ import net.minecraft.tags.BlockTags;
+ import net.minecraft.tags.ITagCollectionSupplier;
+ import net.minecraft.test.TestCollection;
++import net.minecraft.tileentity.HopperTileEntity;
+ import net.minecraft.util.CryptException;
+ import net.minecraft.util.CryptManager;
+ import net.minecraft.util.FrameTimer;
+@@ -1353,6 +1354,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         while (iterator.hasNext()) {
+             ServerWorld worldserver = (ServerWorld) iterator.next();
+             worldserver.hasPhysicsEvent =  org.bukkit.event.block.BlockPhysicsEvent.getHandlerList().getRegisteredListeners().length > 0; // Paper
++            HopperTileEntity.skipHopperEvents = worldserver.paperConfig.disableHopperMoveEvents || org.bukkit.event.inventory.InventoryMoveItemEvent.getHandlerList().getRegisteredListeners().length == 0; // Paper
+ 
+             this.field_71304_b.func_194340_a(() -> {
+                 return worldserver + " " + worldserver.func_234923_W_().func_240901_a_();
+diff --git a/src/main/java/net/minecraft/tileentity/HopperTileEntity.java b/src/main/java/net/minecraft/tileentity/HopperTileEntity.java
+index aa28c4d67bc329f715b7cf9a550f9f5c854fe721..99d493d43964d2f9e928c66d2bceb1053140ce22 100644
+--- a/src/main/java/net/minecraft/tileentity/HopperTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/HopperTileEntity.java
+@@ -195,6 +195,160 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+         return false;
+     }
+ 
++    // Paper start - Optimize Hoppers
++    private static boolean skipPullModeEventFire = false;
++    private static boolean skipPushModeEventFire = false;
++    static boolean skipHopperEvents = false;
++
++    private boolean hopperPush(IInventory iinventory, Direction enumdirection) {
++        skipPushModeEventFire = skipHopperEvents;
++        boolean foundItem = false;
++        for (int i = 0; i < this.func_70302_i_(); ++i) {
++            ItemStack item = this.func_70301_a(i);
++            if (!item.func_190926_b()) {
++                foundItem = true;
++                ItemStack origItemStack = item;
++                ItemStack itemstack = origItemStack;
++
++                final int origCount = origItemStack.func_190916_E();
++                final int moved = Math.min(field_145850_b.spigotConfig.hopperAmount, origCount);
++                origItemStack.func_190920_e(moved);
++
++                // We only need to fire the event once to give protection plugins a chance to cancel this event
++                // Because nothing uses getItem, every event call should end up the same result.
++                if (!skipPushModeEventFire) {
++                    itemstack = callPushMoveEvent(iinventory, itemstack);
++                    if (itemstack == null) { // cancelled
++                        origItemStack.func_190920_e(origCount);
++                        return false;
++                    }
++                }
++                final ItemStack itemstack2 = func_174918_a(this, iinventory, itemstack, enumdirection);
++                final int remaining = itemstack2.func_190916_E();
++                if (remaining != moved) {
++                    origItemStack = origItemStack.cloneItemStack(true);
++                    origItemStack.func_190920_e(origCount);
++                    if (!origItemStack.func_190926_b()) {
++                        origItemStack.func_190920_e(origCount - moved + remaining);
++                    }
++                    this.func_70299_a(i, origItemStack);
++                    iinventory.func_70296_d();
++                    return true;
++                }
++                origItemStack.func_190920_e(origCount);
++            }
++        }
++        if (foundItem && field_145850_b.paperConfig.cooldownHopperWhenFull) { // Inventory was full - cooldown
++            this.func_145896_c(field_145850_b.spigotConfig.hopperTransfer);
++        }
++        return false;
++    }
++
++    private static boolean hopperPull(IHopper ihopper, IInventory iinventory, ItemStack origItemStack, int i) {
++        ItemStack itemstack = origItemStack;
++        final int origCount = origItemStack.func_190916_E();
++        final World world = ihopper.func_145831_w();
++        final int moved = Math.min(world.spigotConfig.hopperAmount, origCount);
++        itemstack.func_190920_e(moved);
++
++        if (!skipPullModeEventFire) {
++            itemstack = callPullMoveEvent(ihopper, iinventory, itemstack);
++            if (itemstack == null) { // cancelled
++                origItemStack.func_190920_e(origCount);
++                // Drastically improve performance by returning true.
++                // No plugin could of relied on the behavior of false as the other call
++                // site for IMIE did not exhibit the same behavior
++                return true;
++            }
++        }
++
++        final ItemStack itemstack2 = func_174918_a(iinventory, ihopper, itemstack, null);
++        final int remaining = itemstack2.func_190916_E();
++        if (remaining != moved) {
++            origItemStack = origItemStack.cloneItemStack(true);
++            origItemStack.func_190920_e(origCount);
++            if (!origItemStack.func_190926_b()) {
++                origItemStack.func_190920_e(origCount - moved + remaining);
++            }
++            IGNORE_TILE_UPDATES = true;
++            iinventory.func_70299_a(i, origItemStack);
++            IGNORE_TILE_UPDATES = false;
++            iinventory.func_70296_d();
++            return true;
++        }
++        origItemStack.func_190920_e(origCount);
++
++        if (world.paperConfig.cooldownHopperWhenFull) {
++            cooldownHopper(ihopper);
++        }
++
++        return false;
++    }
++
++    private ItemStack callPushMoveEvent(IInventory iinventory, ItemStack itemstack) {
++        Inventory destinationInventory = getInventory(iinventory);
++        InventoryMoveItemEvent event = new InventoryMoveItemEvent(this.getOwner(false).getInventory(),
++            CraftItemStack.asCraftMirror(itemstack), destinationInventory, true);
++        boolean result = event.callEvent();
++        if (!event.calledGetItem && !event.calledSetItem) {
++            skipPushModeEventFire = true;
++        }
++        if (!result) {
++            cooldownHopper(this);
++            return null;
++        }
++
++        if (event.calledSetItem) {
++            return CraftItemStack.asNMSCopy(event.getItem());
++        } else {
++            return itemstack;
++        }
++    }
++
++    private static ItemStack callPullMoveEvent(IHopper hopper, IInventory iinventory, ItemStack itemstack) {
++        Inventory sourceInventory = getInventory(iinventory);
++        Inventory destination = getInventory(hopper);
++
++        InventoryMoveItemEvent event = new InventoryMoveItemEvent(sourceInventory,
++            // Mirror is safe as we no plugins ever use this item
++            CraftItemStack.asCraftMirror(itemstack), destination, false);
++        boolean result = event.callEvent();
++        if (!event.calledGetItem && !event.calledSetItem) {
++            skipPullModeEventFire = true;
++        }
++        if (!result) {
++            cooldownHopper(hopper);
++            return null;
++        }
++
++        if (event.calledSetItem) {
++            return CraftItemStack.asNMSCopy(event.getItem());
++        } else {
++            return itemstack;
++        }
++    }
++
++    private static Inventory getInventory(IInventory iinventory) {
++        Inventory sourceInventory;// Have to special case large chests as they work oddly
++        if (iinventory instanceof DoubleSidedInventory) {
++            sourceInventory = new org.bukkit.craftbukkit.inventory.CraftInventoryDoubleChest((DoubleSidedInventory) iinventory);
++        } else if (iinventory instanceof TileEntity) {
++            sourceInventory = ((TileEntity) iinventory).getOwner(false).getInventory();
++        } else {
++            sourceInventory = iinventory.getOwner().getInventory();
++        }
++        return sourceInventory;
++    }
++
++    private static void cooldownHopper(IHopper hopper) {
++        if (hopper instanceof HopperTileEntity) {
++            ((HopperTileEntity) hopper).func_145896_c(hopper.func_145831_w().spigotConfig.hopperTransfer);
++        } else if (hopper instanceof HopperMinecartEntity) {
++            ((HopperMinecartEntity) hopper).func_98042_n(hopper.func_145831_w().spigotConfig.hopperTransfer / 2);
++        }
++    }
++    // Paper end
++
+     private boolean func_145883_k() {
+         IInventory iinventory = this.func_145895_l();
+ 
+@@ -206,44 +360,45 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+             if (this.func_174919_a(iinventory, enumdirection)) {
+                 return false;
+             } else {
+-                for (int i = 0; i < this.func_70302_i_(); ++i) {
+-                    if (!this.func_70301_a(i).func_190926_b()) {
+-                        ItemStack itemstack = this.func_70301_a(i).func_77946_l();
++                return hopperPush(iinventory, enumdirection); /* // Paper - disable rest
++                for (int i = 0; i < this.getSize(); ++i) {
++                    if (!this.getItem(i).isEmpty()) {
++                        ItemStack itemstack = this.getItem(i).cloneItemStack();
+                         // ItemStack itemstack1 = addItem(this, iinventory, this.splitStack(i, 1), enumdirection);
+ 
+                         // CraftBukkit start - Call event when pushing items into other inventories
+-                        CraftItemStack oitemstack = CraftItemStack.asCraftMirror(this.func_70298_a(i, field_145850_b.spigotConfig.hopperAmount)); // Spigot
++                        CraftItemStack oitemstack = CraftItemStack.asCraftMirror(this.splitStack(i, world.spigotConfig.hopperAmount)); // Spigot
+ 
+                         Inventory destinationInventory;
+                         // Have to special case large chests as they work oddly
+-                        if (iinventory instanceof DoubleSidedInventory) {
+-                            destinationInventory = new org.bukkit.craftbukkit.inventory.CraftInventoryDoubleChest((DoubleSidedInventory) iinventory);
++                        if (iinventory instanceof InventoryLargeChest) {
++                            destinationInventory = new org.bukkit.craftbukkit.inventory.CraftInventoryDoubleChest((InventoryLargeChest) iinventory);
+                         } else {
+                             destinationInventory = iinventory.getOwner().getInventory();
+                         }
+ 
+                         InventoryMoveItemEvent event = new InventoryMoveItemEvent(this.getOwner().getInventory(), oitemstack.clone(), destinationInventory, true);
+-                        this.func_145831_w().getServer().getPluginManager().callEvent(event);
++                        this.getWorld().getServer().getPluginManager().callEvent(event);
+                         if (event.isCancelled()) {
+-                            this.func_70299_a(i, itemstack);
+-                            this.func_145896_c(field_145850_b.spigotConfig.hopperTransfer); // Spigot
++                            this.setItem(i, itemstack);
++                            this.setCooldown(world.spigotConfig.hopperTransfer); // Spigot
+                             return false;
+                         }
+                         int origCount = event.getItem().getAmount(); // Spigot
+-                        ItemStack itemstack1 = func_174918_a(this, iinventory, CraftItemStack.asNMSCopy(event.getItem()), enumdirection);
++                        ItemStack itemstack1 = addItem(this, iinventory, CraftItemStack.asNMSCopy(event.getItem()), enumdirection);
+                         // CraftBukkit end
+ 
+-                        if (itemstack1.func_190926_b()) {
+-                            iinventory.func_70296_d();
++                        if (itemstack1.isEmpty()) {
++                            iinventory.update();
+                             return true;
+                         }
+ 
+-                        itemstack.func_190918_g(origCount - itemstack1.func_190916_E()); // Spigot
+-                        this.func_70299_a(i, itemstack);
++                        itemstack.subtract(origCount - itemstack1.getCount()); // Spigot
++                        this.setItem(i, itemstack);
+                     }
+                 }
+ 
+-                return false;
++                return false;*/ // Paper - end commenting out replaced block for Hopper Optimizations
+             }
+         }
+     }
+@@ -252,18 +407,54 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+         return p_213972_0_ instanceof ISidedInventory ? IntStream.of(((ISidedInventory) p_213972_0_).func_180463_a(p_213972_1_)) : IntStream.range(0, p_213972_0_.func_70302_i_());
+     }
+ 
+-    private boolean func_174919_a(IInventory p_174919_1_, Direction p_174919_2_) {
+-        return func_213972_a(p_174919_1_, p_174919_2_).allMatch((i) -> {
+-            ItemStack itemstack = p_174919_1_.func_70301_a(i);
++    private static boolean allMatch(IInventory iinventory, Direction enumdirection, java.util.function.BiPredicate<ItemStack, Integer> test) {
++        if (iinventory instanceof ISidedInventory) {
++            for (int i : ((ISidedInventory) iinventory).func_180463_a(enumdirection)) {
++                if (!test.test(iinventory.func_70301_a(i), i)) {
++                    return false;
++                }
++            }
++        } else {
++            int size = iinventory.func_70302_i_();
++            for (int i = 0; i < size; i++) {
++                if (!test.test(iinventory.func_70301_a(i), i)) {
++                    return false;
++                }
++            }
++        }
++        return true;
++    }
+ 
+-            return itemstack.func_190916_E() >= itemstack.func_77976_d();
+-        });
++    private static boolean anyMatch(IInventory iinventory, Direction enumdirection, java.util.function.BiPredicate<ItemStack, Integer> test) {
++        if (iinventory instanceof ISidedInventory) {
++            for (int i : ((ISidedInventory) iinventory).func_180463_a(enumdirection)) {
++                if (test.test(iinventory.func_70301_a(i), i)) {
++                    return true;
++                }
++            }
++        } else {
++            int size = iinventory.func_70302_i_();
++            for (int i = 0; i < size; i++) {
++                if (test.test(iinventory.func_70301_a(i), i)) {
++                    return true;
++                }
++            }
++        }
++        return true;
++    }
++    private static final java.util.function.BiPredicate<ItemStack, Integer> STACK_SIZE_TEST = (itemstack, i) -> itemstack.func_190916_E() >= itemstack.func_77976_d();
++    private static final java.util.function.BiPredicate<ItemStack, Integer> IS_EMPTY_TEST = (itemstack, i) -> itemstack.func_190926_b();
++
++    // Paper end
++
++    private boolean func_174919_a(IInventory p_174919_1_, Direction p_174919_2_) {
++        // Paper start - no streams
++        return allMatch(p_174919_1_, p_174919_2_, STACK_SIZE_TEST);
++        // Paper end
+     }
+ 
+     private static boolean func_174917_b(IInventory p_174917_0_, Direction p_174917_1_) {
+-        return func_213972_a(p_174917_0_, p_174917_1_).allMatch((i) -> {
+-            return p_174917_0_.func_70301_a(i).func_190926_b();
+-        });
++        return allMatch(p_174917_0_, p_174917_1_, IS_EMPTY_TEST);
+     }
+ 
+     public static boolean func_145891_a(IHopper p_145891_0_) {
+@@ -272,9 +463,17 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+         if (iinventory != null) {
+             Direction enumdirection = Direction.DOWN;
+ 
+-            return func_174917_b(iinventory, enumdirection) ? false : func_213972_a(iinventory, enumdirection).anyMatch((i) -> {
+-                return func_174915_a(p_145891_0_, iinventory, i, enumdirection);
++            // Paper start - optimize hoppers and remove streams
++            skipPullModeEventFire = skipHopperEvents;
++            return !func_174917_b(iinventory, enumdirection) && anyMatch(iinventory, enumdirection, (item, i) -> {
++                // Logic copied from below to avoid extra getItem calls
++                if (!item.func_190926_b() && canTakeItem(iinventory, item, i, enumdirection)) {
++                    return hopperPull(p_145891_0_, iinventory, item, i);
++                } else {
++                    return false;
++                }
+             });
++            // Paper end
+         } else {
+             Iterator iterator = func_200115_c(p_145891_0_).iterator();
+ 
+@@ -292,47 +491,48 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+         }
+     }
+ 
+-    private static boolean func_174915_a(IHopper p_174915_0_, IInventory p_174915_1_, int p_174915_2_, Direction p_174915_3_) {
++    private static boolean func_174915_a(IHopper p_174915_0_, IInventory p_174915_1_, int p_174915_2_, Direction p_174915_3_) {// Paper - method unused as logic is inlined above
+         ItemStack itemstack = p_174915_1_.func_70301_a(p_174915_2_);
+ 
+-        if (!itemstack.func_190926_b() && func_174921_b(p_174915_1_, itemstack, p_174915_2_, p_174915_3_)) {
+-            ItemStack itemstack1 = itemstack.func_77946_l();
++        if (!itemstack.func_190926_b() && func_174921_b(p_174915_1_, itemstack, p_174915_2_, p_174915_3_)) { // If this logic changes, update above. this is left inused incase reflective plugins
++            return hopperPull(p_174915_0_, p_174915_1_, itemstack, p_174915_2_); /* // Paper - disable rest
++            ItemStack itemstack1 = itemstack.cloneItemStack();
+             // ItemStack itemstack2 = addItem(iinventory, ihopper, iinventory.splitStack(i, 1), (EnumDirection) null);
+             // CraftBukkit start - Call event on collection of items from inventories into the hopper
+-            CraftItemStack oitemstack = CraftItemStack.asCraftMirror(p_174915_1_.func_70298_a(p_174915_2_, p_174915_0_.func_145831_w().spigotConfig.hopperAmount)); // Spigot
++            CraftItemStack oitemstack = CraftItemStack.asCraftMirror(iinventory.splitStack(i, ihopper.getWorld().spigotConfig.hopperAmount)); // Spigot
+ 
+             Inventory sourceInventory;
+             // Have to special case large chests as they work oddly
+-            if (p_174915_1_ instanceof DoubleSidedInventory) {
+-                sourceInventory = new org.bukkit.craftbukkit.inventory.CraftInventoryDoubleChest((DoubleSidedInventory) p_174915_1_);
++            if (iinventory instanceof InventoryLargeChest) {
++                sourceInventory = new org.bukkit.craftbukkit.inventory.CraftInventoryDoubleChest((InventoryLargeChest) iinventory);
+             } else {
+-                sourceInventory = p_174915_1_.getOwner().getInventory();
++                sourceInventory = iinventory.getOwner().getInventory();
+             }
+ 
+-            InventoryMoveItemEvent event = new InventoryMoveItemEvent(sourceInventory, oitemstack.clone(), p_174915_0_.getOwner().getInventory(), false);
++            InventoryMoveItemEvent event = new InventoryMoveItemEvent(sourceInventory, oitemstack.clone(), ihopper.getOwner().getInventory(), false);
+ 
+-            p_174915_0_.func_145831_w().getServer().getPluginManager().callEvent(event);
++            ihopper.getWorld().getServer().getPluginManager().callEvent(event);
+             if (event.isCancelled()) {
+-                p_174915_1_.func_70299_a(p_174915_2_, itemstack1);
++                iinventory.setItem(i, itemstack1);
+ 
+-                if (p_174915_0_ instanceof HopperTileEntity) {
+-                    ((HopperTileEntity) p_174915_0_).func_145896_c(p_174915_0_.func_145831_w().spigotConfig.hopperTransfer); // Spigot
+-                } else if (p_174915_0_ instanceof HopperMinecartEntity) {
+-                    ((HopperMinecartEntity) p_174915_0_).func_98042_n(p_174915_0_.func_145831_w().spigotConfig.hopperTransfer / 2); // Spigot
++                if (ihopper instanceof TileEntityHopper) {
++                    ((TileEntityHopper) ihopper).setCooldown(ihopper.getWorld().spigotConfig.hopperTransfer); // Spigot
++                } else if (ihopper instanceof EntityMinecartHopper) {
++                    ((EntityMinecartHopper) ihopper).setCooldown(ihopper.getWorld().spigotConfig.hopperTransfer / 2); // Spigot
+                 }
+                 return false;
+             }
+             int origCount = event.getItem().getAmount(); // Spigot
+-            ItemStack itemstack2 = func_174918_a(p_174915_1_, p_174915_0_, CraftItemStack.asNMSCopy(event.getItem()), null);
++            ItemStack itemstack2 = addItem(iinventory, ihopper, CraftItemStack.asNMSCopy(event.getItem()), null);
+             // CraftBukkit end
+ 
+-            if (itemstack2.func_190926_b()) {
+-                p_174915_1_.func_70296_d();
++            if (itemstack2.isEmpty()) {
++                iinventory.update();
+                 return true;
+             }
+ 
+-            itemstack1.func_190918_g(origCount - itemstack2.func_190916_E()); // Spigot
+-            p_174915_1_.func_70299_a(p_174915_2_, itemstack1);
++            itemstack1.subtract(origCount - itemstack2.getCount()); // Spigot
++            iinventory.setItem(i, itemstack1);*/ // Paper - end commenting out replaced block for Hopper Optimizations
+         }
+ 
+         return false;
+@@ -341,7 +541,7 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+     public static boolean func_200114_a(IInventory p_200114_0_, ItemEntity p_200114_1_) {
+         boolean flag = false;
+         // CraftBukkit start
+-        InventoryPickupItemEvent event = new InventoryPickupItemEvent(p_200114_0_.getOwner().getInventory(), (org.bukkit.entity.Item) p_200114_1_.getBukkitEntity());
++        InventoryPickupItemEvent event = new InventoryPickupItemEvent(getInventory(p_200114_0_), (org.bukkit.entity.Item) p_200114_1_.getBukkitEntity()); // Paper - use getInventory() to avoid snapshot creation
+         p_200114_1_.field_70170_p.getServer().getPluginManager().callEvent(event);
+         if (event.isCancelled()) {
+             return false;
+@@ -383,6 +583,7 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+         return !p_174920_0_.func_94041_b(p_174920_2_, p_174920_1_) ? false : !(p_174920_0_ instanceof ISidedInventory) || ((ISidedInventory) p_174920_0_).func_180462_a(p_174920_2_, p_174920_1_, p_174920_3_);
+     }
+ 
++    private static boolean canTakeItem(IInventory iinventory, ItemStack itemstack, int i, Direction enumdirection) { return func_174921_b(iinventory, itemstack, i, enumdirection); } // Paper - OBFHELPER
+     private static boolean func_174921_b(IInventory p_174921_0_, ItemStack p_174921_1_, int p_174921_2_, Direction p_174921_3_) {
+         return !(p_174921_0_ instanceof ISidedInventory) || ((ISidedInventory) p_174921_0_).func_180461_b(p_174921_2_, p_174921_1_, p_174921_3_);
+     }
+@@ -395,7 +596,9 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+             boolean flag1 = p_174916_1_.func_191420_l();
+ 
+             if (itemstack1.func_190926_b()) {
++                IGNORE_TILE_UPDATES = true; // Paper
+                 p_174916_1_.func_70299_a(p_174916_3_, p_174916_2_);
++                IGNORE_TILE_UPDATES = false; // Paper
+                 p_174916_2_ = ItemStack.field_190927_a;
+                 flag = true;
+             } else if (func_145894_a(itemstack1, p_174916_2_)) {
+@@ -446,42 +649,48 @@ public class HopperTileEntity extends LockableLootTileEntity implements IHopper,
+     }
+ 
+     public static List<ItemEntity> func_200115_c(IHopper p_200115_0_) {
+-        return (List) p_200115_0_.func_200100_i().func_197756_d().stream().flatMap((axisalignedbb) -> {
+-            return p_200115_0_.func_145831_w().func_175647_a(ItemEntity.class, axisalignedbb.func_72317_d(p_200115_0_.func_96107_aA() - 0.5D, p_200115_0_.func_96109_aB() - 0.5D, p_200115_0_.func_96108_aC() - 0.5D), EntityPredicates.field_94557_a).stream();
+-        }).collect(Collectors.toList());
++        // Paper start - Optimize item suck in. remove streams, restore 1.12 checks. Seriously checking the bowl?!
++        World world = p_200115_0_.func_145831_w();
++        double d0 = p_200115_0_.getX();
++        double d1 = p_200115_0_.getY();
++        double d2 = p_200115_0_.getZ();
++        AxisAlignedBB bb = new AxisAlignedBB(d0 - 0.5D, d1, d2 - 0.5D, d0 + 0.5D, d1 + 1.5D, d2 + 0.5D);
++        return world.getEntities(ItemEntity.class, bb, Entity::func_70089_S);
++        // Paper end
+     }
+ 
+     @Nullable
+     public static IInventory func_195484_a(World p_195484_0_, BlockPos p_195484_1_) {
+-        return func_145893_b(p_195484_0_, (double) p_195484_1_.func_177958_n() + 0.5D, (double) p_195484_1_.func_177956_o() + 0.5D, (double) p_195484_1_.func_177952_p() + 0.5D);
++        return a(p_195484_0_, (double) p_195484_1_.func_177958_n() + 0.5D, (double) p_195484_1_.func_177956_o() + 0.5D, (double) p_195484_1_.func_177952_p() + 0.5D, true); // Paper
+     }
+ 
+     @Nullable
+-    public static IInventory func_145893_b(World p_145893_0_, double p_145893_1_, double p_145893_2_, double p_145893_3_) {
++    public static IInventory func_145893_b(World p_145893_0_, double p_145893_1_, double p_145893_2_, double p_145893_3_) { return a(p_145893_0_, p_145893_1_, p_145893_2_, p_145893_3_, false); } // Paper - overload to default false
++    public static IInventory a(World world, double d0, double d1, double d2, boolean optimizeEntities) { // Paper
+         Object object = null;
+-        BlockPos blockposition = new BlockPos(p_145893_1_, p_145893_2_, p_145893_3_);
+-        if ( !p_145893_0_.func_175667_e( blockposition ) ) return null; // Spigot
+-        BlockState iblockdata = p_145893_0_.func_180495_p(blockposition);
++        BlockPos blockposition = new BlockPos(d0, d1, d2);
++        if ( !world.func_175667_e( blockposition ) ) return null; // Spigot
++        BlockState iblockdata = world.func_180495_p(blockposition);
+         Block block = iblockdata.func_177230_c();
+ 
+         if (block instanceof ISidedInventoryProvider) {
+-            object = ((ISidedInventoryProvider) block).func_219966_a(iblockdata, p_145893_0_, blockposition);
++            object = ((ISidedInventoryProvider) block).func_219966_a(iblockdata, world, blockposition);
+         } else if (block.func_235695_q_()) {
+-            TileEntity tileentity = p_145893_0_.func_175625_s(blockposition);
++            TileEntity tileentity = world.func_175625_s(blockposition);
+ 
+             if (tileentity instanceof IInventory) {
+                 object = (IInventory) tileentity;
+                 if (object instanceof ChestTileEntity && block instanceof ChestBlock) {
+-                    object = ChestBlock.func_226916_a_((ChestBlock) block, iblockdata, p_145893_0_, blockposition, true);
++                    object = ChestBlock.func_226916_a_((ChestBlock) block, iblockdata, world, blockposition, true);
+                 }
+             }
+         }
+ 
+-        if (object == null) {
+-            List<Entity> list = p_145893_0_.func_175674_a((Entity) null, new AxisAlignedBB(p_145893_1_ - 0.5D, p_145893_2_ - 0.5D, p_145893_3_ - 0.5D, p_145893_1_ + 0.5D, p_145893_2_ + 0.5D, p_145893_3_ + 0.5D), EntityPredicates.field_96566_b);
++        if (object == null && (!optimizeEntities || !org.bukkit.craftbukkit.util.CraftMagicNumbers.getMaterial(block).isOccluding())) { // Paper
++            List<Entity> list = world.func_175674_a((Entity) null, new AxisAlignedBB(d0 - 0.5D, d1 - 0.5D, d2 - 0.5D, d0 + 0.5D, d1 + 0.5D, d2 + 0.5D), EntityPredicates.field_96566_b);
+ 
+             if (!list.isEmpty()) {
+-                object = (IInventory) list.get(p_145893_0_.field_73012_v.nextInt(list.size()));
++                object = (IInventory) list.get(world.field_73012_v.nextInt(list.size()));
+             }
+         }
+ 
+diff --git a/src/main/java/net/minecraft/tileentity/IHopper.java b/src/main/java/net/minecraft/tileentity/IHopper.java
+index dd86d886693b5a9ca6b46b458afc2a1e87ba28a6..8215745d59ea562e80a5d0c5310fecdba2e1b36e 100644
+--- a/src/main/java/net/minecraft/tileentity/IHopper.java
++++ b/src/main/java/net/minecraft/tileentity/IHopper.java
+@@ -3,6 +3,7 @@ package net.minecraft.tileentity;
+ import javax.annotation.Nullable;
+ import net.minecraft.block.Block;
+ import net.minecraft.inventory.IInventory;
++import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.shapes.VoxelShape;
+ import net.minecraft.util.math.shapes.VoxelShapes;
+ import net.minecraft.world.World;
+@@ -17,12 +18,13 @@ public interface IHopper extends IInventory {
+         return IHopper.field_200103_c;
+     }
+ 
+-    @Nullable
++    //@Nullable // Paper - it's annoying
+     World func_145831_w();
++    default BlockPos getBlockPosition() { return new BlockPos(getX(), getY(), getZ()); } // Paper
+ 
+-    double func_96107_aA();
++    double func_96107_aA(); default double getX() { return this.func_96107_aA(); } // Paper - OBFHELPER
+ 
+-    double func_96109_aB();
++    double func_96109_aB(); default double getY() { return this.func_96109_aB(); } // Paper - OBFHELPER
+ 
+-    double func_96108_aC();
++    double func_96108_aC(); default double getZ() { return this.func_96108_aC(); } // Paper - OBFHELPER
+ }
+diff --git a/src/main/java/net/minecraft/tileentity/LockableLootTileEntity.java b/src/main/java/net/minecraft/tileentity/LockableLootTileEntity.java
+index 62c002f044ede170e75b0a5e420455f56ae76511..4a05d6b5c8588d7235534c063b078a059f5f683a 100644
+--- a/src/main/java/net/minecraft/tileentity/LockableLootTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/LockableLootTileEntity.java
+@@ -97,12 +97,19 @@ public abstract class LockableLootTileEntity extends LockableTileEntity {
+     @Override
+     public boolean func_191420_l() {
+         this.func_184281_d((PlayerEntity) null);
+-        return this.func_190576_q().stream().allMatch(ItemStack::func_190926_b);
++        // Paper start
++        for (ItemStack itemStack : this.func_190576_q()) {
++            if (!itemStack.func_190926_b()) {
++                return false;
++            }
++        }
++        // Paper end
++        return true;
+     }
+ 
+     @Override
+     public ItemStack func_70301_a(int p_70301_1_) {
+-        this.func_184281_d((PlayerEntity) null);
++        if (p_70301_1_ == 0) this.func_184281_d((PlayerEntity) null); // Paper
+         return (ItemStack) this.func_190576_q().get(p_70301_1_);
+     }
+ 
+diff --git a/src/main/java/net/minecraft/tileentity/TileEntity.java b/src/main/java/net/minecraft/tileentity/TileEntity.java
+index 8e46a0356ba7c11a9921d9978a204260e5d52dae..d3b6e7c81fdc4acfb85f8561b76140fb64406aad 100644
+--- a/src/main/java/net/minecraft/tileentity/TileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/TileEntity.java
+@@ -76,6 +76,7 @@ public abstract class TileEntity implements KeyedObject { // Paper
+     public void setCurrentChunk(Chunk chunk) {
+         this.currentChunk = chunk != null ? new java.lang.ref.WeakReference<>(chunk) : null;
+     }
++    static boolean IGNORE_TILE_UPDATES = false;
+     // Paper end
+ 
+     @Nullable
+@@ -154,6 +155,7 @@ public abstract class TileEntity implements KeyedObject { // Paper
+ 
+     public void func_70296_d() {
+         if (this.field_145850_b != null) {
++            if (IGNORE_TILE_UPDATES) return; // Paper
+             this.field_195045_e = this.field_145850_b.func_180495_p(this.field_174879_c);
+             this.field_145850_b.func_175646_b(this.field_174879_c, this);
+             if (!this.field_195045_e.func_196958_f()) {
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 39d925ab245c67475129de3a20971c0ba8b98445..4b71b01776eb2cacb251b05d432f67857c780ff2 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -1161,8 +1161,8 @@ public abstract class World implements IWorld, AutoCloseable {
+         return list;
+     }
+ 
+-    @Override
+-    public <T extends Entity> List<T> func_175647_a(Class<? extends T> p_175647_1_, AxisAlignedBB p_175647_2_, @Nullable Predicate<? super T> p_175647_3_) {
++    public <T extends Entity> List<T> getEntities(Class<? extends T> oclass, AxisAlignedBB axisalignedbb, @Nullable Predicate<? super T> predicate) { return func_175647_a(oclass, axisalignedbb, predicate); } // Paper - OBFHELPER
++    @Override public <T extends Entity> List<T> func_175647_a(Class<? extends T> p_175647_1_, AxisAlignedBB p_175647_2_, @Nullable Predicate<? super T> p_175647_3_) {
+         this.func_217381_Z().func_230035_c_("getEntities");
+         int i = MathHelper.func_76128_c((p_175647_2_.field_72340_a - 2.0D) / 16.0D);
+         int j = MathHelper.func_76143_f((p_175647_2_.field_72336_d + 2.0D) / 16.0D);

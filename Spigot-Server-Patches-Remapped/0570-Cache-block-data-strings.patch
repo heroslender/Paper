@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: miclebrick <miclebrick@outlook.com>
+Date: Thu, 6 Dec 2018 19:52:50 -0500
+Subject: [PATCH] Cache block data strings
+
+
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 08c6fc8415417d530708292f3ab204b804dd1ea9..d2e266754541810c5e33ba0427505fe18d22e3e7 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -1940,6 +1940,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+             this.func_184103_al().func_193244_w();
+             this.field_200258_al.func_240946_a_(this.field_195576_ac.func_240960_a_());
+             this.field_240765_ak_.func_195410_a(this.field_195576_ac.func_240970_h_());
++            org.bukkit.craftbukkit.block.data.CraftBlockData.reloadCache(); // Paper - cache block data strings, they can be defined by datapacks so refresh it here
+         }, this);
+ 
+         if (this.func_213162_bc()) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/data/CraftBlockData.java b/src/main/java/org/bukkit/craftbukkit/block/data/CraftBlockData.java
+index e7f4af3cb4a42cc640fe89a3e91ae640c686fe9f..9b42eda1570fec3b5d117bd9ae8e65ac86e2385d 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/data/CraftBlockData.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/data/CraftBlockData.java
+@@ -476,9 +476,39 @@ public class CraftBlockData implements BlockData {
+         Preconditions.checkState(MAP.put(nms, bukkit) == null, "Duplicate mapping %s->%s", nms, bukkit);
+     }
+ 
++    // Paper start - cache block data strings
++    private static Map<String, CraftBlockData> stringDataCache = new HashMap<>();
++
++    static {
++        // cache all of the default states at startup, will not cache ones with the custom states inside of the
++        // brackets in a different order, though
++        reloadCache();
++    }
++
++    public static void reloadCache() {
++        stringDataCache.clear();
++        Block.field_176229_d.forEach(blockData -> stringDataCache.put(blockData.toString(), blockData.createCraftBlockData()));
++    }
++    // Paper end
++
+     public static CraftBlockData newData(Material material, String data) {
+         Preconditions.checkArgument(material == null || material.isBlock(), "Cannot get data for not block %s", material);
+ 
++        // Paper start - cache block data strings
++        if (material != null) {
++            Block block = CraftMagicNumbers.getBlock(material);
++            if (block != null) {
++                net.minecraft.util.ResourceLocation key = Registry.field_212618_g.func_177774_c(block);
++                data = data == null ? key.toString() : key + data;
++            }
++        }
++
++        CraftBlockData cached = stringDataCache.computeIfAbsent(data, s -> createNewData(null, s));
++        return (CraftBlockData) cached.clone();
++    }
++
++    private static CraftBlockData createNewData(Material material, String data) {
++        // Paper end - cache block data strings
+         BlockState blockData;
+         Block block = CraftMagicNumbers.getBlock(material);
+         Map<Property<?>, Comparable<?>> parsed = null;

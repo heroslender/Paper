@@ -1,0 +1,188 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: MiniDigger <admin@minidigger.me>
+Date: Mon, 20 Jan 2020 21:38:15 +0100
+Subject: [PATCH] Implement Player Client Options API
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperSkinParts.java b/src/main/java/com/destroystokyo/paper/PaperSkinParts.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..b6f4400df3d8ec7e06a996de54f8cabba57885e1
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/PaperSkinParts.java
+@@ -0,0 +1,74 @@
++package com.destroystokyo.paper;
++
++import com.google.common.base.Objects;
++
++import java.util.StringJoiner;
++
++public class PaperSkinParts implements SkinParts {
++
++    private final int raw;
++
++    public PaperSkinParts(int raw) {
++        this.raw = raw;
++    }
++
++    public boolean hasCapeEnabled() {
++        return (raw & 1) == 1;
++    }
++
++    public boolean hasJacketEnabled() {
++        return (raw >> 1 & 1) == 1;
++    }
++
++    public boolean hasLeftSleeveEnabled() {
++        return (raw >> 2 & 1) == 1;
++    }
++
++    public boolean hasRightSleeveEnabled() {
++        return (raw >> 3 & 1) == 1;
++    }
++
++    public boolean hasLeftPantsEnabled() {
++        return (raw >> 4 & 1) == 1;
++    }
++
++    public boolean hasRightPantsEnabled() {
++        return (raw >> 5 & 1) == 1;
++    }
++
++    public boolean hasHatsEnabled() {
++        return (raw >> 6 & 1) == 1;
++    }
++
++    @Override
++    public int getRaw() {
++        return raw;
++    }
++
++    @Override
++    public boolean equals(Object o) {
++        if (this == o) return true;
++        if (o == null || getClass() != o.getClass()) return false;
++        PaperSkinParts that = (PaperSkinParts) o;
++        return raw == that.raw;
++    }
++
++    @Override
++    public int hashCode() {
++        return Objects.hashCode(raw);
++    }
++
++    @Override
++    public String toString() {
++        return new StringJoiner(", ", PaperSkinParts.class.getSimpleName() + "[", "]")
++            .add("raw=" + raw)
++            .add("cape=" + hasCapeEnabled())
++            .add("jacket=" + hasJacketEnabled())
++            .add("leftSleeve=" + hasLeftSleeveEnabled())
++            .add("rightSleeve=" + hasRightSleeveEnabled())
++            .add("leftPants=" + hasLeftPantsEnabled())
++            .add("rightPants=" + hasRightPantsEnabled())
++            .add("hats=" + hasHatsEnabled())
++            .toString();
++    }
++}
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 1ffc0ee6fc694a86cf3c665918ae772502d97780..a5ae84217dad304bd1dd6cef3b65d30a359ec04d 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -130,7 +130,7 @@ public abstract class PlayerEntity extends LivingEntity {
+     private static final Map<Pose, EntitySize> field_213836_b = ImmutableMap.<Pose, EntitySize>builder().put(Pose.STANDING, PlayerEntity.field_213835_bs).put(Pose.SLEEPING, PlayerEntity.field_213377_as).put(Pose.FALL_FLYING, EntitySize.func_220314_b(0.6F, 0.6F)).put(Pose.SWIMMING, EntitySize.func_220314_b(0.6F, 0.6F)).put(Pose.SPIN_ATTACK, EntitySize.func_220314_b(0.6F, 0.6F)).put(Pose.CROUCHING, EntitySize.func_220314_b(0.6F, 1.5F)).put(Pose.DYING, EntitySize.func_220311_c(0.2F, 0.2F)).build();
+     private static final DataParameter<Float> field_184829_a = EntityDataManager.func_187226_a(PlayerEntity.class, DataSerializers.field_187193_c);
+     private static final DataParameter<Integer> field_184830_b = EntityDataManager.func_187226_a(PlayerEntity.class, DataSerializers.field_187192_b);
+-    protected static final DataParameter<Byte> field_184827_bp = EntityDataManager.func_187226_a(PlayerEntity.class, DataSerializers.field_187191_a);
++    protected static final DataParameter<Byte> field_184827_bp = EntityDataManager.func_187226_a(PlayerEntity.class, DataSerializers.field_187191_a); public static DataParameter<Byte> getSkinPartsWatcher() { return field_184827_bp; } // Paper - OBFHELPER
+     protected static final DataParameter<Byte> field_184828_bq = EntityDataManager.func_187226_a(PlayerEntity.class, DataSerializers.field_187191_a);
+     protected static final DataParameter<CompoundNBT> field_192032_bt = EntityDataManager.func_187226_a(PlayerEntity.class, DataSerializers.field_192734_n);
+     protected static final DataParameter<CompoundNBT> field_192033_bu = EntityDataManager.func_187226_a(PlayerEntity.class, DataSerializers.field_192734_n);
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index b2a1015f1ca9973c54cafc95fed40606581d359e..8ca4957034276c1f876e910e8c697fe8cc8fd3bd 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -2,6 +2,7 @@ package net.minecraft.entity.player;
+ 
+ import com.destroystokyo.paper.event.entity.PlayerNaturallySpawnCreaturesEvent;
+ import com.google.common.collect.Lists;
++import com.destroystokyo.paper.event.player.PlayerClientOptionsChangeEvent; // Paper
+ import com.mojang.authlib.GameProfile;
+ import com.mojang.datafixers.util.Either;
+ import com.mojang.serialization.DataResult;
+@@ -187,7 +188,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public int field_71144_ck = -99999999;
+     public int field_147101_bU = 60;
+     private ChatVisibility field_71143_cn;
+-    private boolean field_71140_co = true;
++    private boolean field_71140_co = true; public boolean hasChatColorsEnabled() { return this.field_71140_co; } // Paper - OBFHELPER
+     private long field_143005_bX = Util.func_211177_b();
+     private Entity field_175401_bS;
+     public boolean field_184851_cj;
+@@ -1783,6 +1784,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+ 
+     public String locale = null; // CraftBukkit - lowercase // Paper - default to null
+     public void func_147100_a(CClientSettingsPacket p_147100_1_) {
++        new PlayerClientOptionsChangeEvent(getBukkitEntity(), p_147100_1_.field_149530_a, p_147100_1_.field_149528_b, com.destroystokyo.paper.ClientOption.ChatVisibility.valueOf(p_147100_1_.getChatVisibility().name()), p_147100_1_.hasChatColorsEnabled(), new com.destroystokyo.paper.PaperSkinParts(p_147100_1_.getSkinParts()), p_147100_1_.func_186991_f() == HandSide.LEFT ? MainHand.LEFT : MainHand.RIGHT).callEvent(); // Paper - settings event
+         // CraftBukkit start
+         if (func_184591_cq() != p_147100_1_.func_186991_f()) {
+             PlayerChangedMainHandEvent event = new PlayerChangedMainHandEvent(getBukkitEntity(), func_184591_cq() == HandSide.LEFT ? MainHand.LEFT : MainHand.RIGHT);
+diff --git a/src/main/java/net/minecraft/network/play/client/CClientSettingsPacket.java b/src/main/java/net/minecraft/network/play/client/CClientSettingsPacket.java
+index cf1ed5d327d38bc9696810c3d868704d93f9555b..bfc3c8db66afe533108eb56fa731dcad44d7bce3 100644
+--- a/src/main/java/net/minecraft/network/play/client/CClientSettingsPacket.java
++++ b/src/main/java/net/minecraft/network/play/client/CClientSettingsPacket.java
+@@ -42,14 +42,17 @@ public class CClientSettingsPacket implements IPacket<IServerPlayNetHandler> {
+         p_148833_1_.func_147352_a(this);
+     }
+ 
++    public ChatVisibility getChatVisibility() { return func_149523_e(); } // Paper - OBFHELPER
+     public ChatVisibility func_149523_e() {
+         return this.field_149529_c;
+     }
+ 
++    public boolean hasChatColorsEnabled() { return func_149520_f(); } // Paper - OBFHELPER
+     public boolean func_149520_f() {
+         return this.field_149526_d;
+     }
+ 
++    public int getSkinParts() { return func_149521_d(); } // Paper - OBFHELPER
+     public int func_149521_d() {
+         return this.field_179711_e;
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index a9ad6e97fea5deca80cc2702fa3e80a0aed8b334..ac974ef5f3bfd521f40ce768e01e18704b91ac4c 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -1,5 +1,8 @@
+ package org.bukkit.craftbukkit.entity;
+ 
++import com.destroystokyo.paper.ClientOption.ChatVisibility;
++import com.destroystokyo.paper.PaperSkinParts;
++import com.destroystokyo.paper.ClientOption;
+ import com.destroystokyo.paper.Title;
+ import com.google.common.base.Preconditions;
+ import com.google.common.collect.ImmutableSet;
+@@ -2056,6 +2059,24 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+     public void setViewDistance(int viewDistance) {
+         throw new NotImplementedException("Per-Player View Distance APIs need further understanding to properly implement (There are per world view distances though!)"); // TODO
+     }
++
++    @Override
++    public <T> T getClientOption(ClientOption<T> type) {
++        if(ClientOption.SKIN_PARTS.equals(type)) {
++            return type.getType().cast(new PaperSkinParts(getHandle().func_184212_Q().func_187225_a(PlayerEntity.getSkinPartsWatcher())));
++        } else if(ClientOption.CHAT_COLORS_ENABLED.equals(type)) {
++            return type.getType().cast(getHandle().hasChatColorsEnabled());
++        } else if(ClientOption.CHAT_VISIBILITY.equals(type)) {
++            return type.getType().cast(getHandle().func_147096_v() == null ? ChatVisibility.UNKNOWN : ChatVisibility.valueOf(getHandle().func_147096_v().name()));
++        } else if(ClientOption.LOCALE.equals(type)) {
++            return type.getType().cast(getLocale());
++        } else if(ClientOption.MAIN_HAND.equals(type)) {
++            return type.getType().cast(getMainHand());
++        } else if(ClientOption.VIEW_DISTANCE.equals(type)) {
++            return type.getType().cast(getClientViewDistance());
++        }
++        throw new RuntimeException("Unknown settings type");
++    }
+     // Paper end
+ 
+     // Spigot start

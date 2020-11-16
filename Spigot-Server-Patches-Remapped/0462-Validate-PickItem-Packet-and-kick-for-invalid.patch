@@ -1,0 +1,26 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 2 May 2020 03:09:46 -0400
+Subject: [PATCH] Validate PickItem Packet and kick for invalid
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index ccd25be77cb46c4fbd382d9b0b9e22df5c0466db..cfac465b31ccad54a924906e0d186a4a8d089fc3 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -879,7 +879,14 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     @Override
+     public void func_210152_a(CPickItemPacket p_210152_1_) {
+         PacketThreadUtil.func_218796_a(p_210152_1_, this, this.field_147369_b.func_71121_q());
+-        this.field_147369_b.field_71071_by.func_184430_d(p_210152_1_.func_210349_a());
++        // Paper start - validate pick item position
++        if (!(p_210152_1_.func_210349_a() >= 0 && p_210152_1_.func_210349_a() < this.field_147369_b.field_71071_by.field_70462_a.size())) {
++            ServerPlayNetHandler.field_147370_c.warn("{} tried to set an invalid carried item", this.field_147369_b.func_200200_C_().getString());
++            this.disconnect("Invalid hotbar selection (Hacking?)");
++            return;
++        }
++        this.field_147369_b.field_71071_by.func_184430_d(p_210152_1_.func_210349_a()); // Paper - Diff above if changed
++        // Paper end
+         this.field_147369_b.field_71135_a.func_147359_a(new SSetSlotPacket(-2, this.field_147369_b.field_71071_by.field_70461_c, this.field_147369_b.field_71071_by.func_70301_a(this.field_147369_b.field_71071_by.field_70461_c)));
+         this.field_147369_b.field_71135_a.func_147359_a(new SSetSlotPacket(-2, p_210152_1_.func_210349_a(), this.field_147369_b.field_71071_by.func_70301_a(p_210152_1_.func_210349_a())));
+         this.field_147369_b.field_71135_a.func_147359_a(new SHeldItemChangePacket(this.field_147369_b.field_71071_by.field_70461_c));

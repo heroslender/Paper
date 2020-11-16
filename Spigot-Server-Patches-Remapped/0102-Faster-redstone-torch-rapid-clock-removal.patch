@@ -1,0 +1,98 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Martin Panzer <postremus1996@googlemail.com>
+Date: Mon, 23 May 2016 12:12:37 +0200
+Subject: [PATCH] Faster redstone torch rapid clock removal
+
+Only resize the the redstone torch list once, since resizing arrays / lists is costly
+
+diff --git a/src/main/java/net/minecraft/block/RedstoneTorchBlock.java b/src/main/java/net/minecraft/block/RedstoneTorchBlock.java
+index 365a13c601af1177ce73166397f85a3e4fd7dedd..edfd413c6fc823b154d25bfc9351dd7be85ab764 100644
+--- a/src/main/java/net/minecraft/block/RedstoneTorchBlock.java
++++ b/src/main/java/net/minecraft/block/RedstoneTorchBlock.java
+@@ -19,7 +19,7 @@ import org.bukkit.event.block.BlockRedstoneEvent; // CraftBukkit
+ public class RedstoneTorchBlock extends TorchBlock {
+ 
+     public static final BooleanProperty field_196528_a = BlockStateProperties.field_208190_q;
+-    private static final Map<IBlockReader, List<RedstoneTorchBlock.Toggle>> field_196529_b = new WeakHashMap();
++    // Paper - Move the mapped list to World
+ 
+     protected RedstoneTorchBlock(AbstractBlock.Properties blockbase_info) {
+         super(blockbase_info, RedstoneParticleData.field_197564_a);
+@@ -66,11 +66,15 @@ public class RedstoneTorchBlock extends TorchBlock {
+     @Override
+     public void func_225534_a_(BlockState p_225534_1_, ServerWorld p_225534_2_, BlockPos p_225534_3_, Random p_225534_4_) {
+         boolean flag = this.func_176597_g((World) p_225534_2_, p_225534_3_, p_225534_1_);
+-        List list = (List) RedstoneTorchBlock.field_196529_b.get(p_225534_2_);
+-
+-        while (list != null && !list.isEmpty() && p_225534_2_.func_82737_E() - ((RedstoneTorchBlock.Toggle) list.get(0)).field_150844_d > 60L) {
+-            list.remove(0);
++        // Paper start
++        java.util.ArrayDeque<RedstoneTorchBlock.Toggle> redstoneUpdateInfos = p_225534_2_.redstoneUpdateInfos;
++        if (redstoneUpdateInfos != null) {
++            RedstoneTorchBlock.Toggle curr;
++            while ((curr = redstoneUpdateInfos.peek()) != null && p_225534_2_.func_82737_E() - curr.getTime() > 60L) {
++                redstoneUpdateInfos.poll();
++            }
+         }
++        // Paper end
+ 
+         // CraftBukkit start
+         org.bukkit.plugin.PluginManager manager = p_225534_2_.getServer().getPluginManager();
+@@ -135,9 +139,12 @@ public class RedstoneTorchBlock extends TorchBlock {
+     }
+ 
+     private static boolean func_176598_a(World p_176598_0_, BlockPos p_176598_1_, boolean p_176598_2_) {
+-        List<RedstoneTorchBlock.Toggle> list = (List) RedstoneTorchBlock.field_196529_b.computeIfAbsent(p_176598_0_, (iblockaccess) -> {
+-            return Lists.newArrayList();
+-        });
++        // Paper start
++        java.util.ArrayDeque<RedstoneTorchBlock.Toggle> list = p_176598_0_.redstoneUpdateInfos;
++        if (list == null) {
++            list = p_176598_0_.redstoneUpdateInfos = new java.util.ArrayDeque<>();
++        }
++
+ 
+         if (p_176598_2_) {
+             list.add(new RedstoneTorchBlock.Toggle(p_176598_1_.func_185334_h(), p_176598_0_.func_82737_E()));
+@@ -145,9 +152,9 @@ public class RedstoneTorchBlock extends TorchBlock {
+ 
+         int i = 0;
+ 
+-        for (int j = 0; j < list.size(); ++j) {
+-            RedstoneTorchBlock.Toggle blockredstonetorch_redstoneupdateinfo = (RedstoneTorchBlock.Toggle) list.get(j);
+-
++        for (java.util.Iterator<RedstoneTorchBlock.Toggle> iterator = list.iterator(); iterator.hasNext();) {
++            RedstoneTorchBlock.Toggle blockredstonetorch_redstoneupdateinfo = iterator.next();
++            // Paper end
+             if (blockredstonetorch_redstoneupdateinfo.field_180111_a.equals(p_176598_1_)) {
+                 ++i;
+                 if (i >= 8) {
+@@ -162,7 +169,7 @@ public class RedstoneTorchBlock extends TorchBlock {
+     public static class Toggle {
+ 
+         private final BlockPos field_180111_a;
+-        private final long field_150844_d;
++        private final long field_150844_d; final long getTime() { return this.field_150844_d; } // Paper - OBFHELPER
+ 
+         public Toggle(BlockPos blockposition, long i) {
+             this.field_180111_a = blockposition;
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 37efdafeb62b6bb8f675a7d6891b876dde618823..6dbd8761604a57658c773c39dfbdb2d68ea6d0be 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -20,6 +20,7 @@ import net.minecraft.block.AbstractFireBlock;
+ import net.minecraft.block.Block;
+ import net.minecraft.block.BlockState;
+ import net.minecraft.block.Blocks;
++import net.minecraft.block.RedstoneTorchBlock;
+ import net.minecraft.crash.CrashReport;
+ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.crash.ReportedException;
+@@ -141,6 +142,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     private org.spigotmc.TickLimiter tileLimiter;
+     private int tileTickPosition;
+     public final Map<Explosion.CacheKey, Float> explosionDensityCache = new HashMap<>(); // Paper - Optimize explosions
++    public java.util.ArrayDeque<RedstoneTorchBlock.Toggle> redstoneUpdateInfos; // Paper - Move from Map in BlockRedstoneTorch to here
+ 
+     public CraftWorld getWorld() {
+         return this.world;

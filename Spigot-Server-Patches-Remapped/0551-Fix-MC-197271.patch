@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: ishland <ishlandmc@yeah.net>
+Date: Sun, 23 Aug 2020 10:57:44 +0200
+Subject: [PATCH] Fix MC-197271
+
+This patch only fixes an issue for servers running OpenJ9.
+
+diff --git a/src/main/java/net/minecraft/util/registry/WorldGenRegistries.java b/src/main/java/net/minecraft/util/registry/WorldGenRegistries.java
+index bc920cde9abef358bef9c1091b5b4cf3b602a3f6..ec365770213bde2dc2073bdaa1a80804e2861959 100644
+--- a/src/main/java/net/minecraft/util/registry/WorldGenRegistries.java
++++ b/src/main/java/net/minecraft/util/registry/WorldGenRegistries.java
+@@ -45,11 +45,11 @@ public class WorldGenRegistries {
+     public static final Registry<StructureProcessorList> field_243655_g = func_243667_a(Registry.field_243554_aw, () -> {
+         return ProcessorLists.field_244102_b;
+     });
+-    public static final Registry<JigsawPattern> field_243656_h = func_243667_a(Registry.field_243555_ax, JigsawPatternRegistry::func_244093_a);
++    public static final Registry<JigsawPattern> field_243656_h = func_243667_a(Registry.field_243555_ax, () -> JigsawPatternRegistry.func_244093_a()); // Paper - MC-197271
+     public static final Registry<Biome> field_243657_i = func_243667_a(Registry.field_239720_u_, () -> {
+         return BiomeRegistry.field_244200_a;
+     });
+-    public static final Registry<DimensionSettings> field_243658_j = func_243667_a(Registry.field_243549_ar, DimensionSettings::func_242746_i);
++    public static final Registry<DimensionSettings> field_243658_j = func_243667_a(Registry.field_243549_ar, () -> DimensionSettings.func_242746_i()); // Paper - MC-197271
+ 
+     private static <T> Registry<T> func_243667_a(RegistryKey<? extends Registry<T>> p_243667_0_, Supplier<T> p_243667_1_) {
+         return func_243665_a(p_243667_0_, Lifecycle.stable(), p_243667_1_);
+@@ -63,9 +63,9 @@ public class WorldGenRegistries {
+         ResourceLocation minecraftkey = p_243666_0_.func_240901_a_();
+ 
+         WorldGenRegistries.field_243659_k.put(minecraftkey, p_243666_2_);
+-        MutableRegistry<R> iregistrywritable = WorldGenRegistries.field_243660_l;
++        MutableRegistry<R> iregistrywritable = (MutableRegistry<R>) WorldGenRegistries.field_243660_l; // Paper - decompile fix
+ 
+-        return (MutableRegistry) iregistrywritable.func_218381_a(p_243666_0_, (Object) p_243666_1_, p_243666_3_);
++        return (R) iregistrywritable.func_218381_a((RegistryKey<R>) p_243666_0_, p_243666_1_, p_243666_3_); // Paper - decompile fix
+     }
+ 
+     public static <T> T func_243663_a(Registry<? super T> p_243663_0_, String p_243663_1_, T p_243663_2_) {
+@@ -73,11 +73,11 @@ public class WorldGenRegistries {
+     }
+ 
+     public static <V, T extends V> T func_243664_a(Registry<V> p_243664_0_, ResourceLocation p_243664_1_, T p_243664_2_) {
+-        return ((MutableRegistry) p_243664_0_).func_218381_a(RegistryKey.func_240903_a_(p_243664_0_.func_243578_f(), p_243664_1_), p_243664_2_, Lifecycle.stable());
++        return (T) ((MutableRegistry) p_243664_0_).func_218381_a(RegistryKey.func_240903_a_(p_243664_0_.func_243578_f(), p_243664_1_), p_243664_2_, Lifecycle.stable()); // Paper - decompile fix
+     }
+ 
+     public static <V, T extends V> T func_243662_a(Registry<V> p_243662_0_, int p_243662_1_, RegistryKey<V> p_243662_2_, T p_243662_3_) {
+-        return ((MutableRegistry) p_243662_0_).func_218382_a(p_243662_1_, p_243662_2_, p_243662_3_, Lifecycle.stable());
++        return (T) ((MutableRegistry) p_243662_0_).func_218382_a(p_243662_1_, p_243662_2_, p_243662_3_, Lifecycle.stable()); // Paper - decompile fix
+     }
+ 
+     public static void func_243661_a() {}

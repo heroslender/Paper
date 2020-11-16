@@ -1,0 +1,106 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Tassu <git@tassu.me>
+Date: Thu, 13 Sep 2018 08:45:21 +0300
+Subject: [PATCH] Implement furnace cook speed multiplier API
+
+Signed-off-by: Tassu <git@tassu.me>
+
+diff --git a/src/main/java/net/minecraft/tileentity/AbstractFurnaceTileEntity.java b/src/main/java/net/minecraft/tileentity/AbstractFurnaceTileEntity.java
+index 7d76b953f5ad0d76ad4c71b06d9c4c48066fa2cd..9cb32753a1a342d5aa53fb28761cdb0b41533a51 100644
+--- a/src/main/java/net/minecraft/tileentity/AbstractFurnaceTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/AbstractFurnaceTileEntity.java
+@@ -39,6 +39,7 @@ import net.minecraft.util.math.MathHelper;
+ import net.minecraft.util.math.vector.Vector3d;
+ import net.minecraft.world.World;
+ // CraftBukkit start
++import java.util.List;
+ import org.bukkit.craftbukkit.block.CraftBlock;
+ import org.bukkit.craftbukkit.entity.CraftHumanEntity;
+ import org.bukkit.craftbukkit.inventory.CraftItemStack;
+@@ -57,6 +58,7 @@ public abstract class AbstractFurnaceTileEntity extends LockableTileEntity imple
+     protected NonNullList<ItemStack> field_214012_a;
+     public int field_214018_j;
+     private int field_214019_k;
++    public double cookSpeedMultiplier = 1.0; // Paper - cook speed multiplier API
+     public int field_214020_l;
+     public int field_214021_m;
+     protected final IIntArray field_214013_b;
+@@ -257,6 +259,11 @@ public abstract class AbstractFurnaceTileEntity extends LockableTileEntity imple
+             this.field_214022_n.put(new ResourceLocation(s), nbttagcompound1.func_74762_e(s));
+         }
+ 
++        // Paper start - cook speed API
++        if (p_230337_2_.func_74764_b("Paper.CookSpeedMultiplier")) {
++            this.cookSpeedMultiplier = p_230337_2_.func_74769_h("Paper.CookSpeedMultiplier");
++        }
++        // Paper end
+     }
+ 
+     @Override
+@@ -265,6 +272,7 @@ public abstract class AbstractFurnaceTileEntity extends LockableTileEntity imple
+         p_189515_1_.func_74777_a("BurnTime", (short) this.field_214018_j);
+         p_189515_1_.func_74777_a("CookTime", (short) this.field_214020_l);
+         p_189515_1_.func_74777_a("CookTimeTotal", (short) this.field_214021_m);
++        p_189515_1_.func_74780_a("Paper.CookSpeedMultiplier", this.cookSpeedMultiplier); // Paper - cook speed multiplier API
+         ItemStackHelper.func_191282_a(p_189515_1_, this.field_214012_a);
+         CompoundNBT nbttagcompound1 = new CompoundNBT();
+ 
+@@ -324,8 +332,8 @@ public abstract class AbstractFurnaceTileEntity extends LockableTileEntity imple
+                 }
+ 
+                 if (this.func_214006_r() && this.func_214008_b(irecipe)) {
+-                    ++this.field_214020_l;
+-                    if (this.field_214020_l == this.field_214021_m) {
++                    this.field_214020_l += cookSpeedMultiplier; // Paper - cook speed multiplier API
++                    if (this.field_214020_l >= this.field_214021_m) { // Paper - cook speed multiplier API
+                         this.field_214020_l = 0;
+                         this.field_214021_m = this.func_214005_h();
+                         this.func_214007_c(irecipe);
+diff --git a/src/main/java/net/minecraft/world/biome/MobSpawnInfo.java b/src/main/java/net/minecraft/world/biome/MobSpawnInfo.java
+index 746f313824fa77dd95e76086c843db8d32140f7d..394604433df4f37b3af70d7240792a9fe5c0da6f 100644
+--- a/src/main/java/net/minecraft/world/biome/MobSpawnInfo.java
++++ b/src/main/java/net/minecraft/world/biome/MobSpawnInfo.java
+@@ -48,9 +48,9 @@ public class MobSpawnInfo {
+         });
+         // Paper - remove unused vars
+ 
+-        return instance.group(recordcodecbuilder, Codec.simpleMap(EntityClassification.field_233667_g_, net.minecraft.world.biome.MobSpawnInfo.cProxy.field_242587_b.listOf().promotePartial(Util.func_240982_a_("Spawn data: ", MobSpawnInfo.field_242550_a::error)), IStringSerializable.func_233025_a_(EntityClassification.values())).fieldOf("spawners").forGetter((biomesettingsmobs) -> { // Paper - inline codec, cProxy, LOGGER
++        return instance.group(recordcodecbuilder, Codec.simpleMap(EntityClassification.field_233667_g_, cProxy.field_242587_b.listOf().promotePartial(Util.func_240982_a_("Spawn data: ", MobSpawnInfo.field_242550_a::error)), IStringSerializable.func_233025_a_(EntityClassification.values())).fieldOf("spawners").forGetter((biomesettingsmobs) -> { // Paper - inline codec, cProxy, LOGGER
+             return biomesettingsmobs.field_242554_e;
+-        }), Codec.simpleMap(Registry.field_212629_r, net.minecraft.world.biome.MobSpawnInfo.bProxy.field_242579_a, Registry.field_212629_r).fieldOf("spawn_costs").forGetter((biomesettingsmobs) -> { // Paper - decompile error - bProxy
++        }), Codec.simpleMap(Registry.field_212629_r, bProxy.field_242579_a, Registry.field_212629_r).fieldOf("spawn_costs").forGetter((biomesettingsmobs) -> { // Paper - decompile error - bProxy
+             return biomesettingsmobs.field_242555_f;
+         }), Codec.BOOL.fieldOf("player_spawn_friendly").orElse(false).forGetter(MobSpawnInfo::func_242562_b)).apply(instance, MobSpawnInfo::new);
+     });
+@@ -119,7 +119,7 @@ public class MobSpawnInfo {
+         private final Map<EntityClassification, List<MobSpawnInfo.Spawners>> field_242567_a = (Map) Stream.of(EntityClassification.values()).collect(Maps.toImmutableEnumMap((enumcreaturetype) -> {
+             return enumcreaturetype;
+         }, (enumcreaturetype) -> {
+-            return new net.minecraft.world.biome.MobSpawnInfo.Builder.MobList(); // Use MobList instead of ArrayList
++            return new MobList(); // Use MobList instead of ArrayList
+         }));
+         // Paper end
+         private final Map<EntityType<?>, MobSpawnInfo.SpawnCosts> field_242568_b = Maps.newLinkedHashMap();
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftFurnace.java b/src/main/java/org/bukkit/craftbukkit/block/CraftFurnace.java
+index 6b71b7ccf9e4c062f32a4617a0f970520e280740..134b6bb79ca9df541ac77a6e1188b0155fe44d2b 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftFurnace.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftFurnace.java
+@@ -63,4 +63,18 @@ public abstract class CraftFurnace<T extends AbstractFurnaceTileEntity> extends
+     public void setCookTimeTotal(int cookTimeTotal) {
+         this.getSnapshot().field_214021_m = cookTimeTotal;
+     }
++
++    // Paper start - cook speed multiplier API
++    @Override
++    public double getCookSpeedMultiplier() {
++        return this.getSnapshot().cookSpeedMultiplier;
++    }
++
++    @Override
++    public void setCookSpeedMultiplier(double multiplier) {
++        com.google.common.base.Preconditions.checkArgument(multiplier >= 0, "Furnace speed multiplier cannot be negative");
++        com.google.common.base.Preconditions.checkArgument(multiplier <= 200, "Furnace speed multiplier cannot more than 200");
++        this.getSnapshot().cookSpeedMultiplier = multiplier;
++    }
++    // Paper end
+ }

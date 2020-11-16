@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kickash32 <kickash32@gmail.com>
+Date: Mon, 19 Aug 2019 19:42:35 +0500
+Subject: [PATCH] Prevent consuming the wrong itemstack
+
+
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 29344eff3be3a66230d22335a242dc6647843d34..31bc8de3f5d4fc36b52156993c0aca8cf38853a1 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -3186,15 +3186,18 @@ public abstract class LivingEntity extends Entity {
+         this.field_70180_af.func_187227_b(LivingEntity.field_184621_as, (byte) j);
+     }
+ 
+-    public void func_184598_c(Hand p_184598_1_) {
+-        ItemStack itemstack = this.func_184586_b(p_184598_1_);
++    // Paper start -- OBFHELPER and forwarder to method with forceUpdate parameter
++    public void func_184598_c(Hand p_184598_1_) { this.updateActiveItem(p_184598_1_, false); }
++    public void updateActiveItem(Hand enumhand, boolean forceUpdate) {
++    // Paper end
++        ItemStack itemstack = this.func_184586_b(enumhand);
+ 
+-        if (!itemstack.func_190926_b() && !this.func_184587_cr()) {
++        if (!itemstack.func_190926_b() && !this.func_184587_cr() || forceUpdate) { // Paper use override flag
+             this.field_184627_bm = itemstack;
+             this.field_184628_bn = itemstack.func_77988_m();
+             if (!this.field_70170_p.field_72995_K) {
+                 this.func_204802_c(1, true);
+-                this.func_204802_c(2, p_184598_1_ == Hand.OFF_HAND);
++                this.func_204802_c(2, enumhand == Hand.OFF_HAND);
+             }
+ 
+         }
+@@ -3267,6 +3270,7 @@ public abstract class LivingEntity extends Entity {
+             this.func_184597_cx();
+         } else {
+             if (!this.field_184627_bm.func_190926_b() && this.func_184587_cr()) {
++                this.updateActiveItem(this.func_184600_cs(), true); // Paper
+                 this.func_226293_b_(this.field_184627_bm, 16);
+                 // CraftBukkit start - fire PlayerItemConsumeEvent
+                 ItemStack itemstack;
+@@ -3301,8 +3305,8 @@ public abstract class LivingEntity extends Entity {
+                 }
+ 
+                 this.func_184602_cy();
+-                // Paper start - if the replacement is anything but the default, update the client inventory
+-                if (this instanceof ServerPlayerEntity && !com.google.common.base.Objects.equal(defaultReplacement, itemstack)) {
++                // Paper start
++                if (this instanceof ServerPlayerEntity) {
+                     ((ServerPlayerEntity) this).getBukkitEntity().updateInventory();
+                 }
+                 // Paper end

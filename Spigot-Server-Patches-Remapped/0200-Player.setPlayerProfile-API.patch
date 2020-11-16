@@ -1,0 +1,134 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 18 Mar 2018 12:29:48 -0400
+Subject: [PATCH] Player.setPlayerProfile API
+
+This can be useful for changing name or skins after a player has logged in.
+
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 7432cc25075499dbd171a2702425270924556099..1b6771d23ac566251fce8fa403e8471b21e425b1 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -159,7 +159,7 @@ public abstract class PlayerEntity extends LivingEntity {
+     protected int field_175152_f;
+     protected final float field_71102_ce = 0.02F;
+     private int field_82249_h;
+-    private final GameProfile field_146106_i;
++    private GameProfile field_146106_i; public final void setProfile(final GameProfile profile) { this.field_146106_i = profile; } // Paper - OBFHELPER
+     private ItemStack field_184831_bT;
+     private final CooldownTracker field_184832_bU;
+     @Nullable
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index 38031d94c7a738d177ba27671f187d49fd8e32b2..77fa8e7981cee507aae7ce884f6d8e2400a61d63 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -53,7 +53,7 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+     public final NetworkManager field_147333_a;
+     private ServerLoginNetHandler.State field_147328_g;
+     private int field_147336_h;
+-    private GameProfile field_147337_i;
++    private GameProfile field_147337_i; private void setGameProfile(final GameProfile profile) { this.field_147337_i = profile; } private GameProfile getGameProfile() { return this.field_147337_i; } // Paper - OBFHELPER
+     private final String field_147334_j;
+     private SecretKey field_147335_k;
+     private ServerPlayerEntity field_181025_l;
+@@ -316,12 +316,12 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+                         final org.bukkit.craftbukkit.CraftServer server = ServerLoginNetHandler.this.field_147327_f.server;
+ 
+                             // Paper start
+-                            PlayerProfile profile = Bukkit.createProfile(uniqueId, playerName);
++                            PlayerProfile profile = CraftPlayerProfile.asBukkitMirror(getGameProfile());
+                             AsyncPlayerPreLoginEvent asyncEvent = new AsyncPlayerPreLoginEvent(playerName, address, uniqueId, profile);
+                         server.getPluginManager().callEvent(asyncEvent);
+                             profile = asyncEvent.getPlayerProfile();
+-                            profile.complete();
+-                            field_147337_i = CraftPlayerProfile.asAuthlibCopy(profile);
++                            profile.complete(true);
++                            setGameProfile(CraftPlayerProfile.asAuthlib(profile));
+                             playerName = field_147337_i.getName();
+                             uniqueId = field_147337_i.getId();
+                             // Paper end
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+index 63575101274887dbd8040f7bbcf5efd9a314ffd1..19b1ef83f3b1c721d3c3f48998989addf41bd1b2 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
+@@ -1255,8 +1255,13 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+         hiddenPlayers.put(player.getUniqueId(), hidingPlugins);
+ 
+         // Remove this player from the hidden player's EntityTrackerEntry
+-        ChunkManager tracker = ((ServerWorld) entity.field_70170_p).func_72863_F().field_217237_a;
++        // Paper start
+         ServerPlayerEntity other = ((CraftPlayer) player).getHandle();
++        unregisterPlayer(other);
++    }
++    private void unregisterPlayer(ServerPlayerEntity other) {
++        ChunkManager tracker = ((ServerWorld) entity.field_70170_p).func_72863_F().field_217237_a;
++        // Paper end
+         ChunkManager.EntityTracker entry = tracker.field_219272_z.get(other.func_145782_y());
+         if (entry != null) {
+             entry.func_219399_a(getHandle());
+@@ -1297,8 +1302,13 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+         }
+         hiddenPlayers.remove(player.getUniqueId());
+ 
+-        ChunkManager tracker = ((ServerWorld) entity.field_70170_p).func_72863_F().field_217237_a;
++        // Paper start
+         ServerPlayerEntity other = ((CraftPlayer) player).getHandle();
++        registerPlayer(other);
++    }
++    private void registerPlayer(ServerPlayerEntity other) {
++        ChunkManager tracker = ((ServerWorld) entity.field_70170_p).func_72863_F().field_217237_a;
++        // Paper end
+ 
+         getHandle().field_71135_a.func_147359_a(new SPlayerListItemPacket(SPlayerListItemPacket.Action.ADD_PLAYER, other));
+ 
+@@ -1307,6 +1317,50 @@ public class CraftPlayer extends CraftHumanEntity implements Player {
+             entry.func_219400_b(getHandle());
+         }
+     }
++    // Paper start
++    private void reregisterPlayer(ServerPlayerEntity player) {
++        if (!hiddenPlayers.containsKey(player.func_110124_au())) {
++            unregisterPlayer(player);
++            registerPlayer(player);
++        }
++    }
++    public void setPlayerProfile(com.destroystokyo.paper.profile.PlayerProfile profile) {
++        ServerPlayerEntity self = getHandle();
++        self.setProfile(com.destroystokyo.paper.profile.CraftPlayerProfile.asAuthlibCopy(profile));
++        if (!self.sentListPacket) {
++            return;
++        }
++        List<ServerPlayerEntity> players = server.getServer().func_184103_al().field_72404_b;
++        for (ServerPlayerEntity player : players) {
++            player.getBukkitEntity().reregisterPlayer(self);
++        }
++        refreshPlayer();
++    }
++    public com.destroystokyo.paper.profile.PlayerProfile getPlayerProfile() {
++        return new com.destroystokyo.paper.profile.CraftPlayerProfile(this).clone();
++    }
++
++    private void refreshPlayer() {
++        ServerPlayerEntity handle = getHandle();
++
++        Location loc = getLocation();
++
++        ServerPlayNetHandler connection = handle.field_71135_a;
++        reregisterPlayer(handle);
++
++        //Respawn the player then update their position and selected slot
++        ServerWorld worldserver = handle.func_71121_q();
++        connection.func_147359_a(new net.minecraft.network.play.server.SRespawnPacket(worldserver.func_230315_m_(), worldserver.func_234923_W_(), net.minecraft.world.biome.BiomeManager.func_235200_a_(worldserver.func_72905_C()), handle.field_71134_c.func_73081_b(), handle.field_71134_c.func_241815_c_(), worldserver.func_234925_Z_(), worldserver.func_241109_A_(), true));
++        handle.func_71016_p();
++        connection.func_147359_a(new net.minecraft.network.play.server.SPlayerPositionLookPacket(loc.getX(), loc.getY(), loc.getZ(), loc.getYaw(), loc.getPitch(), new HashSet<>(), 0));
++        net.minecraft.server.MinecraftServer.getServer().func_184103_al().func_72385_f(handle);
++
++        if (this.isOp()) {
++            this.setOp(false);
++            this.setOp(true);
++        }
++    }
++    // Paper end
+ 
+     public void removeDisconnectingPlayer(Player player) {
+         hiddenPlayers.remove(player.getUniqueId());

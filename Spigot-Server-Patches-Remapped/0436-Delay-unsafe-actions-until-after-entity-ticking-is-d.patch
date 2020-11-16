@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 11 Apr 2020 21:23:42 -0400
+Subject: [PATCH] Delay unsafe actions until after entity ticking is done
+
+This will help prevent many cases of unregistering entities during entity ticking
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index a6e5f21a188e3207007647a994915e7a37010e2a..427974cd5658d88b4d2bbf85571c05ccfb123b56 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -173,6 +173,16 @@ public class ServerWorld extends World implements ISeedReader {
+     public final List<ServerPlayerEntity> field_217491_A = Lists.newArrayList(); // Paper - private -> public
+     public final ServerChunkProvider field_241102_C_; // Paper - public
+     boolean field_217492_a;
++    // Paper start
++    List<java.lang.Runnable> afterEntityTickingTasks = Lists.newArrayList();
++    public void doIfNotEntityTicking(java.lang.Runnable run) {
++        if (field_217492_a) {
++            afterEntityTickingTasks.add(run);
++        } else {
++            run.run();
++        }
++    }
++    // Paper end
+     private final MinecraftServer field_73061_a;
+     public final ServerWorldInfo field_241103_E_; // CraftBukkit - type
+     public boolean field_73058_d;
+@@ -640,6 +650,16 @@ public class ServerWorld extends World implements ISeedReader {
+             timings.entityTick.stopTiming(); // Spigot
+ 
+             this.field_217492_a = false;
++            // Paper start
++            for (java.lang.Runnable run : this.afterEntityTickingTasks) {
++                try {
++                    run.run();
++                } catch (Exception e) {
++                    field_147491_a.error("Error in After Entity Ticking Task", e);
++                }
++            }
++            this.afterEntityTickingTasks.clear();
++            // Paper end
+             this.func_73046_m().midTickLoadChunks(); // Paper
+ 
+             Entity entity2;

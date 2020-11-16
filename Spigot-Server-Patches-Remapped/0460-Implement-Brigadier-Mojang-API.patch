@@ -1,0 +1,139 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 19 Apr 2020 18:15:29 -0400
+Subject: [PATCH] Implement Brigadier Mojang API
+
+Adds AsyncPlayerSendCommandsEvent
+  - Allows modifying on a per command basis what command data they see.
+
+Adds CommandRegisteredEvent
+  - Allows manipulating the CommandNode to add more children/metadata for the client
+
+diff --git a/src/main/java/net/minecraft/command/CommandSource.java b/src/main/java/net/minecraft/command/CommandSource.java
+index 6d6c83d916175cea344873ae3b4b3ee20afc7077..b23e8a83caa13e582a072001aa46b4020ce21480 100644
+--- a/src/main/java/net/minecraft/command/CommandSource.java
++++ b/src/main/java/net/minecraft/command/CommandSource.java
+@@ -37,7 +37,7 @@ import net.minecraft.world.GameRules;
+ import net.minecraft.world.World;
+ import net.minecraft.world.server.ServerWorld;
+ 
+-public class CommandSource implements ISuggestionProvider {
++public class CommandSource implements ISuggestionProvider, com.destroystokyo.paper.brigadier.BukkitBrigadierCommandSource { // Paper
+ 
+     public static final SimpleCommandExceptionType field_197039_a = new SimpleCommandExceptionType(new TranslationTextComponent("permissions.requires.player"));
+     public static final SimpleCommandExceptionType field_197040_b = new SimpleCommandExceptionType(new TranslationTextComponent("permissions.requires.entity"));
+@@ -149,6 +149,25 @@ public class CommandSource implements ISuggestionProvider {
+         return this.field_197045_g;
+     }
+ 
++    // Paper start
++    @Override
++    public org.bukkit.entity.Entity getBukkitEntity() {
++        return func_197022_f() != null ? func_197022_f().getBukkitEntity() : null;
++    }
++
++    @Override
++    public org.bukkit.World getBukkitWorld() {
++        return func_197023_e() != null ? func_197023_e().getWorld() : null;
++    }
++
++    @Override
++    public org.bukkit.Location getBukkitLocation() {
++        Vector3d pos = func_197036_d();
++        org.bukkit.World world = getBukkitWorld();
++        return world != null && pos != null ? new org.bukkit.Location(world, pos.field_72450_a, pos.field_72448_b, pos.field_72449_c) : null;
++    }
++    // Paper end
++
+     @Override
+     public boolean func_197034_c(int p_197034_1_) {
+         // CraftBukkit start
+diff --git a/src/main/java/net/minecraft/command/Commands.java b/src/main/java/net/minecraft/command/Commands.java
+index 02ae08de5fc0525f9f4ecc1d3be50edfb4e1a1d7..c81ac99303c2a719268cd725d4466478fcb46f42 100644
+--- a/src/main/java/net/minecraft/command/Commands.java
++++ b/src/main/java/net/minecraft/command/Commands.java
+@@ -354,6 +354,7 @@ public class Commands {
+             bukkit.add(node.getName());
+         }
+         // Paper start - Async command map building
++        new com.destroystokyo.paper.event.brigadier.AsyncPlayerSendCommandsEvent<CommandSource>(entityplayer.getBukkitEntity(), (RootCommandNode) rootcommandnode, false).callEvent(); // Paper
+         MinecraftServer.getServer().execute(() -> {
+            runSync(entityplayer, bukkit, rootcommandnode);
+         });
+@@ -361,6 +362,7 @@ public class Commands {
+ 
+     private void runSync(ServerPlayerEntity entityplayer, Collection<String> bukkit, RootCommandNode<ISuggestionProvider> rootcommandnode) {
+         // Paper end - Async command map building
++        new com.destroystokyo.paper.event.brigadier.AsyncPlayerSendCommandsEvent<CommandSource>(entityplayer.getBukkitEntity(), (RootCommandNode) rootcommandnode, false).callEvent(); // Paper
+         PlayerCommandSendEvent event = new PlayerCommandSendEvent(entityplayer.getBukkitEntity(), new LinkedHashSet<>(bukkit));
+         event.getPlayer().getServer().getPluginManager().callEvent(event);
+ 
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 3a4a5d2c174c495e542d187eb4ac628dfe1a4ef1..ccd25be77cb46c4fbd382d9b0b9e22df5c0466db 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -766,8 +766,12 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                     ParseResults<CommandSource> parseresults = this.field_147367_d.func_195571_aL().func_197054_a().parse(stringreader, this.field_147369_b.func_195051_bN());
+ 
+                     this.field_147367_d.func_195571_aL().func_197054_a().getCompletionSuggestions(parseresults).thenAccept((suggestions) -> {
+-                        if (suggestions.isEmpty()) return; // CraftBukkit - don't send through empty suggestions - prevents [<args>] from showing for plugins with nothing more to offer
+-                        this.field_147371_a.func_179290_a(new STabCompletePacket(p_195518_1_.func_197709_a(), suggestions));
++                        // Paper start
++                        com.destroystokyo.paper.event.brigadier.AsyncPlayerSendSuggestionsEvent suggestEvent = new com.destroystokyo.paper.event.brigadier.AsyncPlayerSendSuggestionsEvent(this.getPlayer(), suggestions, buffer);
++                        suggestEvent.setCancelled(suggestions.isEmpty());
++                        if (!suggestEvent.callEvent()) return;
++                        this.field_147371_a.func_179290_a(new STabCompletePacket(p_195518_1_.func_197709_a(), (com.mojang.brigadier.suggestion.Suggestions) suggestEvent.getSuggestions())); // CraftBukkit - decompile error // Paper
++                        // Paper end
+                     });
+                 });
+             }
+@@ -776,7 +780,11 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+             builder = builder.createOffset(builder.getInput().lastIndexOf(' ') + 1);
+             completions.forEach(builder::suggest);
+-            field_147369_b.field_71135_a.func_147359_a(new STabCompletePacket(p_195518_1_.func_197709_a(), builder.buildFuture().join()));
++            com.mojang.brigadier.suggestion.Suggestions suggestions = builder.buildFuture().join();
++            com.destroystokyo.paper.event.brigadier.AsyncPlayerSendSuggestionsEvent suggestEvent = new com.destroystokyo.paper.event.brigadier.AsyncPlayerSendSuggestionsEvent(this.getPlayer(), suggestions, buffer);
++            suggestEvent.setCancelled(suggestions.isEmpty());
++            if (!suggestEvent.callEvent()) return;
++            this.field_147371_a.func_179290_a(new STabCompletePacket(p_195518_1_.func_197709_a(), suggestEvent.getSuggestions()));
+         }
+         // Paper end - async tab completion
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/command/BukkitCommandWrapper.java b/src/main/java/org/bukkit/craftbukkit/command/BukkitCommandWrapper.java
+index 1b954ae6520b656f02408003b29d3a7b4bfb16f7..fc8620e73ce5921e7de653b48c8f4067236ce9a4 100644
+--- a/src/main/java/org/bukkit/craftbukkit/command/BukkitCommandWrapper.java
++++ b/src/main/java/org/bukkit/craftbukkit/command/BukkitCommandWrapper.java
+@@ -17,7 +17,7 @@ import net.minecraft.command.CommandSource;
+ import org.bukkit.command.Command;
+ import org.bukkit.craftbukkit.CraftServer;
+ 
+-public class BukkitCommandWrapper implements com.mojang.brigadier.Command<CommandSource>, Predicate<CommandSource>, SuggestionProvider<CommandSource> {
++public class BukkitCommandWrapper implements com.mojang.brigadier.Command<CommandSource>, Predicate<CommandSource>, SuggestionProvider<CommandSource>, com.destroystokyo.paper.brigadier.BukkitBrigadierCommand<CommandSource> { // Paper
+ 
+     private final CraftServer server;
+     private final Command command;
+@@ -28,10 +28,19 @@ public class BukkitCommandWrapper implements com.mojang.brigadier.Command<Comman
+     }
+ 
+     public LiteralCommandNode<CommandSource> register(CommandDispatcher<CommandSource> dispatcher, String label) {
+-        return dispatcher.register(
+-                LiteralArgumentBuilder.<CommandSource>literal(label).requires(this).executes(this)
+-                .then(RequiredArgumentBuilder.<CommandSource, String>argument("args", StringArgumentType.greedyString()).suggests(this).executes(this))
+-        );
++        // Paper start - Expose Brigadier to Paper-MojangAPI
++        com.mojang.brigadier.tree.RootCommandNode<CommandSource> root = dispatcher.getRoot();
++        LiteralCommandNode<CommandSource> literal = LiteralArgumentBuilder.<CommandSource>literal(label).requires(this).executes(this).build();
++        com.mojang.brigadier.tree.ArgumentCommandNode<CommandSource, String> defaultArgs = RequiredArgumentBuilder.<CommandSource, String>argument("args", StringArgumentType.greedyString()).suggests(this).executes(this).build();
++        literal.addChild(defaultArgs);
++        com.destroystokyo.paper.event.brigadier.CommandRegisteredEvent<CommandSource> event = new com.destroystokyo.paper.event.brigadier.CommandRegisteredEvent<>(label, this, this.command, root, literal, defaultArgs);
++        if (!event.callEvent()) {
++            return null;
++        }
++        literal = event.getLiteral();
++        root.addChild(literal);
++        return literal;
++        // Paper end
+     }
+ 
+     @Override

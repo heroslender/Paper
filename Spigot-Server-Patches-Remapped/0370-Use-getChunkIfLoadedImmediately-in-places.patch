@@ -1,0 +1,171 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Mon, 8 Jul 2019 00:13:36 -0700
+Subject: [PATCH] Use getChunkIfLoadedImmediately in places
+
+This prevents us from hitting chunk loads for chunks at or less-than
+ticket level 33 (yes getChunkIfLoaded will actually perform a chunk
+load in that case).
+
+diff --git a/src/main/java/com/destroystokyo/paper/io/PaperFileIOThread.java b/src/main/java/com/destroystokyo/paper/io/PaperFileIOThread.java
+index 0edefd6322b57efa2efca28d5009f5d89c6f0e40..404d14c9dfc8589284b5865320b20ec9416cbda2 100644
+--- a/src/main/java/com/destroystokyo/paper/io/PaperFileIOThread.java
++++ b/src/main/java/com/destroystokyo/paper/io/PaperFileIOThread.java
+@@ -6,7 +6,7 @@ import net.minecraft.util.math.ChunkPos;
+ import net.minecraft.world.chunk.storage.RegionFile;
+ import net.minecraft.world.server.ServerWorld;
+ import org.apache.logging.log4j.Logger;
+-import com.destroystokyo.paper.io.PaperFileIOThread.GeneralTask;
++
+ import java.io.IOException;
+ import java.util.concurrent.CompletableFuture;
+ import java.util.concurrent.ConcurrentHashMap;
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index bc79e4b83237f284d8c4d5dd74fcf3139b17c19d..e4f9ed78921b6d2e474b10cce3ad1419a57b3207 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1230,7 +1230,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                                 speed = field_147369_b.field_71075_bZ.field_75097_g * 10f;
+                             }
+                             // Paper start - Prevent moving into unloaded chunks
+-                            if (field_147369_b.field_70170_p.paperConfig.preventMovingIntoUnloadedChunks && (this.field_147369_b.func_226277_ct_() != toX || this.field_147369_b.func_226281_cx_() != toZ) && !worldserver.func_217354_b((int) Math.floor(toX) >> 4, (int) Math.floor(toZ) >> 4)) {
++                            if (field_147369_b.field_70170_p.paperConfig.preventMovingIntoUnloadedChunks && (this.field_147369_b.func_226277_ct_() != toX || this.field_147369_b.func_226281_cx_() != toZ) && worldserver.getChunkIfLoadedImmediately((int) Math.floor(toX) >> 4, (int) Math.floor(toZ) >> 4) == null) { // Paper - use getIfLoadedImmediately
+                                 this.internalTeleport(this.field_147369_b.func_226277_ct_(), this.field_147369_b.func_226278_cu_(), this.field_147369_b.func_226281_cx_(), this.field_147369_b.field_70177_z, this.field_147369_b.field_70125_A, Collections.emptySet());
+                                 return;
+                             }
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 7d6d5ba9878af857d2092b3d3721338ee9f42ccb..fb5212e0c9c4a795422e690a2b971da09ba39726 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -163,6 +163,13 @@ public abstract class World implements IWorld, AutoCloseable {
+         return (CraftServer) Bukkit.getServer();
+     }
+ 
++    // Paper start
++    @Override
++    public boolean func_217354_b(int p_217354_1_, int p_217354_2_) {
++        return ((ServerWorld)this).getChunkIfLoaded(p_217354_1_, p_217354_2_) != null;
++    }
++    // Paper end
++
+     public RegistryKey<DimensionType> getTypeKey() {
+         return typeKey;
+     }
+@@ -1061,14 +1068,14 @@ public abstract class World implements IWorld, AutoCloseable {
+     }
+ 
+     public boolean func_195588_v(BlockPos p_195588_1_) {
+-        return func_189509_E(p_195588_1_) ? false : this.func_72863_F().func_73149_a(p_195588_1_.func_177958_n() >> 4, p_195588_1_.func_177952_p() >> 4);
++        return func_189509_E(p_195588_1_) ? false : func_217354_b(p_195588_1_.func_177958_n() >> 4, p_195588_1_.func_177952_p() >> 4); // Paper
+     }
+ 
+     public boolean func_234929_a_(BlockPos p_234929_1_, Entity p_234929_2_, Direction p_234929_3_) {
+         if (func_189509_E(p_234929_1_)) {
+             return false;
+         } else {
+-            IChunk ichunkaccess = this.func_217353_a(p_234929_1_.func_177958_n() >> 4, p_234929_1_.func_177952_p() >> 4, ChunkStatus.field_222617_m, false);
++            IChunk ichunkaccess = this.getChunkIfLoadedImmediately(p_234929_1_.func_177958_n() >> 4, p_234929_1_.func_177952_p() >> 4); // Paper
+ 
+             return ichunkaccess == null ? false : ichunkaccess.func_180495_p(p_234929_1_).func_215682_a((IBlockReader) this, p_234929_1_, p_234929_2_, p_234929_3_);
+         }
+@@ -1189,7 +1196,7 @@ public abstract class World implements IWorld, AutoCloseable {
+ 
+         for (int i1 = i; i1 < j; ++i1) {
+             for (int j1 = k; j1 < l; ++j1) {
+-                Chunk chunk = ichunkprovider.func_225313_a(i1, j1);
++                Chunk chunk = (Chunk)this.getChunkIfLoadedImmediately(i1, j1); // Paper
+ 
+                 if (chunk != null) {
+                     chunk.func_177430_a(p_225316_1_, p_225316_2_, list, p_225316_3_);
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+index bcebae34d3bfd81df2c66ba6a6e2f636036c36eb..f25daa85d28075398e49d10cf92a99705a645b8d 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+@@ -83,12 +83,12 @@ public class ChunkSerializer {
+     }
+ 
+     public static ChunkPrimer func_222656_a(ServerWorld p_222656_0_, TemplateManager p_222656_1_, PointOfInterestManager p_222656_2_, ChunkPos p_222656_3_, CompoundNBT p_222656_4_) {
+-        net.minecraft.world.chunk.storage.ChunkSerializer.InProgressChunkHolder holder = loadChunk(p_222656_0_, p_222656_1_, p_222656_2_, p_222656_3_, p_222656_4_, true);
++        InProgressChunkHolder holder = loadChunk(p_222656_0_, p_222656_1_, p_222656_2_, p_222656_3_, p_222656_4_, true);
+         holder.tasks.forEach(Runnable::run);
+         return holder.protoChunk;
+     }
+ 
+-    public static net.minecraft.world.chunk.storage.ChunkSerializer.InProgressChunkHolder loadChunk(ServerWorld worldserver, TemplateManager definedstructuremanager, PointOfInterestManager villageplace, ChunkPos chunkcoordintpair, CompoundNBT nbttagcompound, boolean distinguish) {
++    public static InProgressChunkHolder loadChunk(ServerWorld worldserver, TemplateManager definedstructuremanager, PointOfInterestManager villageplace, ChunkPos chunkcoordintpair, CompoundNBT nbttagcompound, boolean distinguish) {
+         ArrayDeque<Runnable> tasksToExecuteOnMain = new ArrayDeque<>();
+         // Paper end
+         ChunkGenerator chunkgenerator = worldserver.func_72863_F().func_201711_g();
+@@ -265,7 +265,7 @@ public class ChunkSerializer {
+         }
+ 
+         if (chunkstatus_type == ChunkStatus.Type.LEVELCHUNK) {
+-            return new net.minecraft.world.chunk.storage.ChunkSerializer.InProgressChunkHolder(new ChunkPrimerWrapper((Chunk) object), tasksToExecuteOnMain); // Paper - Async chunk loading
++            return new InProgressChunkHolder(new ChunkPrimerWrapper((Chunk) object), tasksToExecuteOnMain); // Paper - Async chunk loading
+         } else {
+             ChunkPrimer protochunk1 = (ChunkPrimer) object;
+ 
+@@ -304,7 +304,7 @@ public class ChunkSerializer {
+                 protochunk1.func_205767_a(worldgenstage_features, BitSet.valueOf(nbttagcompound5.func_74770_j(s1)));
+             }
+ 
+-            return new net.minecraft.world.chunk.storage.ChunkSerializer.InProgressChunkHolder(protochunk1, tasksToExecuteOnMain); // Paper - Async chunk loading
++            return new InProgressChunkHolder(protochunk1, tasksToExecuteOnMain); // Paper - Async chunk loading
+         }
+     }
+ 
+@@ -329,7 +329,7 @@ public class ChunkSerializer {
+     }
+ 
+     // must be called sync
+-    public static net.minecraft.world.chunk.storage.ChunkSerializer.AsyncSaveData getAsyncSaveData(ServerWorld world, IChunk chunk) {
++    public static AsyncSaveData getAsyncSaveData(ServerWorld world, IChunk chunk) {
+         org.spigotmc.AsyncCatcher.catchOp("preparation of chunk data for async save");
+         ChunkPos chunkPos = chunk.func_76632_l();
+ 
+@@ -373,13 +373,13 @@ public class ChunkSerializer {
+             fluidTickListSerialized = world.func_205219_F_().func_219503_a(chunkPos);
+         }
+ 
+-        return new net.minecraft.world.chunk.storage.ChunkSerializer.AsyncSaveData(blockLight, skyLight, blockTickListSerialized, fluidTickListSerialized, world.func_82737_E());
++        return new AsyncSaveData(blockLight, skyLight, blockTickListSerialized, fluidTickListSerialized, world.func_82737_E());
+     }
+ 
+     public static CompoundNBT func_222645_a(ServerWorld p_222645_0_, IChunk p_222645_1_) {
+         return saveChunk(p_222645_0_, p_222645_1_, null);
+     }
+-    public static CompoundNBT saveChunk(ServerWorld worldserver, IChunk ichunkaccess, net.minecraft.world.chunk.storage.ChunkSerializer.AsyncSaveData asyncsavedata) {
++    public static CompoundNBT saveChunk(ServerWorld worldserver, IChunk ichunkaccess, AsyncSaveData asyncsavedata) {
+         // Paper end
+         ChunkPos chunkcoordintpair = ichunkaccess.func_76632_l();
+         CompoundNBT nbttagcompound = new CompoundNBT();
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 505bec05bd8c8f3273481fb175a8fd898a0749a5..eb23998c7b80f35daab8faa0880016b5ab48e43c 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -202,7 +202,7 @@ public class ServerWorld extends World implements ISeedReader {
+     }
+ 
+     @Override public Chunk getChunkIfLoaded(int x, int z) { // Paper - this was added in world too but keeping here for NMS ABI
+-        return this.field_241102_C_.func_217205_a(x, z, false);
++        return this.field_241102_C_.getChunkAtIfLoadedImmediately(x, z); // Paper
+     }
+ 
+     // Paper start - Asynchronous IO
+diff --git a/src/main/java/org/spigotmc/ActivationRange.java b/src/main/java/org/spigotmc/ActivationRange.java
+index a8cacc64f88b85e7b7c06e9235d3c6476b1833fd..b137afe740d8637bc3208e0c5c126a5e7374f177 100644
+--- a/src/main/java/org/spigotmc/ActivationRange.java
++++ b/src/main/java/org/spigotmc/ActivationRange.java
+@@ -142,9 +142,10 @@ public class ActivationRange
+             {
+                 for ( int j1 = k; j1 <= l; ++j1 )
+                 {
+-                    if ( world.getWorld().isChunkLoaded( i1, j1 ) )
++                    Chunk chunk = (Chunk) world.getChunkIfLoadedImmediately( i1, j1 );
++                    if ( chunk != null )
+                     {
+-                        activateChunkEntities( world.func_212866_a_( i1, j1 ) );
++                        activateChunkEntities( chunk );
+                     }
+                 }
+             }

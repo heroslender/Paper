@@ -1,0 +1,81 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: JRoy <joshroy126@gmail.com>
+Date: Wed, 26 Aug 2020 02:12:31 -0400
+Subject: [PATCH] Add additional open container api to HumanEntity
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
+index aa04beff8d4242e77a5a72f3b7de8c55d6bb06d7..58a5b8f583d557fbed4bc931b688321936cc937e 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftHumanEntity.java
+@@ -449,6 +449,70 @@ public class CraftHumanEntity extends CraftLivingEntity implements HumanEntity {
+         return this.getHandle().field_71070_bA.getBukkitView();
+     }
+ 
++    // Paper start - Add additional containers
++    @Override
++    public InventoryView openAnvil(Location location, boolean force) {
++        return openInventory(location, force, Material.ANVIL);
++    }
++
++    @Override
++    public InventoryView openCartographyTable(Location location, boolean force) {
++        return openInventory(location, force, Material.CARTOGRAPHY_TABLE);
++    }
++
++    @Override
++    public InventoryView openGrindstone(Location location, boolean force) {
++        return openInventory(location, force, Material.GRINDSTONE);
++    }
++
++    @Override
++    public InventoryView openLoom(Location location, boolean force) {
++        return openInventory(location, force, Material.LOOM);
++    }
++
++    @Override
++    public InventoryView openSmithingTable(Location location, boolean force) {
++        return openInventory(location, force, Material.SMITHING_TABLE);
++    }
++
++    @Override
++    public InventoryView openStonecutter(Location location, boolean force) {
++        return openInventory(location, force, Material.STONECUTTER);
++    }
++
++    private InventoryView openInventory(Location location, boolean force, Material material) {
++        org.spigotmc.AsyncCatcher.catchOp("open" + material);
++        if (location == null) {
++            location = getLocation();
++        }
++        if (!force) {
++            Block block = location.getBlock();
++            if (block.getType() != material) {
++                return null;
++            }
++        }
++        net.minecraft.block.Block block;
++        if (material == Material.ANVIL) {
++            block = Blocks.field_150467_bQ;
++        } else if (material == Material.CARTOGRAPHY_TABLE) {
++            block = Blocks.field_222425_lN;
++        } else if (material == Material.GRINDSTONE) {
++            block = Blocks.field_222427_lP;
++        } else if (material == Material.LOOM) {
++            block = Blocks.field_222421_lJ;
++        } else if (material == Material.SMITHING_TABLE) {
++            block = Blocks.field_222429_lR;
++        } else if (material == Material.STONECUTTER) {
++            block = Blocks.field_222430_lS;
++        } else {
++            throw new IllegalArgumentException("Unsupported inventory type: " + material);
++        }
++        getHandle().func_213829_a(block.func_220052_b(null, getHandle().field_70170_p, new BlockPos(location.getBlockX(), location.getBlockY(), location.getBlockZ())));
++        getHandle().field_71070_bA.checkReachable = !force;
++        return getHandle().field_71070_bA.getBukkitView();
++    }
++    // Paper end
++
+     @Override
+     public void closeInventory() {
+         // Paper start

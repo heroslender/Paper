@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: AvrooVulcan <avrovulcan.programming@gmail.com>
+Date: Fri, 17 Apr 2020 00:15:23 +0100
+Subject: [PATCH] Broadcast join message to console
+
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index 18b066740740be0e3ee1fd8e71f64020c5169ca2..21268b56e5026d6d15631bd1d7bc8e9316fba4a0 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -285,9 +285,9 @@ public abstract class PlayerList {
+         joinMessage = playerJoinEvent.getJoinMessage();
+ 
+         if (joinMessage != null && joinMessage.length() > 0) {
+-            for (ITextComponent line : org.bukkit.craftbukkit.util.CraftChatMessage.fromString(joinMessage)) {
+-                field_72400_f.func_184103_al().func_148540_a(new SChatPacket(line, ChatType.SYSTEM, Util.field_240973_b_));
+-            }
++            // Paper start - Removed sendAll for loop and broadcasted to console also
++            field_72400_f.func_184103_al().sendMessage(CraftChatMessage.fromString(joinMessage));
++            // Paper end
+         }
+         // CraftBukkit end
+ 

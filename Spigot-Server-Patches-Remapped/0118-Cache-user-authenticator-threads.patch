@@ -1,0 +1,68 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: vemacs <d@nkmem.es>
+Date: Wed, 23 Nov 2016 08:31:45 -0500
+Subject: [PATCH] Cache user authenticator threads
+
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 92bdab304c29a4aa1cffe886497d738ec11a5e6e..130afcac3b7409ebe6887c945319738b6b8302b0 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -4,7 +4,9 @@ import com.google.common.collect.Lists;
+ import com.mojang.authlib.GameProfile;
+ import com.mojang.datafixers.util.Either;
+ import com.mojang.serialization.DataResult;
++import java.util.ArrayDeque; // Paper
+ import java.util.Collection;
++import java.util.Deque; // Paper
+ import java.util.Iterator;
+ import java.util.List;
+ import java.util.Optional;
+@@ -167,7 +169,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public ServerPlayNetHandler field_71135_a;
+     public final MinecraftServer field_71133_b;
+     public final PlayerInteractionManager field_71134_c;
+-    public final List<Integer> field_71130_g = Lists.newLinkedList();
++    public final Deque<Integer> field_71130_g = new ArrayDeque<>(); // Paper
+     private final PlayerAdvancements field_192042_bX;
+     private final ServerStatisticsManager field_147103_bO;
+     private float field_130068_bO = Float.MIN_VALUE;
+@@ -543,13 +545,20 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+         while (!this.field_71130_g.isEmpty()) {
+             int i = Math.min(this.field_71130_g.size(), Integer.MAX_VALUE);
+             int[] aint = new int[i];
+-            Iterator<Integer> iterator = this.field_71130_g.iterator();
++            //Iterator<Integer> iterator = this.removeQueue.iterator(); // Paper
+             int j = 0;
+ 
+-            while (iterator.hasNext() && j < i) {
++            // Paper start
++            /* while (iterator.hasNext() && j < i) {
+                 aint[j++] = (Integer) iterator.next();
+                 iterator.remove();
++            } */
++
++            Integer integer;
++            while (j < i && (integer = this.field_71130_g.poll()) != null) {
++                aint[j++] = integer.intValue();
+             }
++            // Paper end
+ 
+             this.field_71135_a.func_147359_a(new SDestroyEntitiesPacket(aint));
+         }
+@@ -1535,7 +1544,14 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+         this.field_71149_ch = -1.0F;
+         this.field_71146_ci = -1;
+         // this.recipeBook.a((RecipeBook) entityplayer.recipeBook); // CraftBukkit
+-        this.field_71130_g.addAll(p_193104_1_.field_71130_g);
++        // Paper start - Optimize remove queue - vanilla copies player objects, but CB doesn't. This method currently only
++        // Applies to the same player, so we need to not duplicate our removal queue. The rest of this method does "resetting"
++        // type logic so it does need to be called, maybe? This is silly.
++        // this.removeQueue.addAll(entityplayer.removeQueue);
++        if (this.field_71130_g != p_193104_1_.field_71130_g) {
++            this.field_71130_g.addAll(p_193104_1_.field_71130_g);
++        }
++        // Paper end
+         this.field_192040_cp = p_193104_1_.field_192040_cp;
+         this.field_193110_cw = p_193104_1_.field_193110_cw;
+         this.func_192029_h(p_193104_1_.func_192023_dk());

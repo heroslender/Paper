@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Fri, 16 Dec 2016 16:03:19 -0600
+Subject: [PATCH] Don't let fishinghooks use portals
+
+
+diff --git a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+index 19585f721bfa6947ab9bc5afd6bb23462bf74143..07e4e405f53d73ed877e9e3a87d8004b1c7bb58b 100644
+--- a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+@@ -239,6 +239,11 @@ public class FishingBobberEntity extends ProjectileEntity {
+ 
+             this.func_213317_d(this.func_213322_ci().func_186678_a(0.92D));
+             this.func_226264_Z_();
++            // Paper start - These shouldn't be going through portals
++            if (this.field_71087_bX) {
++                this.func_70106_y();
++            }
++            // Paper end
+         }
+     }
+ 

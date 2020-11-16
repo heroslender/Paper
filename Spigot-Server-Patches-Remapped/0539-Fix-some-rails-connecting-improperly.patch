@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Fri, 24 Jul 2020 15:56:05 -0700
+Subject: [PATCH] Fix some rails connecting improperly
+
+
+diff --git a/src/main/java/net/minecraft/block/AbstractRailBlock.java b/src/main/java/net/minecraft/block/AbstractRailBlock.java
+index 49a3c42754cd39a5bb0c5861d8b38e4a2913ae48..478a69c0943707c3338b7999ce90897976a17014 100644
+--- a/src/main/java/net/minecraft/block/AbstractRailBlock.java
++++ b/src/main/java/net/minecraft/block/AbstractRailBlock.java
+@@ -60,6 +60,7 @@ public abstract class AbstractRailBlock extends Block {
+         p_235327_1_ = this.func_208489_a(p_235327_2_, p_235327_3_, p_235327_1_, true);
+         if (this.field_196277_c) {
+             p_235327_1_.func_215697_a(p_235327_2_, p_235327_3_, this, p_235327_3_, p_235327_4_);
++            p_235327_1_ = p_235327_2_.func_180495_p(p_235327_3_); // Paper - don't desync, update again
+         }
+ 
+         return p_235327_1_;
+diff --git a/src/main/java/net/minecraft/block/DetectorRailBlock.java b/src/main/java/net/minecraft/block/DetectorRailBlock.java
+index 24ffa3940ba3b0eacdc965c8b6ae59fb76d2c913..a53a6d8ab29c2024733e4b0c657e139ae0353aa4 100644
+--- a/src/main/java/net/minecraft/block/DetectorRailBlock.java
++++ b/src/main/java/net/minecraft/block/DetectorRailBlock.java
+@@ -70,6 +70,7 @@ public class DetectorRailBlock extends AbstractRailBlock {
+ 
+     private void func_176570_e(World p_176570_1_, BlockPos p_176570_2_, BlockState p_176570_3_) {
+         if (this.func_196260_a(p_176570_3_, p_176570_1_, p_176570_2_)) {
++            if (p_176570_3_.func_177230_c() != this) { return; } // Paper - not our block, don't do anything
+             boolean flag = (Boolean) p_176570_3_.func_177229_b(DetectorRailBlock.field_176574_M);
+             boolean flag1 = false;
+             List<AbstractMinecartEntity> list = this.func_200878_a(p_176570_1_, p_176570_2_, AbstractMinecartEntity.class, (Predicate) null);
+diff --git a/src/main/java/net/minecraft/block/RailState.java b/src/main/java/net/minecraft/block/RailState.java
+index b1cfae74778cea14618a296bc5d586646cd79211..983f191170938bad979061deaff6dfac201e5485 100644
+--- a/src/main/java/net/minecraft/block/RailState.java
++++ b/src/main/java/net/minecraft/block/RailState.java
+@@ -11,13 +11,19 @@ import net.minecraft.world.World;
+ 
+ public class RailState {
+ 
+-    private final World field_196920_a;
+-    private final BlockPos field_196921_b;
++    private final World field_196920_a; public final World getWorld() { return this.field_196920_a; } // Paper - OBFHELPER
++    private final BlockPos field_196921_b; public final BlockPos getPos() { return this.field_196921_b; } // Paper - OBFHELPER
+     private final AbstractRailBlock field_196922_c;
+-    private BlockState field_196923_d;
++    private BlockState field_196923_d; public final BlockState getRailState() { return this.field_196923_d; } // Paper - OBFHELPER
+     private final boolean field_208513_e;
+     private final List<BlockPos> field_196924_e = Lists.newArrayList();
+ 
++    // Paper start - prevent desync
++    public boolean isValid() {
++        return this.getWorld().func_180495_p(this.getPos()).func_177230_c() == this.getRailState().func_177230_c();
++    }
++    // Paper end - prevent desync
++
+     public RailState(World world, BlockPos blockposition, BlockState iblockdata) {
+         this.field_196920_a = world;
+         this.field_196921_b = blockposition;
+@@ -152,6 +158,11 @@ public class RailState {
+     }
+ 
+     private void func_208510_c(RailState p_208510_1_) {
++        // Paper start - prevent desync
++        if (!this.isValid() || !p_208510_1_.isValid()) {
++            return;
++        }
++        // Paper end - prevent desync
+         this.field_196924_e.add(p_208510_1_.field_196921_b);
+         BlockPos blockposition = this.field_196921_b.func_177978_c();
+         BlockPos blockposition1 = this.field_196921_b.func_177968_d();
+@@ -346,11 +357,16 @@ public class RailState {
+         this.field_196923_d = (BlockState) this.field_196923_d.func_206870_a(this.field_196922_c.func_176560_l(), blockpropertytrackposition1);
+         if (p_226941_2_ || this.field_196920_a.func_180495_p(this.field_196921_b) != this.field_196923_d) {
+             this.field_196920_a.func_180501_a(this.field_196921_b, this.field_196923_d, 3);
++            // Paper start - prevent desync
++            if (!this.isValid()) {
++                return this;
++            }
++            // Paper end - prevent desync
+ 
+             for (int i = 0; i < this.field_196924_e.size(); ++i) {
+                 RailState minecarttracklogic = this.func_196908_a((BlockPos) this.field_196924_e.get(i));
+ 
+-                if (minecarttracklogic != null) {
++                if (minecarttracklogic != null && minecarttracklogic.isValid()) { // Paper - prevent desync
+                     minecarttracklogic.func_196903_f();
+                     if (minecarttracklogic.func_196905_c(this)) {
+                         minecarttracklogic.func_208510_c(this);
+@@ -363,6 +379,6 @@ public class RailState {
+     }
+ 
+     public BlockState func_196916_c() {
+-        return this.field_196923_d;
++        return this.getWorld().func_180495_p(this.getPos()); // Paper - prevent desync
+     }
+ }

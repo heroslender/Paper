@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Fri, 7 Aug 2020 04:27:56 -0700
+Subject: [PATCH] Retain block place order when capturing blockstates
+
+Fixes twisted vines not connecting properly when grown via
+bonemeal by a player.
+
+In general, look at making this logic more robust (i.e properly handling
+cases where a captured entry is overriden) - but for now this will do.
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 9db13706ccbb4ea9d8c2b5a17d22364f6406206c..f591f6497d4b926023f70b813940e47b65c8d44e 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -134,7 +134,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     public boolean captureBlockStates = false;
+     public boolean captureTreeGeneration = false;
+     public Map<BlockPos, org.bukkit.craftbukkit.block.CraftBlockState> capturedBlockStates = new java.util.LinkedHashMap<>(); // Paper
+-    public Map<BlockPos, TileEntity> capturedTileEntities = new HashMap<>();
++    public Map<BlockPos, TileEntity> capturedTileEntities = new java.util.LinkedHashMap<>(); // Paper
+     public List<ItemEntity> captureDrops;
+     public long ticksPerAnimalSpawns;
+     public long ticksPerMonsterSpawns;

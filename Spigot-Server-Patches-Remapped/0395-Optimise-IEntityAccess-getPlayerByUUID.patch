@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Sat, 11 Jan 2020 21:50:56 -0800
+Subject: [PATCH] Optimise IEntityAccess#getPlayerByUUID
+
+Use the world entity map instead of iterating over all players
+
+diff --git a/src/main/java/net/minecraft/world/IEntityReader.java b/src/main/java/net/minecraft/world/IEntityReader.java
+index 0e771e11531ca58dc72697d4972bb970d331e5c0..6124bb3faef5f9d0557b043628b96ffdcb279a7b 100644
+--- a/src/main/java/net/minecraft/world/IEntityReader.java
++++ b/src/main/java/net/minecraft/world/IEntityReader.java
+@@ -252,10 +252,16 @@ public interface IEntityReader {
+ 
+     @Nullable
+     default PlayerEntity func_217371_b(UUID p_217371_1_) {
++        // Paper start - allow WorldServer to override
++        return this.getPlayerByUUID(p_217371_1_);
++    }
++    @Nullable
++    default PlayerEntity getPlayerByUUID(UUID uuid) {
++        // Paper end
+         for (int i = 0; i < this.func_217369_A().size(); ++i) {
+             PlayerEntity entityhuman = (PlayerEntity) this.func_217369_A().get(i);
+ 
+-            if (p_217371_1_.equals(entityhuman.func_110124_au())) {
++            if (uuid.equals(entityhuman.func_110124_au())) {
+                 return entityhuman;
+             }
+         }
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 41ad55fb06e254f636c1fed1c5e59c02abacea16..53eddf0ebc3dfd01cc9b02abe0f5369fa8a8df34 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -284,6 +284,15 @@ public class ServerWorld extends World implements ISeedReader {
+     }
+     // Paper end
+ 
++    // Paper start - optimise getPlayerByUUID
++    @Nullable
++    @Override
++    public PlayerEntity getPlayerByUUID(UUID uuid) {
++        Entity player = this.field_175741_N.get(uuid);
++        return (player instanceof PlayerEntity) ? (PlayerEntity)player : null;
++    }
++    // Paper end
++
+     // Add env and gen to constructor, WorldData -> WorldDataServer
+     public ServerWorld(MinecraftServer minecraftserver, Executor executor, SaveFormat.LevelSave convertable_conversionsession, IServerWorldInfo iworlddataserver, RegistryKey<World> resourcekey, DimensionType dimensionmanager, IChunkStatusListener worldloadlistener, ChunkGenerator chunkgenerator, boolean flag, long i, List<ISpecialSpawner> list, boolean flag1, org.bukkit.World.Environment env, org.bukkit.generator.ChunkGenerator gen) {
+         super(iworlddataserver, resourcekey, dimensionmanager, minecraftserver::func_213185_aS, false, flag, i, gen, env, executor); // Paper pass executor

@@ -1,0 +1,88 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: MiniDigger <admin@minidigger.me>
+Date: Wed, 29 Apr 2020 02:10:32 +0200
+Subject: [PATCH] Allow delegation to vanilla chunk gen
+
+
+diff --git a/src/main/java/net/minecraft/util/palette/UpgradeData.java b/src/main/java/net/minecraft/util/palette/UpgradeData.java
+index 6ed185be06b7423a8c383d96ad8023250b3746db..71eb3bfab594c1826d1677e90990f6d7db0c5475 100644
+--- a/src/main/java/net/minecraft/util/palette/UpgradeData.java
++++ b/src/main/java/net/minecraft/util/palette/UpgradeData.java
+@@ -38,7 +38,7 @@ import org.apache.logging.log4j.Logger;
+ public class UpgradeData {
+ 
+     private static final Logger field_209162_b = LogManager.getLogger();
+-    public static final UpgradeData field_196994_a = new UpgradeData();
++    public static final UpgradeData field_196994_a = new UpgradeData(); public static UpgradeData getEmptyConverter() { return field_196994_a; } // Paper - obfhelper
+     private static final Direction8[] field_208832_b = Direction8.values();
+     private final EnumSet<Direction8> field_196995_b;
+     private final int[][] field_196996_c;
+@@ -324,7 +324,7 @@ public class UpgradeData {
+                         if ((Integer) iblockdata.func_177229_b(BlockStateProperties.field_208514_aa) >= j) {
+                             p_208826_1_.func_180501_a(blockposition, (BlockState) iblockdata.func_206870_a(BlockStateProperties.field_208514_aa, j), 18);
+                             if (i != 7) {
+-                                Direction[] aenumdirection = null.f;
++                                Direction[] aenumdirection = field_208827_f; // Paper - decomp fix
+                                 int k = aenumdirection.length;
+ 
+                                 for (int l = 0; l < k; ++l) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 4cca40d370dcbea150b0d1a4eac4d691015940ae..5b473f5b350cc0609a81e5a84819664fb94b446f 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -1973,6 +1973,29 @@ public final class CraftServer implements Server {
+         return new CraftChunkData(world);
+     }
+ 
++    // Paper start
++    @Override
++    public ChunkGenerator.ChunkData createVanillaChunkData(World world, int x, int z) {
++        // get empty object
++        CraftChunkData data = (CraftChunkData) createChunkData(world);
++        // do bunch of vanilla shit
++        net.minecraft.world.server.ServerWorld nmsWorld = ((CraftWorld) world).getHandle();
++        net.minecraft.world.chunk.ChunkPrimer protoChunk = new net.minecraft.world.chunk.ChunkPrimer(new net.minecraft.util.math.ChunkPos(x, z), net.minecraft.util.palette.UpgradeData.getEmptyConverter(), nmsWorld);
++        List<net.minecraft.world.chunk.IChunk> list = new ArrayList<>();
++        list.add(protoChunk);
++        net.minecraft.world.gen.WorldGenRegion genRegion = new net.minecraft.world.gen.WorldGenRegion(nmsWorld, list);
++        // call vanilla generator, one feature after another. Order here is important!
++        net.minecraft.world.gen.ChunkGenerator chunkGenerator = nmsWorld.func_72863_F().field_186029_c;
++        chunkGenerator.func_242706_a(nmsWorld.func_241828_r().func_243612_b(Registry.field_239720_u_), protoChunk);
++        chunkGenerator.func_230352_b_(genRegion, nmsWorld.func_241112_a_(), protoChunk);
++        chunkGenerator.func_225551_a_(genRegion, protoChunk);
++        // copy over generated sections
++        data.setRawChunkData(protoChunk.func_76587_i());
++        // hooray!
++        return data;
++    }
++    // Paper end
++
+     @Override
+     public BossBar createBossBar(String title, BarColor color, BarStyle style, BarFlag... flags) {
+         return new CraftBossBar(title, color, style, flags);
+diff --git a/src/main/java/org/bukkit/craftbukkit/generator/CraftChunkData.java b/src/main/java/org/bukkit/craftbukkit/generator/CraftChunkData.java
+index 4669c7aa25c78f0c6a6904f25ab32a4058eb3c93..3bcc79a2c5d6f0eb11d95c1080aef8d2acce6519 100644
+--- a/src/main/java/org/bukkit/craftbukkit/generator/CraftChunkData.java
++++ b/src/main/java/org/bukkit/craftbukkit/generator/CraftChunkData.java
+@@ -19,7 +19,7 @@ import org.bukkit.material.MaterialData;
+  */
+ public final class CraftChunkData implements ChunkGenerator.ChunkData {
+     private final int maxHeight;
+-    private final ChunkSection[] sections;
++    private ChunkSection[] sections; // Paper - remove final
+     private Set<BlockPos> tiles;
+     private World world; // Paper - Anti-Xray - Add world
+ 
+@@ -168,6 +168,12 @@ public final class CraftChunkData implements ChunkGenerator.ChunkData {
+         return sections;
+     }
+ 
++    // Paper start
++    public void setRawChunkData(ChunkSection[] sections) {
++        this.sections = sections;
++    }
++    // Paper end
++
+     Set<BlockPos> getTiles() {
+         return tiles;
+     }

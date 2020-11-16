@@ -1,0 +1,278 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 8 Mar 2015 22:55:25 -0600
+Subject: [PATCH] Optimize TileEntity Ticking
+
+
+diff --git a/src/main/java/co/aikar/timings/TimingsExport.java b/src/main/java/co/aikar/timings/TimingsExport.java
+index 9f240ac075de534722efb2ba2286c010105675b0..7a46b855a5ad52da6dd3c6dd39bd25857b091127 100644
+--- a/src/main/java/co/aikar/timings/TimingsExport.java
++++ b/src/main/java/co/aikar/timings/TimingsExport.java
+@@ -112,7 +112,7 @@ public class TimingsExport extends Thread {
+             pair("end", System.currentTimeMillis() / 1000),
+             pair("online-mode", Bukkit.getServer().getOnlineMode()),
+             pair("sampletime", (System.currentTimeMillis() - TimingsManager.timingStart) / 1000),
+-            pair("datapacks", toArrayMapper(MinecraftServer.getServer().func_195561_aH().func_232621_d_(), pack -> {
++            pair("datapacks", toArrayMapper(MinecraftServer.getServer().func_195561_aH().func_198980_d(), pack -> {
+                 // Don't feel like obf helper'ing these, non fatal if its temp missed.
+                 return ChatColor.stripColor(CraftChatMessage.fromComponent(pack.a(true)));
+             }))
+@@ -151,8 +151,8 @@ public class TimingsExport extends Thread {
+         );
+ 
+         parent.put("worlds", toObjectMapper(MinecraftServer.getServer().func_212370_w(), world -> {
+-            if (world.getWorldData().getName().equals("worldeditregentempworld")) return null;
+-            return pair(world.getWorldData().getName(), createObject(
++            if (world.getWorld().getName().equals("worldeditregentempworld")) return null;
++            return pair(world.getWorld().getName(), createObject(
+                 pair("gamerules", toObjectMapper(world.getWorld().getGameRules(), rule -> {
+                     return pair(rule, world.getWorld().getGameRuleValue(rule));
+                 })),
+diff --git a/src/main/java/net/minecraft/block/ChestBlock.java b/src/main/java/net/minecraft/block/ChestBlock.java
+index c9b4c872ca67864584400ef7cc482982deef12a9..adf0345150669393dc4570b29353729af11d42fb 100644
+--- a/src/main/java/net/minecraft/block/ChestBlock.java
++++ b/src/main/java/net/minecraft/block/ChestBlock.java
+@@ -55,8 +55,8 @@ import net.minecraft.world.World;
+ public class ChestBlock extends AbstractChestBlock<ChestTileEntity> implements IWaterLoggable {
+ 
+     public static final DirectionProperty field_176459_a = HorizontalBlock.field_185512_D;
+-    public static final EnumProperty<ChestType> field_196314_b = BlockStateProperties.field_208140_ao;
+-    public static final BooleanProperty field_204511_c = BlockStateProperties.field_208198_y;
++    public static final EnumProperty<ChestType> field_196314_b = BlockStateProperties.field_208140_ao; public static final EnumProperty<ChestType> CHEST_TYPE_PROPERTY = field_196314_b; // Paper - OBFHELPER
++    public static final BooleanProperty field_204511_c = BlockStateProperties.field_208198_y; public static final BooleanProperty waterlogged() { return field_204511_c; } // Paper OBFHELPER
+     protected static final VoxelShape field_196316_c = Block.func_208617_a(1.0D, 0.0D, 0.0D, 15.0D, 14.0D, 15.0D);
+     protected static final VoxelShape field_196317_y = Block.func_208617_a(1.0D, 0.0D, 1.0D, 15.0D, 14.0D, 16.0D);
+     protected static final VoxelShape field_196318_z = Block.func_208617_a(0.0D, 0.0D, 1.0D, 15.0D, 14.0D, 15.0D);
+diff --git a/src/main/java/net/minecraft/state/StateHolder.java b/src/main/java/net/minecraft/state/StateHolder.java
+index 6b3d7950e22adabf3a676d102663bc2a2a89c67a..05f4ab7eef2abe1408a4df472e672e92fe79e8fe 100644
+--- a/src/main/java/net/minecraft/state/StateHolder.java
++++ b/src/main/java/net/minecraft/state/StateHolder.java
+@@ -83,6 +83,7 @@ public abstract class StateHolder<O, S> {
+         return Collections.unmodifiableCollection(this.field_235891_b_.keySet());
+     }
+ 
++    public <T extends Comparable<T>> boolean contains(Property<T> iblockstate) { return this.func_235901_b_(iblockstate); } // Paper - OBFHELPER
+     public <T extends Comparable<T>> boolean func_235901_b_(Property<T> p_235901_1_) {
+         return this.field_235891_b_.containsKey(p_235901_1_);
+     }
+diff --git a/src/main/java/net/minecraft/tileentity/ChestTileEntity.java b/src/main/java/net/minecraft/tileentity/ChestTileEntity.java
+index 10e05b6182ae27e07261de97919678c93d2c5c0f..7ec7d3e462445bfbead855b85371453ee33f03b5 100644
+--- a/src/main/java/net/minecraft/tileentity/ChestTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/ChestTileEntity.java
+@@ -15,6 +15,7 @@ import net.minecraft.inventory.container.ChestContainer;
+ import net.minecraft.inventory.container.Container;
+ import net.minecraft.item.ItemStack;
+ import net.minecraft.nbt.CompoundNBT;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.state.properties.ChestType;
+ import net.minecraft.util.Direction;
+ import net.minecraft.util.NonNullList;
+@@ -32,7 +33,7 @@ import org.bukkit.craftbukkit.entity.CraftHumanEntity;
+ import org.bukkit.entity.HumanEntity;
+ // CraftBukkit end
+ 
+-public class ChestTileEntity extends LockableLootTileEntity implements ITickableTileEntity {
++public class ChestTileEntity extends LockableLootTileEntity { // Paper - Remove ITickable
+ 
+     private NonNullList<ItemStack> field_145985_p;
+     protected float field_145989_m;
+@@ -110,14 +111,20 @@ public class ChestTileEntity extends LockableLootTileEntity implements ITickable
+         return p_189515_1_;
+     }
+ 
+-    @Override
+     public void func_73660_a() {
+         int i = this.field_174879_c.func_177958_n();
+         int j = this.field_174879_c.func_177956_o();
+         int k = this.field_174879_c.func_177952_p();
+ 
+         ++this.field_145983_q;
+-        this.field_145987_o = func_213977_a(this.field_145850_b, this, this.field_145983_q, i, j, k, this.field_145987_o);
++    }
++
++    public void doOpenLogic() {
++        int i = this.field_174879_c.func_177958_n();
++        int j = this.field_174879_c.func_177956_o();
++        int k = this.field_174879_c.func_177952_p();
++
++        //this.viewingCount = a(this.world, this, this.j, i, j, k, this.viewingCount); // Paper - check is faulty given our logic is called before active container set
+         this.field_145986_n = this.field_145989_m;
+         float f = 0.1F;
+ 
+@@ -131,25 +138,31 @@ public class ChestTileEntity extends LockableLootTileEntity implements ITickable
+         if (this.field_145987_o > 0 && this.field_145989_m == 0.0F) {
+             this.func_195483_a(SoundEvents.field_187657_V);
+         }
++    }
+ 
+-        if (this.field_145987_o == 0 && this.field_145989_m > 0.0F || this.field_145987_o > 0 && this.field_145989_m < 1.0F) {
+-            float f1 = this.field_145989_m;
++    public void doCloseLogic() {
++        if (this.field_145987_o == 0 /* && this.a > 0.0F || this.viewingCount > 0 && this.a < 1.0F */) { // Paper - disable all but player count check
++            /* // Paper - disable animation stuff
++            float f1 = this.a;
+ 
+-            if (this.field_145987_o > 0) {
+-                this.field_145989_m += 0.1F;
++            if (this.viewingCount > 0) {
++                this.a += 0.1F;
+             } else {
+-                this.field_145989_m -= 0.1F;
++                this.a -= 0.1F;
+             }
+ 
+-            if (this.field_145989_m > 1.0F) {
+-                this.field_145989_m = 1.0F;
++            if (this.a > 1.0F) {
++                this.a = 1.0F;
+             }
+ 
+             float f2 = 0.5F;
+ 
+-            if (this.field_145989_m < 0.5F && f1 >= 0.5F) {
++            if (this.a < 0.5F && f1 >= 0.5F) {
++            */
++            MCUtil.scheduleTask(10, () -> {
+                 this.func_195483_a(SoundEvents.field_187651_T);
+-            }
++                }, "Chest Sounds");
++            //} // Paper end
+ 
+             if (this.field_145989_m < 0.0F) {
+                 this.field_145989_m = 0.0F;
+@@ -188,6 +201,7 @@ public class ChestTileEntity extends LockableLootTileEntity implements ITickable
+     }
+ 
+     public void func_195483_a(SoundEvent p_195483_1_) {
++        if (!this.func_195044_w().contains(ChestBlock.CHEST_TYPE_PROPERTY)) { return; } // Paper - this can be delayed, double check exists - Fixes GH-2074
+         ChestType blockpropertychesttype = (ChestType) this.func_195044_w().func_177229_b(ChestBlock.field_196314_b);
+ 
+         if (blockpropertychesttype != ChestType.LEFT) {
+@@ -226,6 +240,7 @@ public class ChestTileEntity extends LockableLootTileEntity implements ITickable
+ 
+             ++this.field_145987_o;
+             if (this.field_145850_b == null) return; // CraftBukkit
++            doOpenLogic(); // Paper
+ 
+             // CraftBukkit start - Call redstone event
+             if (this.func_195044_w().func_177230_c() == Blocks.field_150447_bR) {
+@@ -248,6 +263,7 @@ public class ChestTileEntity extends LockableLootTileEntity implements ITickable
+             --this.field_145987_o;
+ 
+             // CraftBukkit start - Call redstone event
++            doCloseLogic(); // Paper
+             if (this.func_195044_w().func_177230_c() == Blocks.field_150447_bR) {
+                 int newPower = Math.max(0, Math.min(15, this.field_145987_o));
+ 
+diff --git a/src/main/java/net/minecraft/tileentity/EnderChestTileEntity.java b/src/main/java/net/minecraft/tileentity/EnderChestTileEntity.java
+index 69ee55cf82ed612e6864e58730d7409238a29c6a..8b2b38f75743a81cc43a024109d1c308f6b48d76 100644
+--- a/src/main/java/net/minecraft/tileentity/EnderChestTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/EnderChestTileEntity.java
+@@ -2,10 +2,11 @@ package net.minecraft.tileentity;
+ 
+ import net.minecraft.block.Blocks;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.util.SoundCategory;
+ import net.minecraft.util.SoundEvents;
+ 
+-public class EnderChestTileEntity extends TileEntity implements ITickableTileEntity {
++public class EnderChestTileEntity extends TileEntity { // Paper - Remove ITickable
+ 
+     public float field_145972_a;
+     public float field_145975_i;
+@@ -16,18 +17,28 @@ public class EnderChestTileEntity extends TileEntity implements ITickableTileEnt
+         super(TileEntityType.field_200974_e);
+     }
+ 
+-    @Override
+     public void func_73660_a() {
+         if (++this.field_145974_k % 20 * 4 == 0) {
+             this.field_145850_b.func_175641_c(this.field_174879_c, Blocks.field_150477_bB, 1, this.field_145973_j);
+         }
+ 
+         this.field_145975_i = this.field_145972_a;
++        /* // Paper
++        int i = this.position.getX();
++        int j = this.position.getY();
++        int k = this.position.getZ();
++        float f = 0.1F;
++        double d0;
++        // Paper start
++        */
++    }
++
++    private void doOpenLogic() {
+         int i = this.field_174879_c.func_177958_n();
+         int j = this.field_174879_c.func_177956_o();
+         int k = this.field_174879_c.func_177952_p();
+-        float f = 0.1F;
+         double d0;
++        // Paper end
+ 
+         if (this.field_145973_j > 0 && this.field_145972_a == 0.0F) {
+             double d1 = (double) i + 0.5D;
+@@ -35,28 +46,40 @@ public class EnderChestTileEntity extends TileEntity implements ITickableTileEnt
+             d0 = (double) k + 0.5D;
+             this.field_145850_b.func_184148_a((PlayerEntity) null, d1, (double) j + 0.5D, d0, SoundEvents.field_187520_aJ, SoundCategory.BLOCKS, 0.5F, this.field_145850_b.field_73012_v.nextFloat() * 0.1F + 0.9F);
+         }
++        // Paper start
++    }
+ 
+-        if (this.field_145973_j == 0 && this.field_145972_a > 0.0F || this.field_145973_j > 0 && this.field_145972_a < 1.0F) {
+-            float f1 = this.field_145972_a;
++    private void doCloseLogic() {
++        int i = this.field_174879_c.func_177958_n();
++        int j = this.field_174879_c.func_177956_o();
++        int k = this.field_174879_c.func_177952_p();
++        double d0;
++
++        if (this.field_145973_j == 0) { /* && this.a > 0.0F || this.c > 0 && this.a < 1.0F) {
++        // Paper end
++            float f1 = this.a;
+ 
+-            if (this.field_145973_j > 0) {
+-                this.field_145972_a += 0.1F;
++            if (this.c > 0) {
++                this.a += 0.1F;
+             } else {
+-                this.field_145972_a -= 0.1F;
++                this.a -= 0.1F;
+             }
+ 
+-            if (this.field_145972_a > 1.0F) {
+-                this.field_145972_a = 1.0F;
++            if (this.a > 1.0F) {
++                this.a = 1.0F;
+             }
+ 
+             float f2 = 0.5F;
+ 
+-            if (this.field_145972_a < 0.5F && f1 >= 0.5F) {
++            if (this.a < 0.5F && f1 >= 0.5F) {
++            // Paper start
++            */
+                 d0 = (double) i + 0.5D;
+                 double d2 = (double) k + 0.5D;
+ 
++            MCUtil.scheduleTask(10, () -> {
+                 this.field_145850_b.func_184148_a((PlayerEntity) null, d0, (double) j + 0.5D, d2, SoundEvents.field_187519_aI, SoundCategory.BLOCKS, 0.5F, this.field_145850_b.field_73012_v.nextFloat() * 0.1F + 0.9F);
+-            }
++            }, "Chest Sounds");
+ 
+             if (this.field_145972_a < 0.0F) {
+                 this.field_145972_a = 0.0F;
+@@ -84,11 +107,13 @@ public class EnderChestTileEntity extends TileEntity implements ITickableTileEnt
+     public void func_145969_a() {
+         ++this.field_145973_j;
+         this.field_145850_b.func_175641_c(this.field_174879_c, Blocks.field_150477_bB, 1, this.field_145973_j);
++        doOpenLogic(); // Paper
+     }
+ 
+     public void func_145970_b() {
+         --this.field_145973_j;
+         this.field_145850_b.func_175641_c(this.field_174879_c, Blocks.field_150477_bB, 1, this.field_145973_j);
++        doCloseLogic(); // Paper
+     }
+ 
+     public boolean func_145971_a(PlayerEntity p_145971_1_) {

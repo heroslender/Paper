@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Wed, 19 Aug 2020 05:05:54 +0100
+Subject: [PATCH] Buffer joins to world
+
+This patch buffers the number of logins which will attempt to join
+the world per tick, this attempts to reduce the impact that join floods
+has on the server
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index e0422471776f34b8e3c753d855aa06f00cc049ec..2e9c3b45052ad641bee091ee28cc57b93cd19ffe 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -452,4 +452,9 @@ public class PaperConfig {
+             maxPlayerAutoSavePerTick = (playerAutoSaveRate == -1 || playerAutoSaveRate > 100) ? 10 : 20;
+         }
+     }
++
++    public static int maxJoinsPerTick;
++    private static void maxJoinsPerTick() {
++        maxJoinsPerTick = getInt("settings.max-joins-per-tick", 3);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/network/NetworkManager.java b/src/main/java/net/minecraft/network/NetworkManager.java
+index 82eadade2bb43ff195f11cbbfeb721aaa86dc6e9..6ddd0a2caee53d24bc445de1c50c3fdb6314932a 100644
+--- a/src/main/java/net/minecraft/network/NetworkManager.java
++++ b/src/main/java/net/minecraft/network/NetworkManager.java
+@@ -376,10 +376,22 @@ public class NetworkManager extends SimpleChannelInboundHandler<IPacket<?>> {
+     }
+     // Paper end
+ 
++    private static final int MAX_PER_TICK = com.destroystokyo.paper.PaperConfig.maxJoinsPerTick; // Paper
++    private static int joinAttemptsThisTick; // Paper
++    private static int currTick; // Paper
+     public void func_74428_b() {
+         this.p();
++        // Paper start
++        if (currTick != MinecraftServer.currentTick) {
++            currTick = MinecraftServer.currentTick;
++            joinAttemptsThisTick = 0;
++        }
++        // Paper end
+         if (this.field_150744_m instanceof ServerLoginNetHandler) {
++            if ( ((ServerLoginNetHandler) this.field_150744_m).getLoginState() != ServerLoginNetHandler.State.READY_TO_ACCEPT // Paper
++                     || (joinAttemptsThisTick++ < MAX_PER_TICK)) { // Paper - limit the number of joins which can be processed each tick
+             ((ServerLoginNetHandler) this.field_150744_m).func_73660_a();
++            } // Paper
+         }
+ 
+         if (this.field_150744_m instanceof ServerPlayNetHandler) {

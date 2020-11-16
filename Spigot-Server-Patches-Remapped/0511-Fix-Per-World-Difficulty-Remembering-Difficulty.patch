@@ -1,0 +1,85 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 28 Jun 2020 03:59:10 -0400
+Subject: [PATCH] Fix Per World Difficulty / Remembering Difficulty
+
+Fixes per world difficulty with /difficulty command and also
+makes it so that the server keeps the last difficulty used instead
+of restoring the server.properties every single load.
+
+diff --git a/src/main/java/net/minecraft/command/impl/DifficultyCommand.java b/src/main/java/net/minecraft/command/impl/DifficultyCommand.java
+index a7133066f886a4419dd5bf8fcc325101bfa6a267..1322dd236f48db706876179100266d39522d4120 100644
+--- a/src/main/java/net/minecraft/command/impl/DifficultyCommand.java
++++ b/src/main/java/net/minecraft/command/impl/DifficultyCommand.java
+@@ -8,6 +8,7 @@ import net.minecraft.command.Commands;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.text.TranslationTextComponent;
+ import net.minecraft.world.Difficulty;
++import net.minecraft.world.server.ServerWorld;
+ 
+ public class DifficultyCommand {
+ 
+@@ -41,10 +42,11 @@ public class DifficultyCommand {
+     public static int func_198345_a(CommandSource p_198345_0_, Difficulty p_198345_1_) throws CommandSyntaxException {
+         MinecraftServer minecraftserver = p_198345_0_.func_197028_i();
+ 
+-        if (minecraftserver.func_240793_aU_().func_176130_y() == p_198345_1_) {
++        ServerWorld world = p_198345_0_.func_197023_e(); // Paper
++        if (world.field_241103_E_.func_176130_y() == p_198345_1_) { // Paper
+             throw DifficultyCommand.field_198349_a.create(p_198345_1_.func_151526_b());
+         } else {
+-            minecraftserver.func_147139_a(p_198345_1_, true);
++            minecraftserver.a(world, p_198345_1_, true); // Paper
+             p_198345_0_.func_197030_a(new TranslationTextComponent("commands.difficulty.success", new Object[]{p_198345_1_.func_199285_b()}), true);
+             return 0;
+         }
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 386e2d1f01446a7f5f638c666bfeb277c94b35a9..53f2e38d246250d7cc821b8c52620bdf255ad138 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -3018,7 +3018,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     public void func_217263_a(CSetDifficultyPacket p_217263_1_) {
+         PacketThreadUtil.func_218796_a(p_217263_1_, this, this.field_147369_b.func_71121_q());
+         if (this.field_147369_b.func_211513_k(2) || this.func_217264_d()) {
+-            this.field_147367_d.func_147139_a(p_217263_1_.func_218773_b(), false);
++            //this.minecraftServer.a(packetplayindifficultychange.b(), false); // Paper - don't allow clients to change this
+         }
+     }
+ 
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index a24e905ba05d5898d2d30abc83bbdb80d7664f09..9a62c4ee8d8819de44c548a59ccac68c3ca26508 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -1633,11 +1633,14 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         }
+     }
+ 
+-    public void func_147139_a(Difficulty p_147139_1_, boolean p_147139_2_) {
+-        if (p_147139_2_ || !this.field_240768_i_.func_176123_z()) {
+-            this.field_240768_i_.func_230409_a_(this.field_240768_i_.func_76093_s() ? Difficulty.HARD : p_147139_1_);
+-            this.func_240794_aZ_();
+-            this.func_184103_al().func_181057_v().forEach(this::func_213189_a);
++    // Paper start - fix per world difficulty
++    public void a(ServerWorld world, Difficulty enumdifficulty, boolean flag) {
++        ServerWorldInfo worldData = world.field_241103_E_;
++        if (flag || !worldData.func_176123_z()) {
++            worldData.func_230409_a_(worldData.func_76093_s() ? Difficulty.HARD : enumdifficulty);
++            world.func_72891_a(worldData.func_176130_y() != Difficulty.PEACEFUL && ((DedicatedServer)this).field_71340_o.func_219034_a().field_218992_E, this.func_230537_U_());
++            //world.players.forEach(this::b);
++            // Paper end
+         }
+     }
+ 
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index c0aa8dcab59073981748b90fca8b5e38b5104982..d7f237be5582e1e239ee9e5f9106209644bf47a7 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -361,7 +361,7 @@ public class DedicatedServer extends MinecraftServer implements IServer {
+ 
+     @Override
+     public void func_230543_p_() {
+-        this.func_147139_a(this.func_213221_d_().field_219019_m, true);
++        //this.a(this.getDedicatedServerProperties().difficulty, true); // Paper - Don't overwrite level.dat's difficulty, keep current
+     }
+ 
+     @Override

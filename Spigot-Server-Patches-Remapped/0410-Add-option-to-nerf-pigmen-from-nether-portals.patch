@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 7 Feb 2020 14:36:56 -0600
+Subject: [PATCH] Add option to nerf pigmen from nether portals
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 4438d567dd779650533c7128ae8b25b8fd369836..89f6de173225315783a09aae2fe77a3ede2b78d5 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -583,4 +583,9 @@ public class PaperWorldConfig {
+         disableHopperMoveEvents = getBoolean("hopper.disable-move-event", disableHopperMoveEvents);
+         log("Hopper Move Item Events: " + (disableHopperMoveEvents ? "disabled" : "enabled"));
+     }
++
++    public boolean nerfNetherPortalPigmen = false;
++    private void nerfNetherPortalPigmen() {
++        nerfNetherPortalPigmen = getBoolean("game-mechanics.nerf-pigmen-from-nether-portals", nerfNetherPortalPigmen);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/block/NetherPortalBlock.java b/src/main/java/net/minecraft/block/NetherPortalBlock.java
+index 2b4c43f1dd227eba48371890b5efde9e8d73a146..b79945f41e29715975d2a74da13e9193b5469720 100644
+--- a/src/main/java/net/minecraft/block/NetherPortalBlock.java
++++ b/src/main/java/net/minecraft/block/NetherPortalBlock.java
+@@ -3,6 +3,7 @@ package net.minecraft.block;
+ import java.util.Random;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.EntityType;
++import net.minecraft.entity.MobEntity;
+ import net.minecraft.entity.SpawnReason;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.nbt.CompoundNBT;
+@@ -62,6 +63,8 @@ public class NetherPortalBlock extends Block {
+ 
+                 if (entity != null) {
+                     entity.func_242279_ag();
++                    entity.fromNetherPortal = true; // Paper
++                    if (p_225542_2_.paperConfig.nerfNetherPortalPigmen) ((MobEntity) entity).aware = false; // Paper
+                 }
+             }
+         }
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index a75ed62fd2dd6c1af22c904206cbe3d4c23ce5d9..3cda1c8bd148f81fd36cbf9af79b124fcba3ac85 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -283,6 +283,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     public long activatedTick = Integer.MIN_VALUE;
+     public boolean isTemporarilyActive = false; // Paper
+     public boolean spawnedViaMobSpawner; // Paper - Yes this name is similar to above, upstream took the better one
++    public boolean fromNetherPortal; // Paper
+     protected int numCollisions = 0; // Paper
+     public void inactiveTick() { }
+     // Spigot end
+@@ -1698,6 +1699,9 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             if (spawnedViaMobSpawner) {
+                 p_189511_1_.func_74757_a("Paper.FromMobSpawner", true);
+             }
++            if (fromNetherPortal) {
++                p_189511_1_.func_74757_a("Paper.FromNetherPortal", true);
++            }
+             // Paper end
+             return p_189511_1_;
+         } catch (Throwable throwable) {
+@@ -1828,6 +1832,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+             }
+ 
+             spawnedViaMobSpawner = p_70020_1_.func_74767_n("Paper.FromMobSpawner"); // Restore entity's from mob spawner status
++            fromNetherPortal = p_70020_1_.func_74767_n("Paper.FromNetherPortal");
+             if (p_70020_1_.func_74764_b("Paper.SpawnReason")) {
+                 String spawnReasonName = p_70020_1_.func_74779_i("Paper.SpawnReason");
+                 try {

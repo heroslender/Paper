@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 1 Jun 2016 23:29:17 -0400
+Subject: [PATCH] Reset Ender Crystals on Dragon Spawn
+
+Crystals can end up in a bad state in certain conditions which causes
+an exception on the expected number of crystals going negative.
+
+This ensures the crystals/pillars are in expected state when the dragon spawns.
+
+See #3522
+
+diff --git a/src/main/java/net/minecraft/world/end/DragonFightManager.java b/src/main/java/net/minecraft/world/end/DragonFightManager.java
+index 0850e0a7c060cb74a199d6e0a94c1a8e768901e9..ea201af8678c422fac43eea7218aabcb552446ba 100644
+--- a/src/main/java/net/minecraft/world/end/DragonFightManager.java
++++ b/src/main/java/net/minecraft/world/end/DragonFightManager.java
+@@ -445,6 +445,7 @@ public class DragonFightManager {
+         entityenderdragon.func_70012_b(0.0D, 128.0D, 0.0D, this.field_186110_d.field_73012_v.nextFloat() * 360.0F, 0.0F);
+         this.field_186110_d.func_217376_c(entityenderdragon);
+         this.field_186119_m = entityenderdragon.func_110124_au();
++        this.func_186087_f(); // Paper
+         return entityenderdragon;
+     }
+ 

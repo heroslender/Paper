@@ -1,0 +1,925 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kickash32 <kickash32@gmail.com>
+Date: Mon, 19 Aug 2019 01:27:58 +0500
+Subject: [PATCH] implement optional per player mob spawns
+
+
+diff --git a/src/main/java/co/aikar/timings/WorldTimingsHandler.java b/src/main/java/co/aikar/timings/WorldTimingsHandler.java
+index 0d6fbe70fc75306748e5197d5f4999decd7d1dc5..3c21d0b5051b2b7c5a80906bf5e4d6cdf86b72c0 100644
+--- a/src/main/java/co/aikar/timings/WorldTimingsHandler.java
++++ b/src/main/java/co/aikar/timings/WorldTimingsHandler.java
+@@ -58,6 +58,7 @@ public class WorldTimingsHandler {
+ 
+ 
+     public final Timing miscMobSpawning;
++    public final Timing playerMobDistanceMapUpdate;
+ 
+     public final Timing poiUnload;
+     public final Timing chunkUnload;
+@@ -123,6 +124,7 @@ public class WorldTimingsHandler {
+ 
+ 
+         miscMobSpawning = Timings.ofSafe(name + "Mob spawning - Misc");
++        playerMobDistanceMapUpdate = Timings.ofSafe(name + "Per Player Mob Spawning - Distance Map Update");
+ 
+         poiUnload = Timings.ofSafe(name + "Chunk unload - POI");
+         chunkUnload = Timings.ofSafe(name + "Chunk unload - Chunk");
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index fb84e7ca2873bcb5fed80b7ce58cf38a376289ed..617a8af814dc224762dc21669392960cc1702693 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -554,4 +554,9 @@ public class PaperWorldConfig {
+             }
+         }
+     }
++
++    public boolean perPlayerMobSpawns = false;
++    private void perPlayerMobSpawns() {
++        perPlayerMobSpawns = getBoolean("per-player-mob-spawns", false);
++    }
+ }
+diff --git a/src/main/java/com/destroystokyo/paper/util/PlayerMobDistanceMap.java b/src/main/java/com/destroystokyo/paper/util/PlayerMobDistanceMap.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..478089ee11133a10b583a135023e0cb84358491b
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/util/PlayerMobDistanceMap.java
+@@ -0,0 +1,253 @@
++package com.destroystokyo.paper.util;
++
++import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
++import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
++import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
++import org.spigotmc.AsyncCatcher;
++import java.util.HashMap;
++import java.util.List;
++import java.util.Map;
++import java.util.Set;
++import net.minecraft.entity.player.ServerPlayerEntity;
++import net.minecraft.util.math.ChunkPos;
++import net.minecraft.util.math.SectionPos;
++
++/** @author Spottedleaf */
++public final class PlayerMobDistanceMap {
++
++    private static final PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> EMPTY_SET = new PooledHashSets.PooledObjectLinkedOpenHashSet<>();
++
++    private final Map<ServerPlayerEntity, SectionPos> players = new HashMap<>();
++    // we use linked for better iteration.
++    private final Long2ObjectOpenHashMap<PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity>> playerMap = new Long2ObjectOpenHashMap<>(32, 0.5f);
++    private int viewDistance;
++
++    private final PooledHashSets<ServerPlayerEntity> pooledHashSets = new PooledHashSets<>();
++
++    public PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> getPlayersInRange(final ChunkPos chunkPos) {
++        return this.getPlayersInRange(chunkPos.field_77276_a, chunkPos.field_77275_b);
++    }
++
++    public PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> getPlayersInRange(final int chunkX, final int chunkZ) {
++        return this.playerMap.getOrDefault(ChunkPos.func_77272_a(chunkX, chunkZ), EMPTY_SET);
++    }
++
++    public void update(final List<ServerPlayerEntity> currentPlayers, final int newViewDistance) {
++        AsyncCatcher.catchOp("Distance map update");
++        final ObjectLinkedOpenHashSet<ServerPlayerEntity> gone = new ObjectLinkedOpenHashSet<>(this.players.keySet());
++
++        final int oldViewDistance = this.viewDistance;
++        this.viewDistance = newViewDistance;
++
++        for (final ServerPlayerEntity player : currentPlayers) {
++            if (player.func_175149_v() || !player.affectsSpawning) {
++                continue; // will be left in 'gone' (or not added at all)
++            }
++
++            gone.remove(player);
++
++            final SectionPos newPosition = player.getPlayerMapSection();
++            final SectionPos oldPosition = this.players.put(player, newPosition);
++
++            if (oldPosition == null) {
++                this.addNewPlayer(player, newPosition, newViewDistance);
++            } else {
++                this.updatePlayer(player, oldPosition, newPosition, oldViewDistance, newViewDistance);
++            }
++            //this.validatePlayer(player, newViewDistance); // debug only
++        }
++
++        for (final ServerPlayerEntity player : gone) {
++            final SectionPos oldPosition = this.players.remove(player);
++            if (oldPosition != null) {
++                this.removePlayer(player, oldPosition, oldViewDistance);
++            }
++        }
++    }
++
++    // expensive op, only for debug
++    private void validatePlayer(final ServerPlayerEntity player, final int viewDistance) {
++        int entiesGot = 0;
++        int expectedEntries = (2 * viewDistance + 1);
++        expectedEntries *= expectedEntries;
++
++        final SectionPos currPosition = player.getPlayerMapSection();
++
++        final int centerX = currPosition.func_177958_n();
++        final int centerZ = currPosition.func_177952_p();
++
++        for (final Long2ObjectLinkedOpenHashMap.Entry<PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity>> entry : this.playerMap.long2ObjectEntrySet()) {
++            final long key = entry.getLongKey();
++            final PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> map = entry.getValue();
++
++            if (map.referenceCount == 0) {
++                throw new IllegalStateException("Invalid map");
++            }
++
++            if (map.set.contains(player)) {
++                ++entiesGot;
++
++                final int chunkX = ChunkPos.func_212578_a(key);
++                final int chunkZ = ChunkPos.func_212579_b(key);
++
++                final int dist = Math.max(Math.abs(chunkX - centerX), Math.abs(chunkZ - centerZ));
++
++                if (dist > viewDistance) {
++                    throw new IllegalStateException("Expected view distance " + viewDistance + ", got " + dist);
++                }
++            }
++        }
++
++        if (entiesGot != expectedEntries) {
++            throw new IllegalStateException("Expected " + expectedEntries + ", got " + entiesGot);
++        }
++    }
++
++    private void addPlayerTo(final ServerPlayerEntity player, final int chunkX, final int chunkZ) {
++       this.playerMap.compute(ChunkPos.func_77272_a(chunkX, chunkZ), (final Long key, final PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> players) -> {
++           if (players == null) {
++               return player.cachedSingleMobDistanceMap;
++           } else {
++               return PlayerMobDistanceMap.this.pooledHashSets.findMapWith(players, player);
++           }
++        });
++    }
++
++    private void removePlayerFrom(final ServerPlayerEntity player, final int chunkX, final int chunkZ) {
++        this.playerMap.compute(ChunkPos.func_77272_a(chunkX, chunkZ), (final Long keyInMap, final PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> players) -> {
++            return PlayerMobDistanceMap.this.pooledHashSets.findMapWithout(players, player); // rets null instead of an empty map
++        });
++    }
++
++    private void updatePlayer(final ServerPlayerEntity player, final SectionPos oldPosition, final SectionPos newPosition, final int oldViewDistance, final int newViewDistance) {
++        final int toX = newPosition.func_177958_n();
++        final int toZ = newPosition.func_177952_p();
++        final int fromX = oldPosition.func_177958_n();
++        final int fromZ = oldPosition.func_177952_p();
++
++        final int dx = toX - fromX;
++        final int dz = toZ - fromZ;
++
++        final int totalX = Math.abs(fromX - toX);
++        final int totalZ = Math.abs(fromZ - toZ);
++
++        if (Math.max(totalX, totalZ) > (2 * oldViewDistance)) {
++            // teleported?
++            this.removePlayer(player, oldPosition, oldViewDistance);
++            this.addNewPlayer(player, newPosition, newViewDistance);
++            return;
++        }
++
++        // x axis is width
++        // z axis is height
++        // right refers to the x axis of where we moved
++        // top refers to the z axis of where we moved
++
++        if (oldViewDistance == newViewDistance) {
++            // same view distance
++
++            // used for relative positioning
++            final int up = 1 | (dz >> (Integer.SIZE - 1)); // 1 if dz >= 0, -1 otherwise
++            final int right = 1 | (dx >> (Integer.SIZE - 1)); // 1 if dx >= 0, -1 otherwise
++
++            // The area excluded by overlapping the two view distance squares creates four rectangles:
++            // Two on the left, and two on the right. The ones on the left we consider the "removed" section
++            // and on the right the "added" section.
++            // https://i.imgur.com/MrnOBgI.png is a reference image. Note that the outside border is not actually
++            // exclusive to the regions they surround.
++
++            // 4 points of the rectangle
++            int maxX; // exclusive
++            int minX; // inclusive
++            int maxZ; // exclusive
++            int minZ; // inclusive
++
++            if (dx != 0) {
++                // handle right addition
++
++                maxX = toX + (oldViewDistance * right) + right; // exclusive
++                minX = fromX + (oldViewDistance * right) + right; // inclusive
++                maxZ = fromZ + (oldViewDistance * up) + up; // exclusive
++                minZ = toZ - (oldViewDistance * up); // inclusive
++
++                for (int currX = minX; currX != maxX; currX += right) {
++                    for (int currZ = minZ; currZ != maxZ; currZ += up) {
++                        this.addPlayerTo(player, currX, currZ);
++                    }
++                }
++            }
++
++            if (dz != 0) {
++                // handle up addition
++
++                maxX = toX + (oldViewDistance * right) + right; // exclusive
++                minX = toX - (oldViewDistance * right); // inclusive
++                maxZ = toZ + (oldViewDistance * up) + up; // exclusive
++                minZ = fromZ + (oldViewDistance * up) + up; // inclusive
++
++                for (int currX = minX; currX != maxX; currX += right) {
++                    for (int currZ = minZ; currZ != maxZ; currZ += up) {
++                        this.addPlayerTo(player, currX, currZ);
++                    }
++                }
++            }
++
++            if (dx != 0) {
++                // handle left removal
++
++                maxX = toX - (oldViewDistance * right); // exclusive
++                minX = fromX - (oldViewDistance * right); // inclusive
++                maxZ = fromZ + (oldViewDistance * up) + up; // exclusive
++                minZ = toZ - (oldViewDistance * up); // inclusive
++
++                for (int currX = minX; currX != maxX; currX += right) {
++                    for (int currZ = minZ; currZ != maxZ; currZ += up) {
++                        this.removePlayerFrom(player, currX, currZ);
++                    }
++                }
++            }
++
++            if (dz != 0) {
++                // handle down removal
++
++                maxX = fromX + (oldViewDistance * right) + right; // exclusive
++                minX = fromX - (oldViewDistance * right); // inclusive
++                maxZ = toZ - (oldViewDistance * up); // exclusive
++                minZ = fromZ - (oldViewDistance * up); // inclusive
++
++                for (int currX = minX; currX != maxX; currX += right) {
++                    for (int currZ = minZ; currZ != maxZ; currZ += up) {
++                        this.removePlayerFrom(player, currX, currZ);
++                    }
++                }
++            }
++        } else {
++            // different view distance
++            // for now :)
++            this.removePlayer(player, oldPosition, oldViewDistance);
++            this.addNewPlayer(player, newPosition, newViewDistance);
++        }
++    }
++
++    private void removePlayer(final ServerPlayerEntity player, final SectionPos position, final int viewDistance) {
++        final int x = position.func_177958_n();
++        final int z = position.func_177952_p();
++
++        for (int xoff = -viewDistance; xoff <= viewDistance; ++xoff) {
++            for (int zoff = -viewDistance; zoff <= viewDistance; ++zoff) {
++                this.removePlayerFrom(player, x + xoff, z + zoff);
++            }
++        }
++    }
++
++    private void addNewPlayer(final ServerPlayerEntity player, final SectionPos position, final int viewDistance) {
++        final int x = position.func_177958_n();
++        final int z = position.func_177952_p();
++
++        for (int xoff = -viewDistance; xoff <= viewDistance; ++xoff) {
++            for (int zoff = -viewDistance; zoff <= viewDistance; ++zoff) {
++                this.addPlayerTo(player, x + xoff, z + zoff);
++            }
++        }
++    }
++}
+diff --git a/src/main/java/com/destroystokyo/paper/util/PooledHashSets.java b/src/main/java/com/destroystokyo/paper/util/PooledHashSets.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..4f13d3ff8391793a99f067189f854078334499c6
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/util/PooledHashSets.java
+@@ -0,0 +1,241 @@
++package com.destroystokyo.paper.util;
++
++import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
++import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
++import java.lang.ref.WeakReference;
++import java.util.Iterator;
++
++/** @author Spottedleaf */
++public class PooledHashSets<E> {
++
++    // we really want to avoid that equals() check as much as possible...
++    protected final Object2ObjectOpenHashMap<PooledObjectLinkedOpenHashSet<E>, PooledObjectLinkedOpenHashSet<E>> mapPool = new Object2ObjectOpenHashMap<>(64, 0.25f);
++
++    protected void decrementReferenceCount(final PooledObjectLinkedOpenHashSet<E> current) {
++        if (current.referenceCount == 0) {
++            throw new IllegalStateException("Cannot decrement reference count for " + current);
++        }
++        if (current.referenceCount == -1 || --current.referenceCount > 0) {
++            return;
++        }
++
++        this.mapPool.remove(current);
++        return;
++    }
++
++    public PooledObjectLinkedOpenHashSet<E> findMapWith(final PooledObjectLinkedOpenHashSet<E> current, final E object) {
++        final PooledObjectLinkedOpenHashSet<E> cached = current.getAddCache(object);
++
++        if (cached != null) {
++            if (cached.referenceCount != -1) {
++                ++cached.referenceCount;
++            }
++
++            decrementReferenceCount(current);
++
++            return cached;
++        }
++
++        if (!current.add(object)) {
++            return current;
++        }
++
++        // we use get/put since we use a different key on put
++        PooledObjectLinkedOpenHashSet<E> ret = this.mapPool.get(current);
++
++        if (ret == null) {
++            ret = new PooledObjectLinkedOpenHashSet<>(current);
++            current.remove(object);
++            this.mapPool.put(ret, ret);
++            ret.referenceCount = 1;
++        } else {
++            if (ret.referenceCount != -1) {
++                ++ret.referenceCount;
++            }
++            current.remove(object);
++        }
++
++        current.updateAddCache(object, ret);
++
++        decrementReferenceCount(current);
++        return ret;
++    }
++
++    // rets null if current.size() == 1
++    public PooledObjectLinkedOpenHashSet<E> findMapWithout(final PooledObjectLinkedOpenHashSet<E> current, final E object) {
++        if (current.set.size() == 1) {
++            decrementReferenceCount(current);
++            return null;
++        }
++
++        final PooledObjectLinkedOpenHashSet<E> cached = current.getRemoveCache(object);
++
++        if (cached != null) {
++            if (cached.referenceCount != -1) {
++                ++cached.referenceCount;
++            }
++
++            decrementReferenceCount(current);
++
++            return cached;
++        }
++
++        if (!current.remove(object)) {
++            return current;
++        }
++
++        // we use get/put since we use a different key on put
++        PooledObjectLinkedOpenHashSet<E> ret = this.mapPool.get(current);
++
++        if (ret == null) {
++            ret = new PooledObjectLinkedOpenHashSet<>(current);
++            current.add(object);
++            this.mapPool.put(ret, ret);
++            ret.referenceCount = 1;
++        } else {
++            if (ret.referenceCount != -1) {
++                ++ret.referenceCount;
++            }
++            current.add(object);
++        }
++
++        current.updateRemoveCache(object, ret);
++
++        decrementReferenceCount(current);
++        return ret;
++    }
++
++    public static final class PooledObjectLinkedOpenHashSet<E> implements Iterable<E> {
++
++        private static final WeakReference NULL_REFERENCE = new WeakReference(null);
++
++        final ObjectLinkedOpenHashSet<E> set;
++        int referenceCount; // -1 if special
++        int hash; // optimize hashcode
++
++        // add cache
++        WeakReference<E> lastAddObject = NULL_REFERENCE;
++        WeakReference<PooledObjectLinkedOpenHashSet<E>> lastAddMap = NULL_REFERENCE;
++
++        // remove cache
++        WeakReference<E> lastRemoveObject = NULL_REFERENCE;
++        WeakReference<PooledObjectLinkedOpenHashSet<E>> lastRemoveMap = NULL_REFERENCE;
++
++        public PooledObjectLinkedOpenHashSet() {
++            this.set = new ObjectLinkedOpenHashSet<>(2, 0.6f);
++        }
++
++        public PooledObjectLinkedOpenHashSet(final E single) {
++            this();
++            this.referenceCount = -1;
++            this.add(single);
++        }
++
++        public PooledObjectLinkedOpenHashSet(final PooledObjectLinkedOpenHashSet<E> other) {
++            this.set = other.set.clone();
++            this.hash = other.hash;
++        }
++
++        // from https://github.com/Spottedleaf/ConcurrentUtil/blob/master/src/main/java/ca/spottedleaf/concurrentutil/util/IntegerUtil.java
++        // generated by https://github.com/skeeto/hash-prospector
++        static int hash0(int x) {
++            x *= 0x36935555;
++            x ^= x >>> 16;
++            return x;
++        }
++
++        public PooledObjectLinkedOpenHashSet<E> getAddCache(final E element) {
++            final E currentAdd = this.lastAddObject.get();
++
++            if (currentAdd == null || !(currentAdd == element || currentAdd.equals(element))) {
++                return null;
++            }
++
++            final PooledObjectLinkedOpenHashSet<E> map = this.lastAddMap.get();
++            if (map == null || map.referenceCount == 0) {
++                // we need to ret null if ref count is zero as calling code will assume the map is in use
++                return null;
++            }
++
++            return map;
++        }
++
++        public PooledObjectLinkedOpenHashSet<E> getRemoveCache(final E element) {
++            final E currentRemove = this.lastRemoveObject.get();
++
++            if (currentRemove == null || !(currentRemove == element || currentRemove.equals(element))) {
++                return null;
++            }
++
++            final PooledObjectLinkedOpenHashSet<E> map = this.lastRemoveMap.get();
++            if (map == null || map.referenceCount == 0) {
++                // we need to ret null if ref count is zero as calling code will assume the map is in use
++                return null;
++            }
++
++            return map;
++        }
++
++        public void updateAddCache(final E element, final PooledObjectLinkedOpenHashSet<E> map) {
++            this.lastAddObject = new WeakReference<>(element);
++            this.lastAddMap = new WeakReference<>(map);
++        }
++
++        public void updateRemoveCache(final E element, final PooledObjectLinkedOpenHashSet<E> map) {
++            this.lastRemoveObject = new WeakReference<>(element);
++            this.lastRemoveMap = new WeakReference<>(map);
++        }
++
++        boolean add(final E element) {
++            boolean added =  this.set.add(element);
++
++            if (added) {
++                this.hash += hash0(element.hashCode());
++            }
++
++            return added;
++        }
++
++        boolean remove(Object element) {
++            boolean removed = this.set.remove(element);
++
++            if (removed) {
++                this.hash -= hash0(element.hashCode());
++            }
++
++            return removed;
++        }
++
++        @Override
++        public Iterator<E> iterator() {
++            return this.set.iterator();
++        }
++
++        @Override
++        public int hashCode() {
++            return this.hash;
++        }
++
++        @Override
++        public boolean equals(final Object other) {
++            if (!(other instanceof PooledObjectLinkedOpenHashSet)) {
++                return false;
++            }
++            if (this.referenceCount == 0) {
++                return other == this;
++            } else {
++                if (other == this) {
++                    // Unfortunately we are never equal to our own instance while in use!
++                    return false;
++                }
++                return this.hash == ((PooledObjectLinkedOpenHashSet)other).hash && this.set.equals(((PooledObjectLinkedOpenHashSet)other).set);
++            }
++        }
++
++        @Override
++        public String toString() {
++            return "PooledHashSet: size: " + this.set.size() + ", reference count: " + this.referenceCount + ", hash: " +
++                this.hashCode() + ", identity: " + System.identityHashCode(this) + " map: " + this.set.toString();
++        }
++    }
++}
+diff --git a/src/main/java/net/minecraft/entity/EntityType.java b/src/main/java/net/minecraft/entity/EntityType.java
+index 6571605ae06d22eb8a6de43e147a893b826f6ada..898690015e563abda522057284648b94351e61d6 100644
+--- a/src/main/java/net/minecraft/entity/EntityType.java
++++ b/src/main/java/net/minecraft/entity/EntityType.java
+@@ -412,6 +412,7 @@ public class EntityType<T extends Entity> {
+         return this.field_225438_be;
+     }
+ 
++    public final EntityClassification getEnumCreatureType() { return this.func_220339_d(); } // Paper - OBFHELPER
+     public EntityClassification func_220339_d() {
+         return this.field_220355_ba;
+     }
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index fd6330bec25f7fd3c49aad3fc60b0e5a380a27f7..2161b01bbd41d6703bd32ba6b54971f1ec389e0f 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -29,6 +29,7 @@ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.crash.ReportedException;
+ import net.minecraft.enchantment.EnchantmentHelper;
+ import net.minecraft.entity.Entity;
++import net.minecraft.entity.EntityClassification;
+ import net.minecraft.entity.IAngerable;
+ import net.minecraft.entity.LivingEntity;
+ import net.minecraft.entity.MobEntity;
+@@ -215,6 +216,11 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public boolean queueHealthUpdatePacket = false;
+     public net.minecraft.network.play.server.SUpdateHealthPacket queuedHealthUpdatePacket;
+     // Paper end
++    // Paper start - mob spawning rework
++    public static final int ENUMCREATURETYPE_TOTAL_ENUMS = EntityClassification.values().length;
++    public final int[] mobCounts = new int[ENUMCREATURETYPE_TOTAL_ENUMS]; // Paper
++    public final com.destroystokyo.paper.util.PooledHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> cachedSingleMobDistanceMap;
++    // Paper end
+ 
+     // CraftBukkit start
+     public String displayName;
+@@ -251,6 +257,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+         this.displayName = this.func_195047_I_();
+         this.canPickUpLoot = true;
+         this.maxHealthCache = this.func_110138_aP();
++        this.cachedSingleMobDistanceMap = new com.destroystokyo.paper.util.PooledHashSets.PooledObjectLinkedOpenHashSet<>(this); // Paper
+     }
+ 
+     // Yes, this doesn't match Vanilla, but it's the best we can do for now.
+@@ -2030,6 +2037,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+ 
+     }
+ 
++    public final SectionPos getPlayerMapSection() { return this.func_213842_M(); } // Paper - OBFHELPER
+     public SectionPos func_213842_M() {
+         return this.field_213851_cv;
+     }
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index a4bffbdd59bb920908848f8e5decb267701d31f0..d9a510407911fe071f59171a6b52aa65dd5d1dc2 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -51,6 +51,7 @@ import net.minecraft.crash.CrashReport;
+ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.crash.ReportedException;
+ import net.minecraft.entity.Entity;
++import net.minecraft.entity.EntityClassification;
+ import net.minecraft.entity.EntityType;
+ import net.minecraft.entity.INPC;
+ import net.minecraft.entity.MobEntity;
+@@ -133,7 +134,8 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+     public final Int2ObjectMap<ChunkManager.EntityTracker> field_219272_z;
+     private final Long2ByteMap field_241087_z_;
+     private final Queue<Runnable> field_223181_A; private final Queue<Runnable> getUnloadQueueTasks() { return this.field_223181_A; } // Paper - OBFHELPER
+-    private int field_219247_A;
++    int field_219247_A; // Paper - private -> package private
++    public final com.destroystokyo.paper.util.PlayerMobDistanceMap playerMobDistanceMap; // Paper
+ 
+     // CraftBukkit start - recursion-safe executor for Chunk loadCallback() and unloadCallback()
+     public final CallbackExecutor callbackExecutor = new CallbackExecutor();
+@@ -212,6 +214,24 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         this.field_219259_m = supplier;
+         this.field_219260_n = new PointOfInterestManager(new File(this.field_219270_x, "poi"), datafixer, flag, this.field_219255_i); // Paper
+         this.func_219175_a(i);
++        this.playerMobDistanceMap = this.field_219255_i.paperConfig.perPlayerMobSpawns ? new com.destroystokyo.paper.util.PlayerMobDistanceMap() : null; // Paper
++    }
++
++    public void updatePlayerMobTypeMap(Entity entity) {
++        if (!this.field_219255_i.paperConfig.perPlayerMobSpawns) {
++            return;
++        }
++        int chunkX = (int)Math.floor(entity.func_226277_ct_()) >> 4;
++        int chunkZ = (int)Math.floor(entity.func_226281_cx_()) >> 4;
++        int index = entity.func_200600_R().getEnumCreatureType().ordinal();
++
++        for (ServerPlayerEntity player : this.playerMobDistanceMap.getPlayersInRange(chunkX, chunkZ)) {
++            ++player.mobCounts[index];
++        }
++    }
++
++    public int getMobCountNear(ServerPlayerEntity entityPlayer, EntityClassification enumCreatureType) {
++        return entityPlayer.mobCounts[enumCreatureType.ordinal()];
+     }
+ 
+     private static double func_219217_a(ChunkPos p_219217_0_, Entity p_219217_1_) {
+diff --git a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+index 5aa579ec5c5271fc376b5d91214c715e5e595f4b..9bb34ba665ab034e90abb3946d1be5f9de1c1d7a 100644
+--- a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
++++ b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+@@ -774,7 +774,22 @@ public class ServerChunkProvider extends AbstractChunkProvider {
+             this.field_73251_h.func_217381_Z().func_76320_a("naturalSpawnCount");
+             this.field_73251_h.timings.countNaturalMobs.startTiming(); // Paper - timings
+             int l = this.field_217240_d.func_219358_b();
+-            WorldEntitySpawner.EntityDensityManager spawnercreature_d = WorldEntitySpawner.func_234964_a_(l, this.field_73251_h.func_241136_z_(), this::func_241098_a_);
++            // Paper start - per player mob spawning
++            WorldEntitySpawner.EntityDensityManager spawnercreature_d; // moved down
++            if (this.field_217237_a.playerMobDistanceMap != null) {
++                // update distance map
++                this.field_73251_h.timings.playerMobDistanceMapUpdate.startTiming();
++                this.field_217237_a.playerMobDistanceMap.update(this.field_73251_h.field_217491_A, this.field_217237_a.field_219247_A);
++                this.field_73251_h.timings.playerMobDistanceMapUpdate.stopTiming();
++                // re-set mob counts
++                for (ServerPlayerEntity player : this.field_73251_h.field_217491_A) {
++                    Arrays.fill(player.mobCounts, 0);
++                }
++                spawnercreature_d = WorldEntitySpawner.countMobs(l, this.field_73251_h.func_241136_z_(), this::func_241098_a_, true);
++            } else {
++                spawnercreature_d = WorldEntitySpawner.countMobs(l, this.field_73251_h.func_241136_z_(), this::func_241098_a_, false);
++            }
++            // Paper end
+             this.field_73251_h.timings.countNaturalMobs.stopTiming(); // Paper - timings
+ 
+             this.field_241097_p_ = spawnercreature_d;
+diff --git a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+index 5f27b01ef8af05c714fbde2311f147cfc82ac04e..121e29221c5a76356727f3c27948dec7ea2f7909 100644
+--- a/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/WorldEntitySpawner.java
+@@ -20,6 +20,7 @@ import net.minecraft.entity.EntityType;
+ import net.minecraft.entity.ILivingEntityData;
+ import net.minecraft.entity.MobEntity;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.fluid.FluidState;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.pathfinding.PathType;
+@@ -69,9 +70,14 @@ public final class WorldEntitySpawner {
+     });
+ 
+     public static WorldEntitySpawner.EntityDensityManager func_234964_a_(int p_234964_0_, Iterable<Entity> p_234964_1_, WorldEntitySpawner.IInitialDensityAdder p_234964_2_) {
++        // Paper start - add countMobs parameter
++        return countMobs(p_234964_0_, p_234964_1_, p_234964_2_, false);
++    }
++    public static WorldEntitySpawner.EntityDensityManager countMobs(int i, Iterable<Entity> iterable, WorldEntitySpawner.IInitialDensityAdder spawnercreature_b, boolean countMobs) {
++        // Paper end - add countMobs parameter
+         MobDensityTracker spawnercreatureprobabilities = new MobDensityTracker();
+         Object2IntOpenHashMap<EntityClassification> object2intopenhashmap = new Object2IntOpenHashMap();
+-        Iterator iterator = p_234964_1_.iterator();
++        Iterator iterator = iterable.iterator();
+ 
+         while (iterator.hasNext()) {
+             Entity entity = (Entity) iterator.next();
+@@ -98,7 +104,7 @@ public final class WorldEntitySpawner {
+                 BlockPos blockposition = entity.func_233580_cy_();
+                 long j = ChunkPos.func_77272_a(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
+ 
+-                p_234964_2_.query(j, (chunk) -> {
++                spawnercreature_b.query(j, (chunk) -> {
+                     MobSpawnInfo.SpawnCosts biomesettingsmobs_b = func_234980_b_(blockposition, chunk).func_242433_b().func_242558_a(entity.func_200600_R());
+ 
+                     if (biomesettingsmobs_b != null) {
+@@ -106,11 +112,16 @@ public final class WorldEntitySpawner {
+                     }
+ 
+                     object2intopenhashmap.addTo(enumcreaturetype, 1);
++                    // Paper start
++                    if (countMobs) {
++                        ((ServerWorld)chunk.field_76637_e).func_72863_F().field_217237_a.updatePlayerMobTypeMap(entity);
++                    }
++                    // Paper end
+                 });
+             }
+         }
+ 
+-        return new WorldEntitySpawner.EntityDensityManager(p_234964_0_, object2intopenhashmap, spawnercreatureprobabilities);
++        return new WorldEntitySpawner.EntityDensityManager(i, object2intopenhashmap, spawnercreatureprobabilities);
+     }
+ 
+     private static Biome func_234980_b_(BlockPos p_234980_0_, IChunk p_234980_1_) {
+@@ -164,13 +175,33 @@ public final class WorldEntitySpawner {
+                 continue;
+             }
+ 
+-            if ((p_234979_3_ || !enumcreaturetype.func_75599_d()) && (p_234979_4_ || enumcreaturetype.func_75599_d()) && (p_234979_5_ || !enumcreaturetype.func_82705_e()) && p_234979_2_.a(enumcreaturetype, limit)) {
++            // Paper start - only allow spawns upto the limit per chunk and update count afterwards
++            int currEntityCount = p_234979_2_.getEntityCountsByType().getInt(enumcreaturetype);
++            int k1 = limit * p_234979_2_.getSpawnerChunks() / WorldEntitySpawner.field_234960_b_;
++            int difference = k1 - currEntityCount;
++
++            if (p_234979_0_.paperConfig.perPlayerMobSpawns) {
++                int minDiff = Integer.MAX_VALUE;
++                for (ServerPlayerEntity entityplayer : p_234979_0_.func_72863_F().field_217237_a.playerMobDistanceMap.getPlayersInRange(p_234979_1_.func_76632_l())) {
++                    minDiff = Math.min(limit - p_234979_0_.func_72863_F().field_217237_a.getMobCountNear(entityplayer, enumcreaturetype), minDiff);
++                }
++                difference = (minDiff == Integer.MAX_VALUE) ? 0 : minDiff;
++            }
++            // Paper end
++
++            // Paper start - per player mob spawning
++            if ((p_234979_3_ || !enumcreaturetype.func_75599_d()) && (p_234979_4_ || enumcreaturetype.func_75599_d()) && (p_234979_5_ || !enumcreaturetype.func_82705_e()) && difference > 0) {
+                 // CraftBukkit end
+-                func_234967_a_(enumcreaturetype, p_234979_0_, p_234979_1_, (entitytypes, blockposition, ichunkaccess) -> {
++                int spawnCount = spawnMobs(enumcreaturetype, p_234979_0_, p_234979_1_, (entitytypes, blockposition, ichunkaccess) -> {
+                     return p_234979_2_.func_234989_a_(entitytypes, blockposition, ichunkaccess);
+                 }, (entityinsentient, ichunkaccess) -> {
+                     p_234979_2_.func_234990_a_(entityinsentient, ichunkaccess);
++                },
++                difference, p_234979_0_.paperConfig.perPlayerMobSpawns ? p_234979_0_.func_72863_F().field_217237_a::updatePlayerMobTypeMap : null);
++                p_234979_2_.getEntityCountsByType().mergeInt(enumcreaturetype, spawnCount, (keyInMap, valueInMap) -> {
++                    return Integer.valueOf(spawnCount + valueInMap.intValue());
+                 });
++                // Paper end - per player mob spawning
+             }
+         }
+ 
+@@ -179,31 +210,43 @@ public final class WorldEntitySpawner {
+     }
+ 
+     public static void func_234967_a_(EntityClassification p_234967_0_, ServerWorld p_234967_1_, Chunk p_234967_2_, WorldEntitySpawner.IDensityCheck p_234967_3_, WorldEntitySpawner.IOnSpawnDensityAdder p_234967_4_) {
+-        BlockPos blockposition = func_222262_a(p_234967_1_, p_234967_2_);
++        // Paper start - add parameters and int ret type
++        spawnMobs(p_234967_0_, p_234967_1_, p_234967_2_, p_234967_3_, p_234967_4_, Integer.MAX_VALUE, null);
++    }
++    public static int spawnMobs(EntityClassification enumcreaturetype, ServerWorld worldserver, Chunk chunk, WorldEntitySpawner.IDensityCheck spawnercreature_c, WorldEntitySpawner.IOnSpawnDensityAdder spawnercreature_a, int maxSpawns, Consumer<Entity> trackEntity) {
++        // Paper end - add parameters and int ret type
++        BlockPos blockposition = func_222262_a(worldserver, chunk);
+ 
+         if (blockposition.func_177956_o() >= 1) {
+-            func_234966_a_(p_234967_0_, p_234967_1_, (IChunk) p_234967_2_, blockposition, p_234967_3_, p_234967_4_);
++            return spawnMobsInternal(enumcreaturetype, worldserver, (IChunk) chunk, blockposition, spawnercreature_c, spawnercreature_a, maxSpawns, trackEntity);
+         }
++        return 0; // Paper
+     }
+ 
+     public static void func_234966_a_(EntityClassification p_234966_0_, ServerWorld p_234966_1_, IChunk p_234966_2_, BlockPos p_234966_3_, WorldEntitySpawner.IDensityCheck p_234966_4_, WorldEntitySpawner.IOnSpawnDensityAdder p_234966_5_) {
+-        StructureManager structuremanager = p_234966_1_.func_241112_a_();
+-        ChunkGenerator chunkgenerator = p_234966_1_.func_72863_F().func_201711_g();
+-        int i = p_234966_3_.func_177956_o();
+-        BlockState iblockdata = p_234966_1_.getTypeIfLoadedAndInBounds(p_234966_3_); // Paper - don't load chunks for mob spawn
+-
+-        if (iblockdata != null && !iblockdata.func_215686_e(p_234966_2_, p_234966_3_)) { // Paper - don't load chunks for mob spawn
++        // Paper start - add maxSpawns parameter and return spawned mobs
++        spawnMobsInternal(p_234966_0_, p_234966_1_, p_234966_2_, p_234966_3_, p_234966_4_, p_234966_5_, Integer.MAX_VALUE, null);
++    }
++    public static int spawnMobsInternal(EntityClassification enumcreaturetype, ServerWorld worldserver, IChunk ichunkaccess, BlockPos blockposition, WorldEntitySpawner.IDensityCheck spawnercreature_c, WorldEntitySpawner.IOnSpawnDensityAdder spawnercreature_a, int maxSpawns, Consumer<Entity> trackEntity) {
++        // Paper end - add maxSpawns parameter and return spawned mobs
++        StructureManager structuremanager = worldserver.func_241112_a_();
++        ChunkGenerator chunkgenerator = worldserver.func_72863_F().func_201711_g();
++        int i = blockposition.func_177956_o();
++        BlockState iblockdata = worldserver.getTypeIfLoadedAndInBounds(blockposition); // Paper - don't load chunks for mob spawn
++        int j = 0; // Paper - moved up
++
++        if (iblockdata != null && !iblockdata.func_215686_e(ichunkaccess, blockposition)) { // Paper - don't load chunks for mob spawn
+             BlockPos.Mutable blockposition_mutableblockposition = new BlockPos.Mutable();
+-            int j = 0;
++            // Paper - moved up
+             int k = 0;
+ 
+             while (k < 3) {
+-                int l = p_234966_3_.func_177958_n();
+-                int i1 = p_234966_3_.func_177952_p();
++                int l = blockposition.func_177958_n();
++                int i1 = blockposition.func_177952_p();
+                 boolean flag = true;
+                 MobSpawnInfo.Spawners biomesettingsmobs_c = null;
+                 ILivingEntityData groupdataentity = null;
+-                int j1 = MathHelper.func_76123_f(p_234966_1_.field_73012_v.nextFloat() * 4.0F);
++                int j1 = MathHelper.func_76123_f(worldserver.field_73012_v.nextFloat() * 4.0F);
+                 int k1 = 0;
+                 int l1 = 0;
+ 
+@@ -211,52 +254,57 @@ public final class WorldEntitySpawner {
+                     if (l1 < j1) {
+                         label53:
+                         {
+-                            l += p_234966_1_.field_73012_v.nextInt(6) - p_234966_1_.field_73012_v.nextInt(6);
+-                            i1 += p_234966_1_.field_73012_v.nextInt(6) - p_234966_1_.field_73012_v.nextInt(6);
++                            l += worldserver.field_73012_v.nextInt(6) - worldserver.field_73012_v.nextInt(6);
++                            i1 += worldserver.field_73012_v.nextInt(6) - worldserver.field_73012_v.nextInt(6);
+                             blockposition_mutableblockposition.func_181079_c(l, i, i1);
+                             double d0 = (double) l + 0.5D;
+                             double d1 = (double) i1 + 0.5D;
+-                            PlayerEntity entityhuman = p_234966_1_.func_217366_a(d0, (double) i, d1, -1.0D, false);
++                            PlayerEntity entityhuman = worldserver.func_217366_a(d0, (double) i, d1, -1.0D, false);
+ 
+                             if (entityhuman != null) {
+                                 double d2 = entityhuman.func_70092_e(d0, (double) i, d1);
+ 
+-                                if (func_234978_a_(p_234966_1_, p_234966_2_, blockposition_mutableblockposition, d2) && p_234966_1_.isLoadedAndInBounds(blockposition_mutableblockposition)) { // Paper - don't load chunks for mob spawn
++                                if (func_234978_a_(worldserver, ichunkaccess, blockposition_mutableblockposition, d2) && worldserver.isLoadedAndInBounds(blockposition_mutableblockposition)) { // Paper - don't load chunks for mob spawn
+                                     if (biomesettingsmobs_c == null) {
+-                                        biomesettingsmobs_c = func_234977_a_(p_234966_1_, structuremanager, chunkgenerator, p_234966_0_, p_234966_1_.field_73012_v, (BlockPos) blockposition_mutableblockposition);
++                                        biomesettingsmobs_c = func_234977_a_(worldserver, structuremanager, chunkgenerator, enumcreaturetype, worldserver.field_73012_v, (BlockPos) blockposition_mutableblockposition);
+                                         if (biomesettingsmobs_c == null) {
+                                             break label53;
+                                         }
+ 
+-                                        j1 = biomesettingsmobs_c.field_242589_d + p_234966_1_.field_73012_v.nextInt(1 + biomesettingsmobs_c.field_242590_e - biomesettingsmobs_c.field_242589_d);
++                                        j1 = biomesettingsmobs_c.field_242589_d + worldserver.field_73012_v.nextInt(1 + biomesettingsmobs_c.field_242590_e - biomesettingsmobs_c.field_242589_d);
+                                     }
+ 
+                                     // Paper start
+-                                    Boolean doSpawning = a(p_234966_1_, p_234966_0_, structuremanager, chunkgenerator, biomesettingsmobs_c, blockposition_mutableblockposition, d2);
++                                    Boolean doSpawning = a(worldserver, enumcreaturetype, structuremanager, chunkgenerator, biomesettingsmobs_c, blockposition_mutableblockposition, d2);
+                                     if (doSpawning == null) {
+-                                        return;
++                                        return j; // Paper
+                                     }
+-                                    if (doSpawning && p_234966_4_.test(biomesettingsmobs_c.field_242588_c, blockposition_mutableblockposition, p_234966_2_)) {
++                                    if (doSpawning && spawnercreature_c.test(biomesettingsmobs_c.field_242588_c, blockposition_mutableblockposition, ichunkaccess)) {
+                                         // Paper end
+-                                        MobEntity entityinsentient = func_234973_a_(p_234966_1_, biomesettingsmobs_c.field_242588_c);
++                                        MobEntity entityinsentient = func_234973_a_(worldserver, biomesettingsmobs_c.field_242588_c);
+ 
+ 
+                                         if (entityinsentient == null) {
+-                                            return;
++                                            return j; // Paper
+                                         }
+ 
+-                                        entityinsentient.func_70012_b(d0, (double) i, d1, p_234966_1_.field_73012_v.nextFloat() * 360.0F, 0.0F);
+-                                        if (func_234974_a_(p_234966_1_, entityinsentient, d2)) {
+-                                            groupdataentity = entityinsentient.func_213386_a(p_234966_1_, p_234966_1_.func_175649_E(entityinsentient.func_233580_cy_()), net.minecraft.entity.SpawnReason.NATURAL, groupdataentity, (CompoundNBT) null);
++                                        entityinsentient.func_70012_b(d0, (double) i, d1, worldserver.field_73012_v.nextFloat() * 360.0F, 0.0F);
++                                        if (func_234974_a_(worldserver, entityinsentient, d2)) {
++                                            groupdataentity = entityinsentient.func_213386_a(worldserver, worldserver.func_175649_E(entityinsentient.func_233580_cy_()), net.minecraft.entity.SpawnReason.NATURAL, groupdataentity, (CompoundNBT) null);
+                                             // CraftBukkit start
+-                                            if (p_234966_1_.addAllEntities(entityinsentient, SpawnReason.NATURAL)) {
+-                                                ++j;
++                                            if (worldserver.addAllEntities(entityinsentient, SpawnReason.NATURAL)) {
++                                                ++j; // Paper - force diff on name change - we expect this to be the total amount spawned
+                                                 ++k1;
+-                                                p_234966_5_.run(entityinsentient, p_234966_2_);
++                                                spawnercreature_a.run(entityinsentient, ichunkaccess);
++                                                // Paper start
++                                                if (trackEntity != null) {
++                                                    trackEntity.accept(entityinsentient);
++                                                }
++                                                // Paper end
+                                             }
+                                             // CraftBukkit end
+-                                            if (j >= entityinsentient.func_70641_bl()) {
+-                                                return;
++                                            if (j >= entityinsentient.func_70641_bl() || j >= maxSpawns) { // Paper
++                                                return j; // Paper
+                                             }
+ 
+                                             if (entityinsentient.func_204209_c(k1)) {
+@@ -278,6 +326,7 @@ public final class WorldEntitySpawner {
+             }
+ 
+         }
++        return j; // Paper
+     }
+ 
+     private static boolean func_234978_a_(ServerWorld p_234978_0_, IChunk p_234978_1_, BlockPos.Mutable p_234978_2_, double p_234978_3_) {
+@@ -518,8 +567,8 @@ public final class WorldEntitySpawner {
+ 
+     public static class EntityDensityManager {
+ 
+-        private final int field_234981_a_;
+-        private final Object2IntOpenHashMap<EntityClassification> field_234982_b_;
++        private final int field_234981_a_; final int getSpawnerChunks() { return this.field_234981_a_; } // Paper - OBFHELPER
++        private final Object2IntOpenHashMap<EntityClassification> field_234982_b_; final Object2IntMap<EntityClassification> getEntityCountsByType() { return this.field_234982_b_; } // Paper - OBFHELPER
+         private final MobDensityTracker field_234983_c_;
+         private final Object2IntMap<EntityClassification> field_234984_d_;
+         @Nullable
+@@ -580,7 +629,7 @@ public final class WorldEntitySpawner {
+ 
+         // CraftBukkit start
+         private boolean a(EntityClassification enumcreaturetype, int limit) {
+-            int i = limit * this.field_234981_a_ / WorldEntitySpawner.field_234960_b_;
++            int i = limit * this.field_234981_a_ / WorldEntitySpawner.field_234960_b_; // Paper - diff on change, needed in the spawn method
+             // CraftBukkit end
+ 
+             return this.field_234982_b_.getInt(enumcreaturetype) < i;

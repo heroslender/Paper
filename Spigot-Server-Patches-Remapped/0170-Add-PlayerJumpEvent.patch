@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Thu, 28 Sep 2017 17:21:44 -0400
+Subject: [PATCH] Add PlayerJumpEvent
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 266daf811f56c135f64a495fd0611ad89ebf3536..29ad6b60e11d92057082e9cf67ed1e2066fd289b 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -208,6 +208,8 @@ import org.bukkit.inventory.CraftingInventory;
+ import org.bukkit.inventory.EquipmentSlot;
+ import org.bukkit.inventory.InventoryView;
+ import org.bukkit.util.NumberConversions;
++import com.destroystokyo.paper.event.player.IllegalPacketEvent; // Paper
++import com.destroystokyo.paper.event.player.PlayerJumpEvent; // Paper
+ import co.aikar.timings.MinecraftTimings; // Paper
+ // CraftBukkit end
+ 
+@@ -1161,7 +1163,34 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                             boolean flag = d8 > 0.0D;
+ 
+                             if (this.field_147369_b.func_233570_aj_() && !p_147347_1_.func_149465_i() && flag) {
+-                                this.field_147369_b.func_70664_aZ();
++                                // Paper start - Add player jump event
++                                Player player = this.getPlayer();
++                                Location from = new Location(player.getWorld(), lastPosX, lastPosY, lastPosZ, lastYaw, lastPitch); // Get the Players previous Event location.
++                                Location to = player.getLocation().clone(); // Start off the To location as the Players current location.
++
++                                // If the packet contains movement information then we update the To location with the correct XYZ.
++                                if (p_147347_1_.field_149480_h) {
++                                    to.setX(p_147347_1_.field_149479_a);
++                                    to.setY(p_147347_1_.field_149477_b);
++                                    to.setZ(p_147347_1_.field_149478_c);
++                                }
++
++                                // If the packet contains look information then we update the To location with the correct Yaw & Pitch.
++                                if (p_147347_1_.field_149481_i) {
++                                    to.setYaw(p_147347_1_.field_149476_e);
++                                    to.setPitch(p_147347_1_.field_149473_f);
++                                }
++
++                                PlayerJumpEvent event = new PlayerJumpEvent(player, from, to);
++
++                                if (event.callEvent()) {
++                                    this.field_147369_b.func_70664_aZ();
++                                } else {
++                                    from = event.getFrom();
++                                    this.internalTeleport(from.getX(), from.getY(), from.getZ(), from.getYaw(), from.getPitch(), Collections.emptySet());
++                                    return;
++                                }
++                                // Paper end
+                             }
+ 
+                             this.field_147369_b.func_213315_a(MoverType.PLAYER, new Vector3d(d7, d8, d9));

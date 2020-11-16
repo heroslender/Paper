@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 1 May 2018 20:18:54 -0400
+Subject: [PATCH] EndermanAttackPlayerEvent
+
+Allow control over whether or not an enderman aggros a player.
+
+This allows you to override/extend the pumpkin/stare logic.
+
+diff --git a/src/main/java/net/minecraft/entity/monster/EndermanEntity.java b/src/main/java/net/minecraft/entity/monster/EndermanEntity.java
+index a81ea6ba05f1689afdadcfb022afc39f3249f301..4a68c17fd5b97a1ead85b0106f29a552ce1092a1 100644
+--- a/src/main/java/net/minecraft/entity/monster/EndermanEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/EndermanEntity.java
+@@ -221,20 +221,28 @@ public class EndermanEntity extends MonsterEntity implements IAngerable {
+         this.func_241358_a_((ServerWorld) this.field_70170_p, p_70037_1_);
+     }
+ 
++    // Paper start - OBFHELPER - ok not really, but verify this on updates
+     private boolean func_70821_d(PlayerEntity p_70821_1_) {
+-        ItemStack itemstack = (ItemStack) p_70821_1_.field_71071_by.field_70460_b.get(3);
++        boolean shouldAttack = g_real(p_70821_1_);
++        com.destroystokyo.paper.event.entity.EndermanAttackPlayerEvent event = new com.destroystokyo.paper.event.entity.EndermanAttackPlayerEvent((org.bukkit.entity.Enderman) getBukkitEntity(), (org.bukkit.entity.Player) p_70821_1_.getBukkitEntity());
++        event.setCancelled(!shouldAttack);
++        return event.callEvent();
++    }
++    private boolean g_real(PlayerEntity entityhuman) {
++        // Paper end
++        ItemStack itemstack = (ItemStack) entityhuman.field_71071_by.field_70460_b.get(3);
+ 
+         if (itemstack.func_77973_b() == Blocks.field_196625_cS.func_199767_j()) {
+             return false;
+         } else {
+-            Vector3d vec3d = p_70821_1_.func_70676_i(1.0F).func_72432_b();
+-            Vector3d vec3d1 = new Vector3d(this.func_226277_ct_() - p_70821_1_.func_226277_ct_(), this.func_226280_cw_() - p_70821_1_.func_226280_cw_(), this.func_226281_cx_() - p_70821_1_.func_226281_cx_());
++            Vector3d vec3d = entityhuman.func_70676_i(1.0F).func_72432_b();
++            Vector3d vec3d1 = new Vector3d(this.func_226277_ct_() - entityhuman.func_226277_ct_(), this.func_226280_cw_() - entityhuman.func_226280_cw_(), this.func_226281_cx_() - entityhuman.func_226281_cx_());
+             double d0 = vec3d1.func_72433_c();
+ 
+             vec3d1 = vec3d1.func_72432_b();
+             double d1 = vec3d.func_72430_b(vec3d1);
+ 
+-            return d1 > 1.0D - 0.025D / d0 ? p_70821_1_.func_70685_l(this) : false;
++            return d1 > 1.0D - 0.025D / d0 ? entityhuman.func_70685_l(this) : false;
+         }
+     }
+ 

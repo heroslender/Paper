@@ -1,0 +1,47 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Brokkonaut <hannos17@gmx.de>
+Date: Tue, 7 Feb 2017 16:55:35 -0600
+Subject: [PATCH] Make targetSize more aggressive in the chunk unload queue
+
+
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 6f99dea7ce2cc98ce47a0e6bc0609773369d52c1..7def18d21b32303d7195f755328a6b5c6ba7f158 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -125,7 +125,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+     private final PlayerGenerationTracker field_219271_y;
+     public final Int2ObjectMap<ChunkManager.EntityTracker> field_219272_z;
+     private final Long2ByteMap field_241087_z_;
+-    private final Queue<Runnable> field_223181_A;
++    private final Queue<Runnable> field_223181_A; private final Queue<Runnable> getUnloadQueueTasks() { return this.field_223181_A; } // Paper - OBFHELPER
+     private int field_219247_A;
+ 
+     // CraftBukkit start - recursion-safe executor for Chunk loadCallback() and unloadCallback()
+@@ -183,7 +183,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         this.field_219271_y = new PlayerGenerationTracker();
+         this.field_219272_z = new Int2ObjectOpenHashMap();
+         this.field_241087_z_ = new Long2ByteOpenHashMap();
+-        this.field_223181_A = Queues.newConcurrentLinkedQueue();
++        this.field_223181_A = new com.destroystokyo.paper.utils.CachedSizeConcurrentLinkedQueue<>(); // Paper - need constant-time size()
+         this.field_219269_w = definedstructuremanager;
+         this.field_219270_x = convertable_conversionsession.func_237291_a_(worldserver.func_234923_W_());
+         this.field_219255_i = worldserver;
+@@ -441,7 +441,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         // Spigot start
+         org.spigotmc.SlackActivityAccountant activityAccountant = this.field_219255_i.func_73046_m().slackActivityAccountant;
+         activityAccountant.startActivity(0.5);
+-        int targetSize = (int) (this.field_219261_o.size() * UNLOAD_QUEUE_RESIZE_FACTOR);
++        int targetSize = Math.min(this.field_219261_o.size() - 100,  (int) (this.field_219261_o.size() * UNLOAD_QUEUE_RESIZE_FACTOR)); // Paper - Make more aggressive
+         // Spigot end
+         while (longiterator.hasNext()) { // Spigot
+             long j = longiterator.nextLong();
+@@ -463,7 +463,8 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+ 
+         Runnable runnable;
+ 
+-        while ((p_223155_1_.getAsBoolean() || this.field_223181_A.size() > 2000) && (runnable = (Runnable) this.field_223181_A.poll()) != null) {
++        int queueTarget = Math.min(this.getUnloadQueueTasks().size() - 100, (int) (this.getUnloadQueueTasks().size() * UNLOAD_QUEUE_RESIZE_FACTOR)); // Paper - Target this queue as well
++        while ((p_223155_1_.getAsBoolean() || this.getUnloadQueueTasks().size() > queueTarget) && (runnable = (Runnable)this.getUnloadQueueTasks().poll()) != null) { // Paper - Target this queue as well
+             runnable.run();
+         }
+ 

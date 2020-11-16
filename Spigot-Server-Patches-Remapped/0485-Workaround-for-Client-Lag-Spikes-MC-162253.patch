@@ -1,0 +1,163 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: MeFisto94 <MeFisto94@users.noreply.github.com>
+Date: Tue, 12 May 2020 23:02:43 +0200
+Subject: [PATCH] Workaround for Client Lag Spikes (MC-162253)
+
+When crossing certain chunk boundaries, the client needlessly
+calculates light maps for chunk neighbours. In some specific map
+configurations, these calculations cause a 500ms+ freeze on the Client.
+
+This patch basically serves as a workaround by sending light maps
+to the client, so that it doesn't attempt to calculate them.
+This mitigates the frametime impact to a minimum (but it's still there).
+
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 259eef5120beb95dd89603c40ba3a1f95efddf09..72edd19676f35cf3dd4c3329964a27e8a3fc2b8e 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -281,7 +281,7 @@ public class Chunk implements IChunk {
+ 
+                     // broadcast
+                     Object[] backingSet = inRange.getBackingSet();
+-                    IPacket[] chunkPackets = new IPacket[2];
++                    IPacket[] chunkPackets = new IPacket[10];
+                     for (int index = 0, len = backingSet.length; index < len; ++index) {
+                         Object temp = backingSet[index];
+                         if (!(temp instanceof ServerPlayerEntity)) {
+diff --git a/src/main/java/net/minecraft/world/chunk/ChunkSection.java b/src/main/java/net/minecraft/world/chunk/ChunkSection.java
+index 3e0e87326e742a8d8ef69e947596ea06abe09541..74af18f8c29ba35351406d70f9599a6217dbf08f 100644
+--- a/src/main/java/net/minecraft/world/chunk/ChunkSection.java
++++ b/src/main/java/net/minecraft/world/chunk/ChunkSection.java
+@@ -110,6 +110,7 @@ public class ChunkSection {
+         return this.field_76682_b == 0;
+     }
+ 
++    public static boolean isEmpty(@Nullable ChunkSection chunksection) { return func_222628_a(chunksection) ; } // Paper - OBFHELPER
+     public static boolean func_222628_a(@Nullable ChunkSection p_222628_0_) {
+         return p_222628_0_ == Chunk.field_186036_a || p_222628_0_.func_76663_a();
+     }
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 97dc0ae6fbe21f497e7ca4fc5c4e3af942420012..543a49b196682829bde55bbae64f0b7a50fb2295 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -87,6 +87,7 @@ import net.minecraft.world.World;
+ import net.minecraft.world.chunk.Chunk;
+ import net.minecraft.world.chunk.ChunkPrimer;
+ import net.minecraft.world.chunk.ChunkPrimerWrapper;
++import net.minecraft.world.chunk.ChunkSection;
+ import net.minecraft.world.chunk.ChunkStatus;
+ import net.minecraft.world.chunk.ChunkTaskPriorityQueue;
+ import net.minecraft.world.chunk.ChunkTaskPriorityQueueSorter;
+@@ -2014,12 +2015,112 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+ 
+     }
+ 
++    // Paper start
++    private static int getLightMask(final Chunk chunk) {
++        final ChunkSection[] chunkSections = chunk.func_76587_i();
++        int mask = 0;
++
++        for (int i = 0; i < chunkSections.length; ++i) {
++            /*
++
++
++Lightmasks have 18 bits, from the -1 (void) section until the 17th (air) section.
++Sections go from 0..16. Now whenever a section is not empty, it can potentially change lighting for the section itself, the section below and the section above, hence the bitmask 111b, which is 7d.
++
++             */
++            mask |= (ChunkSection.isEmpty(chunkSections[i]) ? 0 : 7) << i;
++        }
++
++        return mask;
++    }
++
++    private static int getCeilingLightMask(final Chunk chunk) {
++        int mask = getLightMask(chunk);
++
++        /*
++         It is similar to get highest bit, it would turn an 001010 into an 001111 so basically the highest bit and all below.
++         We then invert this, so we'd have 110000 and compare that to the "main" chunk.
++         This is because the bug only appears when the current chunks lightmaps are higher than those of the neighbors, thus we can omit sending neighbors which are lower than the current chunks lights.
++
++         so TLDR is that getCeilingLightMask returns a light mask with all bits set below the highest affected section. We could also count the number of leading zeros and invert them, somehow.
++         @TODO: Implement Leafs suggestion
++         either use Integer#numberOfLeadingZeros or document what this bithack is supposed to be doing then
++         */
++        mask |= mask >> 1;
++        mask |= mask >> 2;
++        mask |= mask >> 4;
++        mask |= mask >> 8;
++        mask |= mask >> 16;
++
++        return mask;
++    }
++    // Paper end
++
+     final void sendChunk(ServerPlayerEntity entityplayer, IPacket<?>[] apacket, Chunk chunk) { this.func_219180_a(entityplayer, apacket, chunk); } // Paper - OBFHELPER
+     private void func_219180_a(ServerPlayerEntity p_219180_1_, IPacket<?>[] p_219180_2_, Chunk p_219180_3_) {
+         if (p_219180_2_[0] == null) {
++            // Paper start - add 8 for light fix workaround
++            if (p_219180_2_.length != 10) { // in case Plugins call sendChunk, resize
++                p_219180_2_ = new IPacket[10];
++            }
++            // Paper end
+             p_219180_2_[0] = new SChunkDataPacket(p_219180_3_, 65535);
+             p_219180_2_[1] = new SUpdateLightPacket(p_219180_3_.func_76632_l(), this.field_219256_j, true);
++
++            // Paper start - Fix MC-162253
++            final int lightMask = getLightMask(p_219180_3_);
++            int i = 1;
++            for (int x = -1; x <= 1; x++) {
++                for (int z = -1; z <= 1; z++) {
++                    if (x == 0 && z == 0) {
++                        continue;
++                    }
++
++                    ++i;
++
++                    if (!p_219180_3_.isNeighbourLoaded(x, z)) {
++                        continue;
++                    }
++
++                    final Chunk neighbor = p_219180_3_.getRelativeNeighbourIfLoaded(x, z);
++                    final int updateLightMask = lightMask & ~getCeilingLightMask(neighbor);
++
++                    if (updateLightMask == 0) {
++                        continue;
++                    }
++
++                    p_219180_2_[i] = new SUpdateLightPacket(new ChunkPos(p_219180_3_.func_76632_l().field_77276_a + x, p_219180_3_.func_76632_l().field_77275_b + z), field_219256_j, updateLightMask, 0, true);
++                }
++            }
++        }
++
++        final int viewDistance = playerViewDistanceBroadcastMap.getLastViewDistance(p_219180_1_);
++        final long lastPosition = playerViewDistanceBroadcastMap.getLastCoordinate(p_219180_1_);
++
++        int j = 1;
++        for (int x = -1; x <= 1; x++) {
++            for (int z = -1; z <= 1; z++) {
++                if (x == 0 && z == 0) {
++                    continue;
++                }
++
++                ++j;
++
++                IPacket<?> packet = p_219180_2_[j];
++                if (packet == null) {
++                    continue;
++                }
++
++                final int distX = Math.abs(MCUtil.getCoordinateX(lastPosition) - (p_219180_3_.func_76632_l().field_77276_a + x));
++                final int distZ = Math.abs(MCUtil.getCoordinateZ(lastPosition) - (p_219180_3_.func_76632_l().field_77275_b + z));
++
++                if (Math.max(distX, distZ) > viewDistance) {
++                    continue;
++                }
++                p_219180_1_.field_71135_a.func_147359_a(packet);
++            }
+         }
++        // Paper end - Fix MC-162253
+ 
+         p_219180_1_.func_213844_a(p_219180_3_.func_76632_l(), p_219180_2_[0], p_219180_2_[1]);
+         DebugPacketSender.func_218802_a(this.field_219255_i, p_219180_3_.func_76632_l());

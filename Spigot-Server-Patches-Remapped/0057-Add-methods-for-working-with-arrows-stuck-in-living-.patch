@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: mrapple <tony@oc.tc>
+Date: Sun, 25 Nov 2012 13:43:39 -0600
+Subject: [PATCH] Add methods for working with arrows stuck in living entities
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+index eac5eec8fc0893335e7f05e5abc005393d2b9869..ae0e7f0971515500224ddb7c0958d29f5feb91e1 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+@@ -687,4 +687,16 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+         getHandle().persistentInvisibility = invisible;
+         getHandle().func_70052_a(5, invisible);
+     }
++
++    // Paper start
++    @Override
++    public int getArrowsStuck() {
++        return getHandle().func_85035_bI();
++    }
++
++    @Override
++    public void setArrowsStuck(int arrows) {
++        getHandle().func_85034_r(arrows);
++    }
++    // Paper end
+ }

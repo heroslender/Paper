@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alfie Cleveland <alfeh@me.com>
+Date: Sun, 8 Jan 2017 04:31:36 +0000
+Subject: [PATCH] Don't allow entities to ride themselves - #572
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 1b45c5775763b86dc5a08bfee04e73c1918ce29c..42d961c72785a1b877f1501c8a0f776f587d55c1 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -2046,6 +2046,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     protected boolean addPassenger(Entity entity) { // CraftBukkit
++        if (entity == this) throw new IllegalArgumentException("Entities cannot become a passenger of themselves"); // Paper - issue 572
+         if (entity.func_184187_bx() != this) {
+             throw new IllegalStateException("Use x.startRiding(y), not y.addPassenger(x)");
+         } else {

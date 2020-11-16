@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 7 May 2017 06:26:09 -0500
+Subject: [PATCH] PlayerPickupItemEvent#setFlyAtPlayer
+
+
+diff --git a/src/main/java/net/minecraft/entity/item/ItemEntity.java b/src/main/java/net/minecraft/entity/item/ItemEntity.java
+index 58214425cd439bd5c03f67ea1d7ae001a44edf0b..b9768aea3c408c1e5399b9f12666110f940045eb 100644
+--- a/src/main/java/net/minecraft/entity/item/ItemEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ItemEntity.java
+@@ -362,6 +362,7 @@ public class ItemEntity extends Entity {
+             // CraftBukkit start - fire PlayerPickupItemEvent
+             int canHold = p_70100_1_.field_71071_by.canHold(itemstack);
+             int remaining = i - canHold;
++            boolean flyAtPlayer = false; // Paper
+ 
+             if (this.field_145804_b <= 0 && canHold > 0) {
+                 itemstack.func_190920_e(canHold);
+@@ -369,8 +370,14 @@ public class ItemEntity extends Entity {
+                 PlayerPickupItemEvent playerEvent = new PlayerPickupItemEvent((org.bukkit.entity.Player) p_70100_1_.getBukkitEntity(), (org.bukkit.entity.Item) this.getBukkitEntity(), remaining);
+                 playerEvent.setCancelled(!p_70100_1_.canPickUpLoot);
+                 this.field_70170_p.getServer().getPluginManager().callEvent(playerEvent);
++                flyAtPlayer = playerEvent.getFlyAtPlayer(); // Paper
+                 if (playerEvent.isCancelled()) {
+                     itemstack.func_190920_e(i); // SPIGOT-5294 - restore count
++                    // Paper Start
++                    if (flyAtPlayer) {
++                        p_70100_1_.func_71001_a(this, i);
++                    }
++                    // Paper End
+                     return;
+                 }
+ 
+@@ -400,7 +407,11 @@ public class ItemEntity extends Entity {
+             // CraftBukkit end
+ 
+             if (this.field_145804_b == 0 && (this.field_145802_g == null || this.field_145802_g.equals(p_70100_1_.func_110124_au())) && p_70100_1_.field_71071_by.func_70441_a(itemstack)) {
+-                p_70100_1_.func_71001_a(this, i);
++                // Paper Start
++                if (flyAtPlayer) {
++                    p_70100_1_.func_71001_a(this, i);
++                }
++                // Paper End
+                 if (itemstack.func_190926_b()) {
+                     this.func_70106_y();
+                     itemstack.func_190920_e(i);

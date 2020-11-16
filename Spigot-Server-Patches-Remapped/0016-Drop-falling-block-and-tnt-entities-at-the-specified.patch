@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Byteflux <byte@byteflux.net>
+Date: Tue, 1 Mar 2016 14:14:15 -0600
+Subject: [PATCH] Drop falling block and tnt entities at the specified height
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index b2dfad6a75c18b81c76539b7327a85da98ccf810..60c38406c599b5952855b3dc18fc3defa9d62ca4 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -120,4 +120,14 @@ public class PaperWorldConfig {
+         keepSpawnInMemory = getBoolean("keep-spawn-loaded", true);
+         log("Keep spawn chunk loaded: " + keepSpawnInMemory);
+     }
++
++    public int fallingBlockHeightNerf;
++    public int entityTNTHeightNerf;
++    private void heightNerfs() {
++        fallingBlockHeightNerf = getInt("falling-block-height-nerf", 0);
++        entityTNTHeightNerf = getInt("tnt-entity-height-nerf", 0);
++
++        if (fallingBlockHeightNerf != 0) log("Falling Block Height Limit set to Y: " + fallingBlockHeightNerf);
++        if (entityTNTHeightNerf != 0) log("TNT Entity Height Limit set to Y: " + entityTNTHeightNerf);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index e9fd7299c2bc2424ce9faab071912a52daa94685..b3e6edbf0f717486900bbf94a4961c6cff63cae5 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -1855,6 +1855,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         return this.func_70099_a(p_199701_1_, 0.0F);
+     }
+ 
++    @Nullable public final ItemEntity dropItem(ItemStack itemstack, float offset) { return this.func_70099_a(itemstack, offset); } // Paper - OBFHELPER
+     @Nullable
+     public ItemEntity func_70099_a(ItemStack p_70099_1_, float p_70099_2_) {
+         if (p_70099_1_.func_190926_b()) {
+diff --git a/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java b/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java
+index 1f32a8de823d8729b0a3882f04560f869c500737..dba934fe8479f24e27e11fb5222ef41c3dbdf03e 100644
+--- a/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java
++++ b/src/main/java/net/minecraft/entity/item/FallingBlockEntity.java
+@@ -123,6 +123,17 @@ public class FallingBlockEntity extends Entity {
+             }
+ 
+             this.func_213315_a(MoverType.SELF, this.func_213322_ci());
++
++            // Paper start - Configurable EntityFallingBlock height nerf
++            if (this.field_70170_p.paperConfig.fallingBlockHeightNerf != 0 && this.func_226278_cu_() > this.field_70170_p.paperConfig.fallingBlockHeightNerf) {
++                if (this.field_145813_c && this.field_70170_p.func_82736_K().func_223586_b(GameRules.field_223604_g)) {
++                    this.func_199703_a(block);
++                }
++
++                this.func_70106_y();
++                return;
++            }
++            // Paper end
+             if (!this.field_70170_p.field_72995_K) {
+                 blockposition = this.func_233580_cy_();
+                 boolean flag = this.field_175132_d.func_177230_c() instanceof ConcretePowderBlock;
+diff --git a/src/main/java/net/minecraft/entity/item/TNTEntity.java b/src/main/java/net/minecraft/entity/item/TNTEntity.java
+index ad99a868676137d5e853dd5a5dab0493dd5335d3..e34689e40822e588531b9c4680cb636f17e50374 100644
+--- a/src/main/java/net/minecraft/entity/item/TNTEntity.java
++++ b/src/main/java/net/minecraft/entity/item/TNTEntity.java
+@@ -69,6 +69,12 @@ public class TNTEntity extends Entity {
+         }
+ 
+         this.func_213315_a(MoverType.SELF, this.func_213322_ci());
++        // Paper start - Configurable TNT entity height nerf
++        if (this.field_70170_p.paperConfig.entityTNTHeightNerf != 0 && this.func_226278_cu_() > this.field_70170_p.paperConfig.entityTNTHeightNerf) {
++            this.func_70106_y();
++            return;
++        }
++        // Paper end
+         this.func_213317_d(this.func_213322_ci().func_186678_a(0.98D));
+         if (this.field_70122_E) {
+             this.func_213317_d(this.func_213322_ci().func_216372_d(0.7D, -0.5D, 0.7D));

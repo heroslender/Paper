@@ -1,0 +1,473 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Sat, 1 Jun 2019 13:00:55 -0700
+Subject: [PATCH] Chunk debug command
+
+Prints all chunk information to a text file into the debug
+folder in the root server folder. The format is in JSON, and
+the data format is described in MCUtil#dumpChunks(File)
+
+The command will output server version and all online players to the
+file as well. We do not log anything but the location, world and
+username of the player.
+
+Also logs the value of these config values (note not all are paper's):
+- keep spawn loaded value
+- spawn radius
+- view distance
+
+Each chunk has the following logged:
+- Coordinate
+- Ticket level & its corresponding state
+- Whether it is queued for unload
+- Chunk status (may be unloaded)
+- All tickets on the chunk
+
+Example log:
+https://gist.githubusercontent.com/Spottedleaf/0131e7710ffd5d531e5fd246c3367380/raw/169ae1b2e240485f99bc7a6bd8e78d90e3af7397/chunks-2019-06-01_19.57.05.txt
+
+For references on certain keywords (ticket, status, etc), please see:
+
+https://bugs.mojang.com/browse/MC-141484?focusedCommentId=528273&page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-528273
+https://bugs.mojang.com/browse/MC-141484?focusedCommentId=528577&page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel#comment-528577
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperCommand.java b/src/main/java/com/destroystokyo/paper/PaperCommand.java
+index 629943b25ffc72e08b7f72baa5cdccbecb239805..59c1fbf3ee9b8e55a22a2e0056690eca0fe0f067 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperCommand.java
++++ b/src/main/java/com/destroystokyo/paper/PaperCommand.java
+@@ -9,6 +9,7 @@ import net.minecraft.entity.EntityType;
+ import net.minecraft.server.*;
+ import net.minecraft.util.ResourceLocation;
+ import net.minecraft.util.math.ChunkPos;
++import net.minecraft.world.server.ChunkHolder;
+ import net.minecraft.world.server.ServerChunkProvider;
+ import net.minecraft.world.server.ServerWorld;
+ import org.apache.commons.lang3.tuple.MutablePair;
+@@ -34,14 +35,14 @@ public class PaperCommand extends Command {
+     public PaperCommand(String name) {
+         super(name);
+         this.description = "Paper related commands";
+-        this.usageMessage = "/paper [heap | entity | reload | version]";
++        this.usageMessage = "/paper [heap | entity | reload | version | debug | chunkinfo]";
+         this.setPermission("bukkit.command.paper");
+     }
+ 
+     @Override
+     public List<String> tabComplete(CommandSender sender, String alias, String[] args, Location location) throws IllegalArgumentException {
+         if (args.length <= 1)
+-            return getListMatchingLast(args, "heap", "entity", "reload", "version");
++            return getListMatchingLast(args, "heap", "entity", "reload", "version", "debug", "chunkinfo");
+ 
+         switch (args[0].toLowerCase(Locale.ENGLISH))
+         {
+@@ -51,6 +52,21 @@ public class PaperCommand extends Command {
+                 if (args.length == 3)
+                     return getListMatchingLast(args, EntityType.getEntityNameList().stream().map(ResourceLocation::toString).sorted().toArray(String[]::new));
+                 break;
++            case "debug":
++                if (args.length == 2) {
++                    return getListMatchingLast(args, "help", "chunks");
++                }
++                break;
++            case "chunkinfo":
++                List<String> worldNames = new ArrayList<>();
++                worldNames.add("*");
++                for (org.bukkit.World world : Bukkit.getWorlds()) {
++                    worldNames.add(world.getName());
++                }
++                if (args.length == 2) {
++                    return getListMatchingLast(args, worldNames);
++                }
++                break;
+         }
+         return Collections.emptyList();
+     }
+@@ -115,6 +131,12 @@ public class PaperCommand extends Command {
+             case "reload":
+                 doReload(sender);
+                 break;
++            case "debug":
++                doDebug(sender, args);
++                break;
++            case "chunkinfo":
++                doChunkInfo(sender, args);
++                break;
+             case "ver":
+             case "version":
+                 Command ver = org.bukkit.Bukkit.getServer().getCommandMap().getCommand("version");
+@@ -131,6 +153,96 @@ public class PaperCommand extends Command {
+         return true;
+     }
+ 
++    private void doChunkInfo(CommandSender sender, String[] args) {
++        List<org.bukkit.World> worlds;
++        if (args.length < 2 || args[1].equals("*")) {
++            worlds = Bukkit.getWorlds();
++        } else {
++            worlds = new ArrayList<>(args.length - 1);
++            for (int i = 1; i < args.length; ++i) {
++                org.bukkit.World world = Bukkit.getWorld(args[i]);
++                if (world == null) {
++                    sender.sendMessage(ChatColor.RED + "World '" + args[i] + "' is invalid");
++                    return;
++                }
++                worlds.add(world);
++            }
++        }
++
++        for (org.bukkit.World bukkitWorld : worlds) {
++            ServerWorld world = ((CraftWorld)bukkitWorld).getHandle();
++
++            int total = 0;
++            int inactive = 0;
++            int border = 0;
++            int ticking = 0;
++            int entityTicking = 0;
++
++            for (ChunkHolder chunk : world.func_72863_F().field_217237_a.field_219251_e.values()) {
++                if (chunk.getFullChunkIfCached() == null) {
++                    continue;
++                }
++
++                ++total;
++
++                ChunkHolder.LocationType state = ChunkHolder.func_219286_c(chunk.func_219299_i());
++
++                switch (state) {
++                    case INACCESSIBLE:
++                        ++inactive;
++                        continue;
++                    case BORDER:
++                        ++border;
++                        continue;
++                    case TICKING:
++                        ++ticking;
++                        continue;
++                    case ENTITY_TICKING:
++                        ++entityTicking;
++                        continue;
++                }
++            }
++
++            sender.sendMessage(ChatColor.BLUE + "Chunks in " + ChatColor.GREEN + bukkitWorld.getName() + ChatColor.DARK_AQUA + ":");
++            sender.sendMessage(ChatColor.BLUE + "Total: " + ChatColor.DARK_AQUA + total + ChatColor.BLUE + " Inactive: " + ChatColor.DARK_AQUA
++                               + inactive + ChatColor.BLUE + " Border: " + ChatColor.DARK_AQUA + border + ChatColor.BLUE + " Ticking: "
++                               + ChatColor.DARK_AQUA + ticking + ChatColor.BLUE + " Entity: " + ChatColor.DARK_AQUA + entityTicking);
++        }
++    }
++
++    private void doDebug(CommandSender sender, String[] args) {
++        if (args.length < 2) {
++            sender.sendMessage(ChatColor.RED + "Use /paper debug [chunks] help for more information on a specific command");
++            return;
++        }
++
++        String debugType = args[1].toLowerCase(Locale.ENGLISH);
++        switch (debugType) {
++            case "chunks":
++                if (args.length >= 3 && args[2].toLowerCase(Locale.ENGLISH).equals("help")) {
++                    sender.sendMessage(ChatColor.RED + "Use /paper debug chunks to dump loaded chunk information to a file");
++                    break;
++                }
++                File file = new File(new File(new File("."), "debug"),
++                    "chunks-" + DateTimeFormatter.ofPattern("yyyy-MM-dd_HH.mm.ss").format(LocalDateTime.now()) + ".txt");
++                sender.sendMessage(ChatColor.GREEN + "Writing chunk information dump to " + file.toString());
++                try {
++                    MCUtil.dumpChunks(file);
++                    sender.sendMessage(ChatColor.GREEN + "Successfully written chunk information!");
++                } catch (Throwable thr) {
++                    MinecraftServer.field_147145_h.warn("Failed to dump chunk information to file " + file.toString(), thr);
++                    sender.sendMessage(ChatColor.RED + "Failed to dump chunk information, see console");
++                }
++
++                break;
++            case "help":
++                // fall through to default
++            default:
++                sender.sendMessage(ChatColor.RED + "Use /paper debug [chunks] help for more information on a specific command");
++                return;
++        }
++    }
++
+     /*
+      * Ported from MinecraftForge - author: LexManos <LexManos@gmail.com> - License: LGPLv2.1
+      */
+diff --git a/src/main/java/net/minecraft/server/MCUtil.java b/src/main/java/net/minecraft/server/MCUtil.java
+index fd6a6ffd53e874035dd1ec8bc16eaf0cc73ee3d8..ef8c783c7740504b68bea14d44d42b33f6ede5c2 100644
+--- a/src/main/java/net/minecraft/server/MCUtil.java
++++ b/src/main/java/net/minecraft/server/MCUtil.java
+@@ -6,7 +6,13 @@ import com.destroystokyo.paper.profile.PlayerProfile;
+ import com.google.common.util.concurrent.ThreadFactoryBuilder;
+ import it.unimi.dsi.fastutil.objects.ObjectRBTreeSet;
+ import org.apache.commons.lang.exception.ExceptionUtils;
++import com.google.gson.JsonArray;
++import com.google.gson.JsonObject;
++import com.google.gson.internal.Streams;
++import com.google.gson.stream.JsonWriter;
+ import com.mojang.authlib.GameProfile;
++import com.mojang.datafixers.util.Either;
++import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+ import org.bukkit.Location;
+ import org.bukkit.block.BlockFace;
+ import org.bukkit.craftbukkit.CraftWorld;
+@@ -16,6 +22,7 @@ import org.spigotmc.AsyncCatcher;
+ import javax.annotation.Nonnull;
+ import javax.annotation.Nullable;
+ import net.minecraft.entity.Entity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.util.Direction;
+ import net.minecraft.util.math.BlockPos;
+@@ -23,9 +30,19 @@ import net.minecraft.util.math.ChunkPos;
+ import net.minecraft.util.math.RayTraceContext;
+ import net.minecraft.util.text.ITextComponent;
+ import net.minecraft.world.World;
++import net.minecraft.world.chunk.ChunkStatus;
++import net.minecraft.world.chunk.IChunk;
++import net.minecraft.world.server.ChunkHolder;
++import net.minecraft.world.server.ChunkManager;
++import net.minecraft.world.server.ServerChunkProvider;
+ import net.minecraft.world.server.ServerWorld;
++import net.minecraft.world.server.Ticket;
++import net.minecraft.world.server.TicketManager;
++import java.io.*;
++import java.util.ArrayList;
+ import java.util.List;
+ import java.util.Queue;
++import java.util.Set;
+ import java.util.concurrent.CompletableFuture;
+ import java.util.concurrent.ExecutionException;
+ import java.util.concurrent.LinkedBlockingQueue;
+@@ -531,4 +548,170 @@ public final class MCUtil {
+ 
+         return null;
+     }
++
++    public static ChunkStatus getChunkStatus(ChunkHolder chunk) {
++        List<ChunkStatus> statuses = ServerChunkProvider.getPossibleChunkStatuses();
++        for (int i = statuses.size() - 1; i >= 0; --i) {
++            ChunkStatus curr = statuses.get(i);
++            CompletableFuture<Either<IChunk, ChunkHolder.IChunkLoadingError>> future = chunk.func_219301_a(curr);
++            if (future != ChunkHolder.field_219307_b) {
++                return curr;
++            }
++        }
++        return null; // unloaded
++    }
++
++    public static void dumpChunks(File file) throws IOException {
++        file.getParentFile().mkdirs();
++        file.createNewFile();
++        /*
++         * Json format:
++         *
++         * Main data format:
++         *  -server-version:<string>
++         *  -data-version:<int>
++         *  -worlds:
++         *    -name:<world name>
++         *    -view-distance:<int>
++         *    -keep-spawn-loaded:<boolean>
++         *    -keep-spawn-loaded-range:<int>
++         *    -visible-chunk-count:<int>
++         *    -loaded-chunk-count:<int>
++         *    -verified-fully-loaded-chunks:<int>
++         *    -players:<array of player>
++         *    -chunk-data:<array of chunks>
++         *
++         * Player format:
++         *  -name:<string>
++         *  -x:<double>
++         *  -y:<double>
++         *  -z:<double>
++         *
++         * Chunk Format:
++         *  -x:<integer>
++         *  -z:<integer>
++         *  -ticket-level:<integer>
++         *  -state:<string>
++         *  -queued-for-unload:<boolean>
++         *  -status:<string>
++         *  -tickets:<array of tickets>
++         *
++         *
++         * Ticket format:
++         *  -ticket-type:<string>
++         *  -ticket-level:<int>
++         *  -add-tick:<long>
++         *  -object-reason:<string> // This depends on the type of ticket. ie POST_TELEPORT -> entity id
++         */
++        List<org.bukkit.World> worlds = org.bukkit.Bukkit.getWorlds();
++        JsonObject data = new JsonObject();
++
++        data.addProperty("server-version", org.bukkit.Bukkit.getVersion());
++        data.addProperty("data-version", 0);
++
++        JsonArray worldsData = new JsonArray();
++
++        for (org.bukkit.World bukkitWorld : worlds) {
++            JsonObject worldData = new JsonObject();
++
++            ServerWorld world = ((org.bukkit.craftbukkit.CraftWorld)bukkitWorld).getHandle();
++            ChunkManager chunkMap = world.func_72863_F().field_217237_a;
++            Long2ObjectLinkedOpenHashMap<ChunkHolder> visibleChunks = chunkMap.field_219252_f;
++            TicketManager chunkMapDistance = chunkMap.field_219267_u;
++            List<ChunkHolder> allChunks = new ArrayList<>(visibleChunks.values());
++            List<ServerPlayerEntity> players = world.field_217491_A;
++
++            int fullLoadedChunks = 0;
++
++            for (ChunkHolder chunk : allChunks) {
++                if (chunk.getFullChunkIfCached() != null) {
++                    ++fullLoadedChunks;
++                }
++            }
++
++            // sorting by coordinate makes the log easier to read
++            allChunks.sort((ChunkHolder v1, ChunkHolder v2) -> {
++                if (v1.field_219319_n.field_77276_a != v2.field_219319_n.field_77276_a) {
++                    return Integer.compare(v1.field_219319_n.field_77276_a, v2.field_219319_n.field_77276_a);
++                }
++                return Integer.compare(v1.field_219319_n.field_77275_b, v2.field_219319_n.field_77275_b);
++            });
++
++            worldData.addProperty("name", world.getWorld().getName());
++            worldData.addProperty("view-distance", world.spigotConfig.viewDistance);
++            worldData.addProperty("keep-spawn-loaded", world.keepSpawnInMemory);
++            worldData.addProperty("keep-spawn-loaded-range", world.paperConfig.keepLoadedRange);
++            worldData.addProperty("visible-chunk-count", visibleChunks.size());
++            worldData.addProperty("loaded-chunk-count", chunkMap.field_219254_h.size());
++            worldData.addProperty("verified-fully-loaded-chunks", fullLoadedChunks);
++
++            JsonArray playersData = new JsonArray();
++
++            for (ServerPlayerEntity player : players) {
++                JsonObject playerData = new JsonObject();
++
++                playerData.addProperty("name", player.func_195047_I_());
++                playerData.addProperty("x", player.func_226277_ct_());
++                playerData.addProperty("y", player.func_226278_cu_());
++                playerData.addProperty("z", player.func_226281_cx_());
++
++                playersData.add(playerData);
++
++            }
++
++            worldData.add("players", playersData);
++
++            JsonArray chunksData = new JsonArray();
++
++            for (ChunkHolder playerChunk : allChunks) {
++                JsonObject chunkData = new JsonObject();
++
++                Set<Ticket<?>> tickets = chunkMapDistance.field_219377_e.get(playerChunk.field_219319_n.func_201841_a());
++                ChunkStatus status = getChunkStatus(playerChunk);
++
++                chunkData.addProperty("x", playerChunk.field_219319_n.field_77276_a);
++                chunkData.addProperty("z", playerChunk.field_219319_n.field_77275_b);
++                chunkData.addProperty("ticket-level", playerChunk.func_219299_i());
++                chunkData.addProperty("state", ChunkHolder.func_219286_c(playerChunk.func_219299_i()).toString());
++                chunkData.addProperty("queued-for-unload", chunkMap.field_219261_o.contains(playerChunk.field_219319_n.func_201841_a()));
++                chunkData.addProperty("status", status == null ? "unloaded" : status.toString());
++
++                JsonArray ticketsData = new JsonArray();
++
++                if (tickets != null) {
++                    for (Ticket<?> ticket : tickets) {
++                        JsonObject ticketData = new JsonObject();
++
++                        ticketData.addProperty("ticket-type", ticket.func_219479_a().toString());
++                        ticketData.addProperty("ticket-level", ticket.getTicketLevel());
++                        ticketData.addProperty("object-reason", String.valueOf(ticket.getObjectReason()));
++                        ticketData.addProperty("add-tick", ticket.getCreationTick());
++
++                        ticketsData.add(ticketData);
++                    }
++                }
++
++                chunkData.add("tickets", ticketsData);
++                chunksData.add(chunkData);
++            }
++
++
++            worldData.add("chunk-data", chunksData);
++            worldsData.add(worldData);
++        }
++
++        data.add("worlds", worldsData);
++
++        StringWriter stringWriter = new StringWriter();
++        JsonWriter jsonWriter = new JsonWriter(stringWriter);
++        jsonWriter.setIndent(" ");
++        jsonWriter.setLenient(false);
++        Streams.write(data, jsonWriter);
++
++        String fileData = stringWriter.toString();
++
++        try (PrintStream out = new PrintStream(new FileOutputStream(file), false, "UTF-8")) {
++            out.print(fileData);
++        }
++    }
+ }
+diff --git a/src/main/java/net/minecraft/world/server/ChunkHolder.java b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+index bcafaddc82adb217dce27c68a3e608923f74becd..f40f8f4aa1533c3bc4fe85efb2dbe139855a84ab 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkHolder.java
++++ b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+@@ -52,7 +52,7 @@ public class ChunkHolder {
+     public int field_219316_k;
+     private int field_219317_l;
+     private int field_219318_m;
+-    private final ChunkPos field_219319_n;
++    final ChunkPos field_219319_n; // Paper - private -> package
+     private boolean field_244382_p;
+     private final ShortSet[] field_244383_q;
+     private int field_219324_s;
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 035e3113e66280481834cbf18090673f7c0e7576..039233e94c2fc290063f6b565ce5810c0275b9d0 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -110,7 +110,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+     public final Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219251_e = new Long2ObjectLinkedOpenHashMap();
+     public volatile Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219252_f;
+     private final Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219253_g;
+-    private final LongSet field_219254_h;
++    final LongSet field_219254_h; // Paper - private -> package
+     public final ServerWorld field_219255_i;
+     private final ServerWorldLightManager field_219256_j;
+     private final ThreadTaskExecutor<Runnable> field_219257_k;
+diff --git a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+index 9be5bba7e52866ec3bb6aacd417163191df375d1..d277f5066b90dfb96476ad19b084f525232c98ba 100644
+--- a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
++++ b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+@@ -52,7 +52,7 @@ import org.apache.logging.log4j.Logger;
+ 
+ public class ServerChunkProvider extends AbstractChunkProvider {
+ 
+-    private static final List<ChunkStatus> field_217239_c = ChunkStatus.func_222582_a();
++    private static final List<ChunkStatus> field_217239_c = ChunkStatus.func_222582_a(); static final List<ChunkStatus> getPossibleChunkStatuses() { return ServerChunkProvider.field_217239_c; } // Paper - OBFHELPER
+     private final TicketManager field_217240_d;
+     public final ChunkGenerator field_186029_c;
+     private final ServerWorld field_73251_h;
+diff --git a/src/main/java/net/minecraft/world/server/Ticket.java b/src/main/java/net/minecraft/world/server/Ticket.java
+index 795cb1d10674e440af69a84732a675903c4d4af6..9c513e5fc0a9750cb6397673ca45caa54da2754b 100644
+--- a/src/main/java/net/minecraft/world/server/Ticket.java
++++ b/src/main/java/net/minecraft/world/server/Ticket.java
+@@ -6,8 +6,8 @@ public final class Ticket<T> implements Comparable<Ticket<?>> {
+ 
+     private final TicketType<T> field_219480_a;
+     private final int field_219481_b;
+-    public final T field_219482_c;
+-    private long field_219483_d;
++    public final T field_219482_c; public final T getObjectReason() { return this.field_219482_c; } // Paper - OBFHELPER
++    private long field_219483_d; public final long getCreationTick() { return this.field_219483_d; } // Paper - OBFHELPER
+ 
+     protected Ticket(TicketType<T> tickettype, int i, T t0) {
+         this.field_219480_a = tickettype;
+@@ -51,6 +51,7 @@ public final class Ticket<T> implements Comparable<Ticket<?>> {
+         return this.field_219480_a;
+     }
+ 
++    public final int getTicketLevel() { return this.func_219477_b(); } // Paper - OBFHELPER
+     public int func_219477_b() {
+         return this.field_219481_b;
+     }

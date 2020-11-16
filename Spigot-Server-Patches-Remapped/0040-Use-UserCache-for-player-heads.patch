@@ -1,0 +1,25 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Techcable <Techcable@outlook.com>
+Date: Wed, 2 Mar 2016 23:42:37 -0600
+Subject: [PATCH] Use UserCache for player heads
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaSkull.java b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaSkull.java
+index d614f6daa74eeb92f87f9b96db9a005dfe0295d3..4ab3666b42f3ede525d7ba7b9fe0494dcf40a542 100644
+--- a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaSkull.java
++++ b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaSkull.java
+@@ -165,7 +165,13 @@ class CraftMetaSkull extends CraftMetaItem implements SkullMeta {
+         if (name == null) {
+             setProfile(null);
+         } else {
+-            setProfile(new GameProfile(null, name));
++            // Paper start - Use Online Players Skull
++            GameProfile newProfile = null;
++            net.minecraft.entity.player.ServerPlayerEntity player = net.minecraft.server.MinecraftServer.getServer().func_184103_al().func_152612_a(name);
++            if (player != null) newProfile = player.func_146103_bH();
++            if (newProfile == null) newProfile = new GameProfile(null, name);
++            setProfile(newProfile);
++            // Paper end
+         }
+ 
+         return true;

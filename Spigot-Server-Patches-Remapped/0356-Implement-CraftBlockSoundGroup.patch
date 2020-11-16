@@ -1,0 +1,101 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: simpleauthority <jacob@algorithmjunkie.com>
+Date: Tue, 28 May 2019 03:48:51 -0700
+Subject: [PATCH] Implement CraftBlockSoundGroup
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/block/CraftBlockSoundGroup.java b/src/main/java/com/destroystokyo/paper/block/CraftBlockSoundGroup.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..3ac5b575c34f64841f22f6fb165397daea7cce37
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/block/CraftBlockSoundGroup.java
+@@ -0,0 +1,38 @@
++package com.destroystokyo.paper.block;
++
++import net.minecraft.block.SoundType;
++import org.bukkit.Sound;
++import org.bukkit.craftbukkit.CraftSound;
++
++public class CraftBlockSoundGroup implements BlockSoundGroup {
++    private final SoundType soundEffectType;
++
++    public CraftBlockSoundGroup(SoundType soundEffectType) {
++        this.soundEffectType = soundEffectType;
++    }
++
++    @Override
++    public Sound getBreakSound() {
++        return CraftSound.getSoundByEffect(soundEffectType.getBreakSound());
++    }
++
++    @Override
++    public Sound getStepSound() {
++        return CraftSound.getSoundByEffect(soundEffectType.getStepSound());
++    }
++
++    @Override
++    public Sound getPlaceSound() {
++        return CraftSound.getSoundByEffect(soundEffectType.getPlaceSound());
++    }
++
++    @Override
++    public Sound getHitSound() {
++        return CraftSound.getSoundByEffect(soundEffectType.getHitSound());
++    }
++
++    @Override
++    public Sound getFallSound() {
++        return CraftSound.getSoundByEffect(soundEffectType.getFallSound());
++    }
++}
+diff --git a/src/main/java/net/minecraft/block/SoundType.java b/src/main/java/net/minecraft/block/SoundType.java
+index 34a923b724a6817f8c690caf896d8f512d5c5327..dc0b6f1d8ec5edd6c2692ca2c95b3ae67440f389 100644
+--- a/src/main/java/net/minecraft/block/SoundType.java
++++ b/src/main/java/net/minecraft/block/SoundType.java
+@@ -54,10 +54,10 @@ public class SoundType {
+     public static final SoundType field_235599_U_ = new SoundType(1.0F, 1.0F, SoundEvents.field_232707_eX_, SoundEvents.field_232721_fb_, SoundEvents.field_232720_fa_, SoundEvents.field_232709_eZ_, SoundEvents.field_232708_eY_);
+     public final float field_185860_m;
+     public final float field_185861_n;
+-    private final SoundEvent field_185862_o;
++    private final SoundEvent field_185862_o; public final SoundEvent getBreakSound() { return this.field_185862_o; } // Paper - OBFHELPER
+     private final SoundEvent field_185863_p;
+     private final SoundEvent field_185864_q;
+-    private final SoundEvent field_185865_r;
++    private final SoundEvent field_185865_r; public final SoundEvent getHitSound() { return this.field_185865_r; } // Paper - OBFHELPER
+     private final SoundEvent field_185866_s;
+ 
+     public SoundType(float f, float f1, SoundEvent soundeffect, SoundEvent soundeffect1, SoundEvent soundeffect2, SoundEvent soundeffect3, SoundEvent soundeffect4) {
+@@ -78,14 +78,17 @@ public class SoundType {
+         return this.field_185861_n;
+     }
+ 
++    public final SoundEvent getStepSound() { return this.func_185844_d(); } // Paper - OBFHELPER
+     public SoundEvent func_185844_d() {
+         return this.field_185863_p;
+     }
+ 
++    public final SoundEvent getPlaceSound() { return this.func_185841_e(); } // Paper - OBFHELPER
+     public SoundEvent func_185841_e() {
+         return this.field_185864_q;
+     }
+ 
++    public final SoundEvent getFallSound() { return this.func_185842_g(); } // Paper - OBFHELPER
+     public SoundEvent func_185842_g() {
+         return this.field_185866_s;
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+index 3c557875a0e3007f0407ad26cbc2a9871dbf8e56..362455b9d9479c4843397f60969f16b72035e1e9 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+@@ -734,4 +734,11 @@ public class CraftBlock implements Block {
+         AxisAlignedBB aabb = shape.func_197752_a();
+         return new BoundingBox(getX() + aabb.field_72340_a, getY() + aabb.field_72338_b, getZ() + aabb.field_72339_c, getX() + aabb.field_72336_d, getY() + aabb.field_72337_e, getZ() + aabb.field_72334_f);
+     }
++
++    // Paper start
++    @Override
++    public com.destroystokyo.paper.block.BlockSoundGroup getSoundGroup() {
++        return new com.destroystokyo.paper.block.CraftBlockSoundGroup(getNMSBlock().func_176223_P().func_215695_r());
++    }
++    // Paper end
+ }

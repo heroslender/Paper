@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Thu, 11 Jan 2018 16:47:28 -0600
+Subject: [PATCH] Make max squid spawn height configurable
+
+I don't know why upstream made only the minimum height configurable but
+whatever
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 4bb901966f7b1b6537a2b6b1dc0f0bdfd4338ce6..4571fd98a9faeb461666fc5c262a95b9e7fa04b6 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -342,4 +342,9 @@ public class PaperWorldConfig {
+         expMergeMaxValue = getInt("experience-merge-max-value", -1);
+         log("Experience Merge Max Value: " + expMergeMaxValue);
+     }
++
++    public double squidMaxSpawnHeight;
++    private void squidMaxSpawnHeight() {
++        squidMaxSpawnHeight = getDouble("squid-spawn-height.maximum", 0.0D);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/passive/SquidEntity.java b/src/main/java/net/minecraft/entity/passive/SquidEntity.java
+index 1a002f288f3e4d578a020198df7d41cc48a960ae..24d9b0ec8a4229844746ca6b666c67a5e1e97c53 100644
+--- a/src/main/java/net/minecraft/entity/passive/SquidEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/SquidEntity.java
+@@ -195,7 +195,8 @@ public class SquidEntity extends WaterMobEntity {
+     }
+ 
+     public static boolean func_223365_b(EntityType<SquidEntity> p_223365_0_, IWorld p_223365_1_, SpawnReason p_223365_2_, BlockPos p_223365_3_, Random p_223365_4_) {
+-        return p_223365_3_.func_177956_o() > p_223365_1_.getMinecraftWorld().spigotConfig.squidSpawnRangeMin && p_223365_3_.func_177956_o() < p_223365_1_.func_181545_F(); // Spigot
++        final double maxHeight = p_223365_1_.getMinecraftWorld().paperConfig.squidMaxSpawnHeight > 0 ? p_223365_1_.getMinecraftWorld().paperConfig.squidMaxSpawnHeight : p_223365_1_.func_181545_F(); // Paper
++        return p_223365_3_.func_177956_o() > p_223365_1_.getMinecraftWorld().spigotConfig.squidSpawnRangeMin && p_223365_3_.func_177956_o() < maxHeight; // Spigot // Paper
+     }
+ 
+     public void func_175568_b(float p_175568_1_, float p_175568_2_, float p_175568_3_) {

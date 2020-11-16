@@ -1,0 +1,117 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 16 May 2016 20:47:41 -0400
+Subject: [PATCH] Optimize UserCache / Thread Safe
+
+Because Techable keeps complaining about how this isn't thread safe,
+easier to do this than replace the entire thing.
+
+Additionally, move Saving of the User cache to be done async, incase
+the user never changed the default setting for Spigot's save on stop only.
+
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index d56f5d9beb41baa21b3e2667c212c1ebfbc7df6c..48958cc1f4e2af0b099e1f9cb1bca1276e3decc1 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -896,7 +896,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         } catch (java.lang.InterruptedException ignored) {} // Paper
+         if (org.spigotmc.SpigotConfig.saveUserCacheOnStopOnly) {
+             field_147145_h.info("Saving usercache.json");
+-            this.func_152358_ax().func_152658_c();
++            this.func_152358_ax().b(false); // Paper
+         }
+         // Spigot end
+ 
+diff --git a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+index b2417763bf93cbdd40e12d5ba516aedf36365fc1..23a5521557f6c208cbabf7319612c39e7a4ac6dd 100644
+--- a/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
++++ b/src/main/java/net/minecraft/server/dedicated/DedicatedServer.java
+@@ -250,7 +250,7 @@ public class DedicatedServer extends MinecraftServer implements IServer {
+         }
+ 
+         if (this.func_152368_aE()) {
+-            this.func_152358_ax().func_152658_c();
++            this.func_152358_ax().b(false); // Paper
+         }
+ 
+         if (!PreYggdrasilConverter.func_219587_e(this)) {
+diff --git a/src/main/java/net/minecraft/server/management/PlayerProfileCache.java b/src/main/java/net/minecraft/server/management/PlayerProfileCache.java
+index f8077ce31250bbc942b8cec5c383572b56c9387f..f91df280911ef2bc11d5dfcc51559104705ce2ea 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerProfileCache.java
++++ b/src/main/java/net/minecraft/server/management/PlayerProfileCache.java
+@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
+ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.server.MCUtil;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+ 
+@@ -107,7 +108,7 @@ public class PlayerProfileCache {
+         return PlayerProfileCache.field_187322_c;
+     }
+ 
+-    public void func_152649_a(GameProfile p_152649_1_) {
++    public synchronized void func_152649_a(GameProfile p_152649_1_) { // Paper - synchronize
+         Calendar calendar = Calendar.getInstance();
+ 
+         calendar.setTime(new Date());
+@@ -116,7 +117,7 @@ public class PlayerProfileCache {
+         PlayerProfileCache.ProfileEntry usercache_usercacheentry = new PlayerProfileCache.ProfileEntry(p_152649_1_, date);
+ 
+         this.func_242118_a(usercache_usercacheentry);
+-        if( !org.spigotmc.SpigotConfig.saveUserCacheOnStopOnly ) this.func_152658_c(); // Spigot - skip saving if disabled
++        if( !org.spigotmc.SpigotConfig.saveUserCacheOnStopOnly ) this.b(true); // Spigot - skip saving if disabled // Paper - async
+     }
+ 
+     private long func_242123_d() {
+@@ -124,7 +125,7 @@ public class PlayerProfileCache {
+     }
+ 
+     @Nullable
+-    public GameProfile func_152655_a(String p_152655_1_) {
++    public synchronized GameProfile func_152655_a(String p_152655_1_) { // Paper - synchronize
+         String s1 = p_152655_1_.toLowerCase(Locale.ROOT);
+         PlayerProfileCache.ProfileEntry usercache_usercacheentry = (PlayerProfileCache.ProfileEntry) this.field_152661_c.get(s1);
+         boolean flag = false;
+@@ -150,7 +151,7 @@ public class PlayerProfileCache {
+         }
+ 
+         if (flag && !org.spigotmc.SpigotConfig.saveUserCacheOnStopOnly) { // Spigot - skip saving if disabled
+-            this.func_152658_c();
++            this.b(true); // Paper
+         }
+ 
+         return gameprofile;
+@@ -232,7 +233,7 @@ public class PlayerProfileCache {
+         return arraylist;
+     }
+ 
+-    public void func_152658_c() {
++    public void b(boolean asyncSave) { // Paper
+         JsonArray jsonarray = new JsonArray();
+         DateFormat dateformat = func_242124_e();
+ 
+@@ -240,6 +241,7 @@ public class PlayerProfileCache {
+             jsonarray.add(func_242119_a(usercache_usercacheentry, dateformat));
+         });
+         String s = this.field_152660_b.toJson(jsonarray);
++        Runnable save = () -> { // Paper
+ 
+         try {
+             BufferedWriter bufferedwriter = Files.newWriter(this.field_152665_g, StandardCharsets.UTF_8);
+@@ -267,6 +269,14 @@ public class PlayerProfileCache {
+         } catch (IOException ioexception) {
+             ;
+         }
++        // Paper start
++        };
++        if (asyncSave) {
++            MCUtil.scheduleAsyncTask(save);
++        } else {
++            save.run();
++        }
++        // Paper end
+ 
+     }
+ 

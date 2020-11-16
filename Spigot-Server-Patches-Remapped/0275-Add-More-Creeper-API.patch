@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 24 Aug 2018 11:50:26 -0500
+Subject: [PATCH] Add More Creeper API
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/CreeperEntity.java b/src/main/java/net/minecraft/entity/monster/CreeperEntity.java
+index a4b3b622168d149f1b5adde5273ecf16f89a83fb..96c83c0c8c64856dc4cdf79991b56c4da08c455e 100644
+--- a/src/main/java/net/minecraft/entity/monster/CreeperEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/CreeperEntity.java
+@@ -49,7 +49,7 @@ public class CreeperEntity extends MonsterEntity {
+     private static final DataParameter<Boolean> field_184714_b = EntityDataManager.func_187226_a(CreeperEntity.class, DataSerializers.field_187198_h);
+     private static final DataParameter<Boolean> field_184715_c = EntityDataManager.func_187226_a(CreeperEntity.class, DataSerializers.field_187198_h); private static final DataParameter<Boolean> isIgnitedDW = field_184715_c; // Paper OBFHELPER
+     private int field_70834_e;
+-    private int field_70833_d;
++    public int field_70833_d; // Paper - public
+     public int field_82225_f = 30;
+     public int field_82226_g = 3;
+     private int field_175494_bm;
+@@ -289,7 +289,18 @@ public class CreeperEntity extends MonsterEntity {
+     }
+ 
+     public void func_146079_cb() {
+-        this.field_70180_af.func_187227_b(CreeperEntity.field_184715_c, true);
++        // Paper start
++        setIgnited(true);
++    }
++
++    public void setIgnited(boolean ignited) {
++        if (func_146078_ca() != ignited) {
++            com.destroystokyo.paper.event.entity.CreeperIgniteEvent event = new com.destroystokyo.paper.event.entity.CreeperIgniteEvent((org.bukkit.entity.Creeper) getBukkitEntity(), ignited);
++            if (event.callEvent()) {
++                this.field_70180_af.func_187227_b(CreeperEntity.field_184715_c, event.isIgnited());
++            }
++        }
++        // Paper end
+     }
+ 
+     public boolean func_70650_aV() {
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftCreeper.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftCreeper.java
+index b5c2e3c6b1cc88d048b05241561f139b3ff17899..cc871f0b4008335de37fd5e153d78b41d29377dd 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftCreeper.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftCreeper.java
+@@ -88,4 +88,18 @@ public class CraftCreeper extends CraftMonster implements Creeper {
+     public EntityType getType() {
+         return EntityType.CREEPER;
+     }
++
++    // Paper start
++    public void setIgnited(boolean ignited) {
++        getHandle().setIgnited(ignited);
++    }
++
++    public boolean isIgnited() {
++        return getHandle().func_146078_ca();
++    }
++
++    public int getFuseTicks() {
++        return getHandle().field_70833_d;
++    }
++    // Paper end
+ }

@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 26 Jan 2020 16:30:19 -0600
+Subject: [PATCH] Bees get gravity in void. Fixes MC-167279
+
+
+diff --git a/src/main/java/net/minecraft/entity/ai/controller/FlyingMovementController.java b/src/main/java/net/minecraft/entity/ai/controller/FlyingMovementController.java
+index c0ee056bd341a17b89943de483e92b2ecbb4e715..42d9b979bbf7ba88522a35f198572faf1db3a8d6 100644
+--- a/src/main/java/net/minecraft/entity/ai/controller/FlyingMovementController.java
++++ b/src/main/java/net/minecraft/entity/ai/controller/FlyingMovementController.java
+@@ -16,7 +16,7 @@ public class FlyingMovementController extends MovementController {
+     }
+ 
+     @Override
+-    public void func_75641_c() {
++    public void func_75641_c() { tick(); } public void tick() { // Paper - OBFHELPER
+         if (this.field_188491_h == MovementController.Action.MOVE_TO) {
+             this.field_188491_h = MovementController.Action.WAIT;
+             this.field_75648_a.func_189654_d(true);
+diff --git a/src/main/java/net/minecraft/entity/ai/controller/MovementController.java b/src/main/java/net/minecraft/entity/ai/controller/MovementController.java
+index b65e97e418b75f5a3f3e64dbe7f1c3d52bc1bfb7..6d88c61037ad8745b53b279070393877ebc4ff71 100644
+--- a/src/main/java/net/minecraft/entity/ai/controller/MovementController.java
++++ b/src/main/java/net/minecraft/entity/ai/controller/MovementController.java
+@@ -16,7 +16,7 @@ import net.minecraft.util.math.shapes.VoxelShape;
+ 
+ public class MovementController {
+ 
+-    protected final MobEntity field_75648_a;
++    protected final MobEntity field_75648_a; public final MobEntity getEntity() { return field_75648_a; } // Paper - OBFHELPER
+     protected double field_75646_b;
+     protected double field_75647_c;
+     protected double field_75644_d;
+diff --git a/src/main/java/net/minecraft/entity/passive/BeeEntity.java b/src/main/java/net/minecraft/entity/passive/BeeEntity.java
+index ae84f8f5e28970071995eb9fa11bfd775fbc06f7..cb9ec8a6d5c84a7c7e26d5b2c3c566671220c4e6 100644
+--- a/src/main/java/net/minecraft/entity/passive/BeeEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/BeeEntity.java
+@@ -111,7 +111,17 @@ public class BeeEntity extends AnimalEntity implements IAngerable, IFlyingAnimal
+ 
+     public BeeEntity(EntityType<? extends BeeEntity> entitytypes, World world) {
+         super(entitytypes, world);
+-        this.field_70765_h = new FlyingMovementController(this, 20, true);
++        // Paper start - apply gravity to bees when they get stuck in the void, fixes MC-167279
++        this.field_70765_h = new FlyingMovementController(this, 20, true) {
++            @Override
++            public void tick() {
++                if (getEntity().func_226278_cu_() <= 0) {
++                    getEntity().func_189654_d(false);
++                }
++                super.tick();
++            }
++        };
++        // Paper end
+         this.field_70749_g = new BeeEntity.BeeLookController(this);
+         this.func_184644_a(PathNodeType.DANGER_FIRE, -1.0F);
+         this.func_184644_a(PathNodeType.WATER, -1.0F);

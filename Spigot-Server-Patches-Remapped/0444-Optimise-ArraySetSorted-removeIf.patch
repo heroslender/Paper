@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Wed, 15 Apr 2020 18:23:28 -0700
+Subject: [PATCH] Optimise ArraySetSorted#removeIf
+
+Remove iterator allocation and ensure the call is always O(n)
+
+diff --git a/src/main/java/net/minecraft/util/SortedArraySet.java b/src/main/java/net/minecraft/util/SortedArraySet.java
+index 1b1cd956c9ae3eec78f38c872d75c698e81092a3..d564e165d7a6af039a79310874a089f9f61caf1a 100644
+--- a/src/main/java/net/minecraft/util/SortedArraySet.java
++++ b/src/main/java/net/minecraft/util/SortedArraySet.java
+@@ -10,8 +10,8 @@ import java.util.NoSuchElementException;
+ public class SortedArraySet<T> extends AbstractSet<T> {
+ 
+     private final Comparator<T> field_226169_a_;
+-    private T[] field_226170_b_;
+-    private int field_226171_c_;
++    private T[] field_226170_b_; private final T[] getBackingArray() { return this.field_226170_b_; } // Paper - OBFHELPER
++    private int field_226171_c_; private final int getSize() { return this.field_226171_c_; } private final void setSize(int value) { this.field_226171_c_ = value; } // Paper - OBFHELPER
+ 
+     private SortedArraySet(int p_i225697_1_, Comparator<T> p_i225697_2_) {
+         this.field_226169_a_ = p_i225697_2_;
+@@ -22,6 +22,42 @@ public class SortedArraySet<T> extends AbstractSet<T> {
+         }
+     }
+ 
++    // Paper start - optimise removeIf
++    @Override
++    public boolean removeIf(java.util.function.Predicate<? super T> filter) {
++        // prev. impl used an iterator, which could be n^2 and creates garbage
++        int i = 0, len = this.getSize();
++        T[] backingArray = this.getBackingArray();
++
++        for (;;) {
++            if (i >= len) {
++                return false;
++            }
++            if (!filter.test(backingArray[i])) {
++                ++i;
++                continue;
++            }
++            break;
++        }
++
++        // we only want to write back to backingArray if we really need to
++
++        int lastIndex = i; // this is where new elements are shifted to
++
++        for (; i < len; ++i) {
++            T curr = backingArray[i];
++            if (!filter.test(curr)) { // if test throws we're screwed
++                backingArray[lastIndex++] = curr;
++            }
++        }
++
++        // cleanup end
++        Arrays.fill(backingArray, lastIndex, len, null);
++        this.setSize(lastIndex);
++        return true;
++    }
++    // Paper end - optimise removeIf
++
+     public static <T extends Comparable<T>> SortedArraySet<T> func_226172_a_(int p_226172_0_) {
+         return new SortedArraySet<>(p_226172_0_, (Comparator)Comparator.naturalOrder()); // Paper - decompile fix
+     }

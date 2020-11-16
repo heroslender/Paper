@@ -1,0 +1,186 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 7 May 2020 19:17:36 -0400
+Subject: [PATCH] Fix Light Command
+
+This lets you run /paper fixlight <chunkRadius> (max 5) to automatically
+fix all light data in the chunks.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperCommand.java b/src/main/java/com/destroystokyo/paper/PaperCommand.java
+index a7134b3ecfeb2bff50958eb4b996707aece8dda0..976232e3f431f49bace9ceeb7ced2ec59edf7014 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperCommand.java
++++ b/src/main/java/com/destroystokyo/paper/PaperCommand.java
+@@ -11,12 +11,17 @@ import com.google.gson.internal.Streams;
+ import com.google.gson.stream.JsonWriter;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.EntityType;
++import net.minecraft.entity.player.ServerPlayerEntity;
++import net.minecraft.network.play.server.SUpdateLightPacket;
+ import net.minecraft.server.*;
+ import net.minecraft.util.ResourceLocation;
++import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.ChunkPos;
++import net.minecraft.world.chunk.Chunk;
+ import net.minecraft.world.server.ChunkHolder;
+ import net.minecraft.world.server.ServerChunkProvider;
+ import net.minecraft.world.server.ServerWorld;
++import net.minecraft.world.server.ServerWorldLightManager;
+ import org.apache.commons.lang3.tuple.MutablePair;
+ import org.apache.commons.lang3.tuple.Pair;
+ import org.bukkit.Bukkit;
+@@ -27,6 +32,7 @@ import org.bukkit.command.Command;
+ import org.bukkit.command.CommandSender;
+ import org.bukkit.craftbukkit.CraftServer;
+ import org.bukkit.craftbukkit.CraftWorld;
++import org.bukkit.craftbukkit.entity.CraftPlayer;
+ import org.bukkit.entity.Player;
+ 
+ import java.io.File;
+@@ -43,14 +49,14 @@ public class PaperCommand extends Command {
+     public PaperCommand(String name) {
+         super(name);
+         this.description = "Paper related commands";
+-        this.usageMessage = "/paper [heap | entity | reload | version | debug | dumpwaiting | chunkinfo | syncloadinfo]";
++        this.usageMessage = "/paper [heap | entity | reload | version | debug | dumpwaiting | chunkinfo | syncloadinfo | fixlight]";
+         this.setPermission("bukkit.command.paper");
+     }
+ 
+     @Override
+     public List<String> tabComplete(CommandSender sender, String alias, String[] args, Location location) throws IllegalArgumentException {
+         if (args.length <= 1)
+-            return getListMatchingLast(args, "heap", "entity", "reload", "version", "debug", "dumpwaiting", "chunkinfo", "syncloadinfo");
++            return getListMatchingLast(args, "heap", "entity", "reload", "version", "debug", "dumpwaiting", "chunkinfo", "syncloadinfo", "fixlight");
+ 
+         switch (args[0].toLowerCase(Locale.ENGLISH))
+         {
+@@ -151,6 +157,9 @@ public class PaperCommand extends Command {
+             case "syncloadinfo":
+                 this.doSyncLoadInfo(sender, args);
+                 break;
++            case "fixlight":
++                this.doFixLight(sender, args);
++                break;
+             case "ver":
+             case "version":
+                 Command ver = org.bukkit.Bukkit.getServer().getCommandMap().getCommand("version");
+@@ -167,6 +176,77 @@ public class PaperCommand extends Command {
+         return true;
+     }
+ 
++    private void doFixLight(CommandSender sender, String[] args) {
++        if (!(sender instanceof Player)) {
++            sender.sendMessage("Only players can use this command");
++            return;
++        }
++        int radius = 2;
++        if (args.length > 1) {
++            try {
++                radius = Math.min(5, Integer.parseInt(args[1]));
++            } catch (Exception e) {
++                sender.sendMessage("Not a number");
++                return;
++            }
++
++        }
++
++        CraftPlayer player = (CraftPlayer) sender;
++        ServerPlayerEntity handle = player.getHandle();
++        net.minecraft.world.server.ServerWorld world = (ServerWorld) handle.field_70170_p;
++        ServerWorldLightManager lightengine = world.func_72863_F().func_212863_j_();
++
++        BlockPos center = MCUtil.toBlockPosition(player.getLocation());
++        Deque<ChunkPos> queue = new ArrayDeque<>(MCUtil.getSpiralOutChunks(center, radius));
++        updateLight(sender, world, lightengine, queue);
++    }
++
++    private void updateLight(CommandSender sender, ServerWorld world, ServerWorldLightManager lightengine, Deque<ChunkPos> queue) {
++        ChunkPos coord = queue.poll();
++        if (coord == null) {
++            sender.sendMessage("All Chunks Light updated");
++            return;
++        }
++        world.func_72863_F().getChunkAtAsynchronously(coord.field_77276_a, coord.field_77275_b, false, false).whenCompleteAsync((either, ex) -> {
++            if (ex != null) {
++                sender.sendMessage("Error loading chunk " + coord);
++                updateLight(sender, world, lightengine, queue);
++                return;
++            }
++            Chunk chunk = (Chunk) either.left().orElse(null);
++            if (chunk == null) {
++                updateLight(sender, world, lightengine, queue);
++                return;
++            }
++            lightengine.func_215598_a(world.paperConfig.lightQueueSize + 16 * 256); // ensure full chunk can fit into queue
++            sender.sendMessage("Updating Light " + coord);
++            int cx = chunk.func_76632_l().field_77276_a << 4;
++            int cz = chunk.func_76632_l().field_77275_b << 4;
++            for (int y = 0; y < world.func_234938_ad_(); y++) {
++                for (int x = 0; x < 16; x++) {
++                    for (int z = 0; z < 16; z++) {
++                        BlockPos pos = new BlockPos(cx + x, y, cz + z);
++                        lightengine.func_215568_a(pos);
++                    }
++                }
++            }
++            lightengine.func_215588_z_();
++            ChunkHolder visibleChunk = world.func_72863_F().field_217237_a.func_219219_b(chunk.coordinateKey);
++            if (visibleChunk != null) {
++                world.func_72863_F().field_217237_a.addLightTask(visibleChunk, () -> {
++                    MinecraftServer.getServer().processQueue.add(() -> {
++                        visibleChunk.sendPacketToTrackedPlayers(new SUpdateLightPacket(chunk.func_76632_l(), lightengine, true), false);
++                        updateLight(sender, world, lightengine, queue);
++                    });
++                });
++            } else {
++                updateLight(sender, world, lightengine, queue);
++            }
++            lightengine.func_215598_a(world.paperConfig.lightQueueSize);
++        }, MinecraftServer.getServer());
++    }
++
+     private void doSyncLoadInfo(CommandSender sender, String[] args) {
+         if (!SyncLoadFinder.ENABLED) {
+             sender.sendMessage(ChatColor.RED + "This command requires the server startup flag '-Dpaper.debug-sync-loads=true' to be set.");
+diff --git a/src/main/java/net/minecraft/world/server/ChunkHolder.java b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+index 6a8043b0f1a4d04d87ebdd78c8c65399278b09a8..ae4e5ce5f0f0f9b17841224e21ce386f55027c52 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkHolder.java
++++ b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+@@ -345,6 +345,7 @@ public class ChunkHolder {
+ 
+     }
+ 
++    public void sendPacketToTrackedPlayers(IPacket<?> packet, boolean flag) { func_219293_a(packet, flag); } // Paper - OBFHELPER
+     private void func_219293_a(IPacket<?> p_219293_1_, boolean p_219293_2_) {
+         // Paper start - per player view distance
+         // there can be potential desync with player's last mapped section and the view distance map, so use the
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 50e80b141b937669b1c8fbcb614cc4a32fa57403..5cfedad4f257d26f2de6f893824d57974fede10a 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -153,6 +153,12 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+     private final ChunkTaskPriorityQueueSorter field_219263_q;
+     private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219264_r;
+     final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_219265_s; // Paper - private -> package private
++    // Paper start
++    final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> mailboxLight;
++    public void addLightTask(ChunkHolder playerchunk, Runnable run) {
++        this.mailboxLight.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219081_a(playerchunk, run));
++    }
++    // Paper end
+     public final IChunkStatusListener field_219266_t;
+     public final ChunkManager.ProxyTicketManager field_219267_u;
+     private final AtomicInteger field_219268_v;
+@@ -344,11 +350,12 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         ITaskExecutor<Runnable> mailbox = ITaskExecutor.func_213140_a("main", iasynctaskhandler::a);
+ 
+         this.field_219266_t = worldloadlistener;
+-        DelegatedTaskExecutor<Runnable> threadedmailbox1 = DelegatedTaskExecutor.func_213144_a(executor, "light");
++        DelegatedTaskExecutor<Runnable> lightthreaded; DelegatedTaskExecutor<Runnable> threadedmailbox1 = lightthreaded = DelegatedTaskExecutor.func_213144_a(executor, "light"); // Paper
+ 
+         this.field_219263_q = new ChunkTaskPriorityQueueSorter(ImmutableList.of(threadedmailbox, mailbox, threadedmailbox1), executor, Integer.MAX_VALUE);
+         this.field_219264_r = this.field_219263_q.func_219087_a(threadedmailbox, false);
+         this.field_219265_s = this.field_219263_q.func_219087_a(mailbox, false);
++        this.mailboxLight = this.field_219263_q.func_219087_a(lightthreaded, false);// Paper
+         this.field_219256_j = new ServerWorldLightManager(ilightaccess, this, this.field_219255_i.func_230315_m_().func_218272_d(), threadedmailbox1, this.field_219263_q.func_219087_a(threadedmailbox1, false));
+         this.field_219267_u = new ChunkManager.ProxyTicketManager(executor, iasynctaskhandler); this.field_219267_u.chunkMap = this; // Paper
+         this.field_219259_m = supplier;

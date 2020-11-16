@@ -1,0 +1,122 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 9 Jun 2020 03:33:03 -0400
+Subject: [PATCH] Add Plugin Tickets to API Chunk Methods
+
+Like previous versions, plugins loading chunks kept them loaded until
+they garbage collected to avoid constant spamming of chunk loads
+
+This adds tickets to a few more places so that they can be unloaded.
+
+Additionally, this drops their ticket level to BORDER so they wont be ticking
+so they will just sit inactive instead.
+
+Using .loadChunk to keep a chunk ticking was a horrible idea for upstream
+when we have TWO methods that are able to do that already in the API.
+
+Also reduce their collection count down to a maximum of 1 second. Barely
+anyone knows what chunk-gc is in bukkit.yml as its less relevant now, and
+since this wasn't spigot behavior, this is safe to mostly ignore (unless someone
+wants it to collect even faster, they can restore that setting back to 1 instead of 20+)
+
+Not adding it to .getType() though to keep behavior consistent with vanilla for performance reasons.
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 90de9d987dd75026a9bdbce497f3fb63b4d43ca8..4cca40d370dcbea150b0d1a4eac4d691015940ae 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -345,7 +345,7 @@ public final class CraftServer implements Server {
+         ambientSpawn = configuration.getInt("spawn-limits.ambient");
+         console.autosavePeriod = configuration.getInt("ticks-per.autosave");
+         warningState = WarningState.value(configuration.getString("settings.deprecated-verbose"));
+-        TicketType.PLUGIN.field_223186_k = configuration.getInt("chunk-gc.period-in-ticks");
++        TicketType.PLUGIN.field_223186_k = Math.min(20, configuration.getInt("chunk-gc.period-in-ticks")); // Paper - cap plugin loads to 1 second
+         minimumAPI = configuration.getString("settings.minimum-api");
+         loadIcon();
+     }
+@@ -828,7 +828,7 @@ public final class CraftServer implements Server {
+         waterAmbientSpawn = configuration.getInt("spawn-limits.water-ambient");
+         ambientSpawn = configuration.getInt("spawn-limits.ambient");
+         warningState = WarningState.value(configuration.getString("settings.deprecated-verbose"));
+-        TicketType.PLUGIN.field_223186_k = configuration.getInt("chunk-gc.period-in-ticks");
++        TicketType.PLUGIN.field_223186_k = Math.min(20, configuration.getInt("chunk-gc.period-in-ticks")); // Paper - cap plugin loads to 1 second
+         minimumAPI = configuration.getString("settings.minimum-api");
+         printSaveWarning = false;
+         console.autosavePeriod = configuration.getInt("ticks-per.autosave");
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index 03975045e9e6715cadaed1b9d9040863c324213c..e9558cb36d2b9460eaf3ef8e08ae5b1e11a4d724 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -401,9 +401,22 @@ public class CraftWorld implements World {
+ 
+     @Override
+     public Chunk getChunkAt(int x, int z) {
+-        return this.world.func_72863_F().func_217205_a(x, z, true).bukkitChunk;
++        // Paper start - add ticket to hold chunk for a little while longer if plugin accesses it
++        net.minecraft.world.chunk.Chunk chunk = world.func_72863_F().getChunkAtIfLoadedImmediately(x, z);
++        if (chunk == null) {
++            addTicket(x, z);
++            chunk = this.world.func_72863_F().func_217205_a(x, z, true);
++        }
++        return chunk.bukkitChunk;
++        // Paper end
+     }
+ 
++    // Paper start
++    private void addTicket(int x, int z) {
++        MCUtil.MAIN_EXECUTOR.execute(() -> world.func_72863_F().func_217228_a(TicketType.PLUGIN, new ChunkPos(x, z), 0, Unit.INSTANCE)); // Paper
++    }
++    // Paper end
++
+     @Override
+     public Chunk getChunkAt(Block block) {
+         Preconditions.checkArgument(block != null, "null block");
+@@ -477,7 +490,7 @@ public class CraftWorld implements World {
+     public boolean unloadChunkRequest(int x, int z) {
+         org.spigotmc.AsyncCatcher.catchOp("chunk unload"); // Spigot
+         if (isChunkLoaded(x, z)) {
+-            world.func_72863_F().func_217222_b(TicketType.PLUGIN, new ChunkPos(x, z), 1, Unit.INSTANCE);
++            world.func_72863_F().func_217222_b(TicketType.PLUGIN, new ChunkPos(x, z), 0, Unit.INSTANCE); // Paper
+         }
+ 
+         return true;
+@@ -554,10 +567,12 @@ public class CraftWorld implements World {
+         org.spigotmc.AsyncCatcher.catchOp("chunk load"); // Spigot
+         // Paper start - Optimize this method
+         ChunkPos chunkPos = new ChunkPos(x, z);
++        IChunk immediate = world.func_72863_F().getChunkAtIfLoadedImmediately(x, z); // Paper
++        if (immediate != null) return true; // Paper
+ 
+         if (!generate) {
+ 
+-            IChunk immediate = world.func_72863_F().getChunkAtImmediately(x, z);
++            //IChunkAccess immediate = world.getChunkProvider().getChunkAtImmediately(x, z); // Paper
+             if (immediate == null) {
+                 immediate = world.func_72863_F().field_217237_a.getUnloadingChunk(x, z);
+             }
+@@ -565,7 +580,7 @@ public class CraftWorld implements World {
+                 if (!(immediate instanceof ChunkPrimerWrapper) && !(immediate instanceof net.minecraft.world.chunk.Chunk)) {
+                     return false; // not full status
+                 }
+-                world.func_72863_F().func_217228_a(TicketType.PLUGIN, chunkPos, 1, Unit.INSTANCE);
++                world.func_72863_F().func_217228_a(TicketType.PLUGIN, chunkPos, 0, Unit.INSTANCE); // Paper
+                 world.func_212866_a_(x, z); // make sure we're at ticket level 32 or lower
+                 return true;
+             }
+@@ -592,7 +607,7 @@ public class CraftWorld implements World {
+             // we do this so we do not re-read the chunk data on disk
+         }
+ 
+-        world.func_72863_F().func_217228_a(TicketType.PLUGIN, chunkPos, 1, Unit.INSTANCE);
++        world.func_72863_F().func_217228_a(TicketType.PLUGIN, chunkPos, 0, Unit.INSTANCE); // Paper
+         world.func_72863_F().func_212849_a_(x, z, ChunkStatus.field_222617_m, true);
+         return true;
+         // Paper end
+@@ -2508,6 +2523,7 @@ public class CraftWorld implements World {
+         }
+         return this.world.func_72863_F().getChunkAtAsynchronously(x, z, gen, urgent).thenComposeAsync((either) -> {
+             net.minecraft.world.chunk.Chunk chunk = (net.minecraft.world.chunk.Chunk) either.left().orElse(null);
++            if (chunk != null) addTicket(x, z); // Paper
+             return CompletableFuture.completedFuture(chunk == null ? null : chunk.getBukkitChunk());
+         }, MinecraftServer.getServer());
+     }

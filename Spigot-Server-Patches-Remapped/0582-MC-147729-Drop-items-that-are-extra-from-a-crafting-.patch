@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: chickeneer <emcchickeneer@gmail.com>
+Date: Wed, 18 Mar 2020 00:07:46 -0500
+Subject: [PATCH] MC-147729: Drop items that are extra from a crafting recipe
+
+
+diff --git a/src/main/java/net/minecraft/item/crafting/ServerRecipePlacer.java b/src/main/java/net/minecraft/item/crafting/ServerRecipePlacer.java
+index 6071ae5d39ef01777ce26de87c5d2267ad19a3f3..4628b8ee6a72f80b3946bf9f52c194ea20b25282 100644
+--- a/src/main/java/net/minecraft/item/crafting/ServerRecipePlacer.java
++++ b/src/main/java/net/minecraft/item/crafting/ServerRecipePlacer.java
+@@ -69,7 +69,12 @@ public class ServerRecipePlacer<C extends IInventory> implements IRecipePlacer<I
+                 if (j == -1) {
+                     j = this.field_201514_c.func_70447_i();
+                 }
+-
++                // Paper start
++                if (j == -1) {
++                    this.field_201514_c.field_70458_d.func_71019_a(itemstack.func_77946_l(), false);
++                    break;
++                }
++                // Paper end
+                 ItemStack itemstack1 = itemstack.func_77946_l();
+ 
+                 itemstack1.func_190920_e(1);

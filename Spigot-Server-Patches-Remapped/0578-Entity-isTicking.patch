@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 3 Oct 2020 21:39:16 -0500
+Subject: [PATCH] Entity#isTicking
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 3697d691e8d66715dce81943f308e60006832010..38bbe1a44f1e4a8cc0f592a551d4ee7ef6733eb4 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -111,6 +111,7 @@ import net.minecraft.world.border.WorldBorder;
+ import net.minecraft.world.chunk.Chunk;
+ import net.minecraft.world.gen.Heightmap;
+ import net.minecraft.world.server.ChunkManager;
++import net.minecraft.world.server.ServerChunkProvider;
+ import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.server.TicketType;
+ import org.apache.logging.log4j.LogManager;
+@@ -3475,5 +3476,9 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     public static int nextEntityId() {
+         return field_213331_b.incrementAndGet();
+     }
++
++    public boolean isTicking() {
++        return ((ServerChunkProvider) field_70170_p.func_72863_F()).isInEntityTickingChunk(this);
++    }
+     // Paper end
+ }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+index 1473bde9fe84a68bb4c0e138711d2529ac2b0663..77cc0bef7fe8b94e33cdd6b2275e6004fe83ddb3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+@@ -1143,5 +1143,9 @@ public abstract class CraftEntity implements org.bukkit.entity.Entity {
+     public boolean isInLava() {
+         return getHandle().isInLava();
+     }
++
++    public boolean isTicking() {
++        return getHandle().isTicking();
++    }
+     // Paper end
+ }

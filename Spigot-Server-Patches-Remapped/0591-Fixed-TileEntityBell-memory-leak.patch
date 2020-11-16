@@ -1,0 +1,56 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: giacomo <32515303+giacomozama@users.noreply.github.com>
+Date: Sat, 10 Oct 2020 12:15:33 +0200
+Subject: [PATCH] Fixed TileEntityBell memory leak
+
+TileEntityBell has a list of entities (entitiesAtRing) that was not being cleared at the right time, causing leaks whenever a bell would be rung near a crowd of entities.
+
+diff --git a/src/main/java/net/minecraft/tileentity/BellTileEntity.java b/src/main/java/net/minecraft/tileentity/BellTileEntity.java
+index 29f8aff7ea9953747d8ef528f86659fb74d01d76..d0b01eebb2d99fcd2e6866142d765a860e6591dc 100644
+--- a/src/main/java/net/minecraft/tileentity/BellTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/BellTileEntity.java
+@@ -27,8 +27,8 @@ public class BellTileEntity extends TileEntity implements ITickableTileEntity {
+     public int field_213943_a;
+     public boolean field_213944_b;
+     public Direction field_213945_c;
+-    private List<LivingEntity> field_213947_h;
+-    private boolean field_213948_i;
++    private List<LivingEntity> field_213947_h; private List<LivingEntity> getEntitiesAtRing() { return this.field_213947_h; } // Paper - OBFHELPER
++    private boolean field_213948_i; private boolean getShouldReveal() { return this.field_213948_i; } // Paper - OBFHELPER
+     private int field_213949_j;
+ 
+     public BellTileEntity() {
+@@ -57,6 +57,11 @@ public class BellTileEntity extends TileEntity implements ITickableTileEntity {
+ 
+         if (this.field_213943_a >= 50) {
+             this.field_213944_b = false;
++            // Paper start
++            if (!this.getShouldReveal()) {
++                this.getEntitiesAtRing().clear();
++            }
++            // Paper end
+             this.field_213943_a = 0;
+         }
+ 
+@@ -71,6 +76,7 @@ public class BellTileEntity extends TileEntity implements ITickableTileEntity {
+             } else {
+                 this.func_222828_b(this.field_145850_b);
+                 this.func_222826_c(this.field_145850_b);
++                this.getEntitiesAtRing().clear(); // Paper
+                 this.field_213948_i = false;
+             }
+         }
+@@ -111,11 +117,12 @@ public class BellTileEntity extends TileEntity implements ITickableTileEntity {
+                 LivingEntity entityliving = (LivingEntity) iterator.next();
+ 
+                 if (entityliving.func_70089_S() && !entityliving.field_70128_L && blockposition.func_218137_a((IPosition) entityliving.func_213303_ch(), 32.0D)) {
+-                    entityliving.func_213375_cj().func_218205_a(MemoryModuleType.field_220962_w, (Object) this.field_145850_b.func_82737_E());
++                    entityliving.func_213375_cj().func_218205_a(MemoryModuleType.field_220962_w, this.field_145850_b.func_82737_E()); // Paper - decompile fix
+                 }
+             }
+         }
+ 
++        this.getEntitiesAtRing().removeIf(e -> !e.func_70089_S()); // Paper
+     }
+ 
+     private boolean func_222830_f() {

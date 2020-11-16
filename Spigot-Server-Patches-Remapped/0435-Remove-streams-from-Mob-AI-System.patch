@@ -1,0 +1,253 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Mon, 6 Apr 2020 17:53:29 -0700
+Subject: [PATCH] Remove streams from Mob AI System
+
+The streams hurt performance and allocate tons of garbage, so
+replace them with the standard iterator.
+
+Also optimise the stream.anyMatch statement to move to a bitset
+where we can replace the call with a single bitwise operation.
+
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/Goal.java b/src/main/java/net/minecraft/entity/ai/goal/Goal.java
+index ba78ffb3d7f627f4846d4a6b843392c7d6cc79db..7ff8a8133be9d8dfa78e4d78647c033d21468627 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/Goal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/Goal.java
+@@ -1,10 +1,12 @@
+ package net.minecraft.entity.ai.goal;
+ 
++import com.destroystokyo.paper.util.set.OptimizedSmallEnumSet; // Paper - remove streams from pathfindergoalselector
+ import java.util.EnumSet;
+ 
+ public abstract class Goal {
+ 
+-    private final EnumSet<Goal.Flag> field_220687_a = EnumSet.noneOf(Goal.Flag.class);
++    private final EnumSet<Goal.Flag> field_220687_a = EnumSet.noneOf(Goal.Flag.class); // Paper unused, but dummy to prevent plugins from crashing as hard. Theyll need to support paper in a special case if this is super important, but really doesn't seem like it would be.
++    private final OptimizedSmallEnumSet<Flag> goalTypes = new OptimizedSmallEnumSet<>(Goal.Flag.class); // Paper - remove streams from pathfindergoalselector
+ 
+     public Goal() {}
+ 
+@@ -28,16 +30,20 @@ public abstract class Goal {
+     public void func_75246_d() {}
+ 
+     public void func_220684_a(EnumSet<Goal.Flag> p_220684_1_) {
+-        this.field_220687_a.clear();
+-        this.field_220687_a.addAll(p_220684_1_);
++        // Paper start - remove streams from pathfindergoalselector
++        this.goalTypes.clear();
++        this.goalTypes.addAllUnchecked(p_220684_1_);
++        // Paper end - remove streams from pathfindergoalselector
+     }
+ 
+     public String toString() {
+         return this.getClass().getSimpleName();
+     }
+ 
+-    public EnumSet<Goal.Flag> func_220686_i() {
+-        return this.field_220687_a;
++    // Paper start - remove streams from pathfindergoalselector
++    public com.destroystokyo.paper.util.set.OptimizedSmallEnumSet<Goal.Flag> getGoalTypes() {
++        return this.goalTypes;
++        // Paper end - remove streams from pathfindergoalselector
+     }
+ 
+     public static enum Flag {
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/GoalSelector.java b/src/main/java/net/minecraft/entity/ai/goal/GoalSelector.java
+index 91ce0db5afaf4efb7bc4727b3db62b1afc569a99..892346f346b3dce619fb1f6b20352ac6305f87e1 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/GoalSelector.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/GoalSelector.java
+@@ -1,8 +1,10 @@
+ package net.minecraft.entity.ai.goal;
+ 
++import com.destroystokyo.paper.util.set.OptimizedSmallEnumSet; // Paper - remove streams from pathfindergoalselector
+ import com.google.common.collect.Sets;
+ import java.util.EnumMap;
+ import java.util.EnumSet;
++import java.util.Iterator; // Paper - remove streams from pathfindergoalselector
+ import java.util.Map;
+ import java.util.Set;
+ import java.util.function.Supplier;
+@@ -28,7 +30,8 @@ public class GoalSelector {
+     private final Map<Goal.Flag, PrioritizedGoal> field_220891_c = new EnumMap(Goal.Flag.class);
+     private final Set<PrioritizedGoal> field_220892_d = Sets.newLinkedHashSet(); private Set<PrioritizedGoal> getTasks() { return field_220892_d; }// Paper - OBFHELPER
+     private final Supplier<IProfiler> field_75781_c;
+-    private final EnumSet<Goal.Flag> field_220893_f = EnumSet.noneOf(Goal.Flag.class);
++    private final EnumSet<Goal.Flag> field_220893_f = EnumSet.noneOf(Goal.Flag.class); // Paper unused, but dummy to prevent plugins from crashing as hard. Theyll need to support paper in a special case if this is super important, but really doesn't seem like it would be.
++    private final OptimizedSmallEnumSet<Goal.Flag> goalTypes = new OptimizedSmallEnumSet<>(Goal.Flag.class); // Paper - remove streams from pathfindergoalselector
+     private int field_75779_e = 3;private int getTickRate() { return field_75779_e; } // Paper - OBFHELPER
+     private int curRate;private int getCurRate() { return curRate; } private void incRate() { this.curRate++; } // Paper TODO
+ 
+@@ -60,35 +63,38 @@ public class GoalSelector {
+     // Paper end
+ 
+     public void func_85156_a(Goal p_85156_1_) {
+-        this.field_220892_d.stream().filter((pathfindergoalwrapped) -> {
+-            return pathfindergoalwrapped.func_220772_j() == p_85156_1_;
+-        }).filter(PrioritizedGoal::func_220773_g).forEach(PrioritizedGoal::func_75251_c);
+-        this.field_220892_d.removeIf((pathfindergoalwrapped) -> {
+-            return pathfindergoalwrapped.func_220772_j() == p_85156_1_;
+-        });
++        // Paper start - remove streams from pathfindergoalselector
++        for (Iterator<PrioritizedGoal> iterator = this.field_220892_d.iterator(); iterator.hasNext();) {
++            PrioritizedGoal goalWrapped = iterator.next();
++            if (goalWrapped.func_220772_j() != p_85156_1_) {
++                continue;
++            }
++            if (goalWrapped.func_220773_g()) {
++                goalWrapped.func_75251_c();
++            }
++            iterator.remove();
++        }
++        // Paper end - remove streams from pathfindergoalselector
+     }
+ 
++    private static final Goal.Flag[] PATHFINDER_GOAL_TYPES = Goal.Flag.values(); // Paper - remove streams from pathfindergoalselector
++
+     public void func_75774_a() {
+         IProfiler gameprofilerfiller = (IProfiler) this.field_75781_c.get();
+ 
+         gameprofilerfiller.func_76320_a("goalCleanup");
+-        this.func_220888_c().filter((pathfindergoalwrapped) -> {
+-            boolean flag;
+-
+-            if (pathfindergoalwrapped.func_220773_g()) {
+-                Stream stream = pathfindergoalwrapped.func_220686_i().stream();
+-                EnumSet enumset = this.field_220893_f;
+-
+-                this.field_220893_f.getClass();
+-                if (!stream.anyMatch(enumset::contains) && pathfindergoalwrapped.func_75253_b()) {
+-                    flag = false;
+-                    return flag;
+-                }
++        // Paper start - remove streams from pathfindergoalselector
++        for (Iterator<PrioritizedGoal> iterator = this.field_220892_d.iterator(); iterator.hasNext();) {
++            PrioritizedGoal wrappedGoal = iterator.next();
++            if (!wrappedGoal.func_220773_g()) {
++                continue;
+             }
+-
+-            flag = true;
+-            return flag;
+-        }).forEach(Goal::func_75251_c);
++            if (!this.goalTypes.hasCommonElements(wrappedGoal.getGoalTypes()) && wrappedGoal.func_75253_b()) {
++                continue;
++            }
++            wrappedGoal.func_75251_c();
++        }
++        // Paper end - remove streams from pathfindergoalselector
+         this.field_220891_c.forEach((pathfindergoal_type, pathfindergoalwrapped) -> {
+             if (!pathfindergoalwrapped.func_220773_g()) {
+                 this.field_220891_c.remove(pathfindergoal_type);
+@@ -97,30 +103,58 @@ public class GoalSelector {
+         });
+         gameprofilerfiller.func_76319_b();
+         gameprofilerfiller.func_76320_a("goalUpdate");
+-        this.field_220892_d.stream().filter((pathfindergoalwrapped) -> {
+-            return !pathfindergoalwrapped.func_220773_g();
+-        }).filter((pathfindergoalwrapped) -> {
+-            Stream stream = pathfindergoalwrapped.func_220686_i().stream();
+-            EnumSet enumset = this.field_220893_f;
+-
+-            this.field_220893_f.getClass();
+-            return stream.noneMatch(enumset::contains);
+-        }).filter((pathfindergoalwrapped) -> {
+-            return pathfindergoalwrapped.func_220686_i().stream().allMatch((pathfindergoal_type) -> {
+-                return ((PrioritizedGoal) this.field_220891_c.getOrDefault(pathfindergoal_type, GoalSelector.field_220890_b)).func_220771_a(pathfindergoalwrapped);
+-            });
+-        }).filter(PrioritizedGoal::func_75250_a).forEach((pathfindergoalwrapped) -> {
+-            pathfindergoalwrapped.func_220686_i().forEach((pathfindergoal_type) -> {
+-                PrioritizedGoal pathfindergoalwrapped1 = (PrioritizedGoal) this.field_220891_c.getOrDefault(pathfindergoal_type, GoalSelector.field_220890_b);
+-
+-                pathfindergoalwrapped1.func_75251_c();
+-                this.field_220891_c.put(pathfindergoal_type, pathfindergoalwrapped);
+-            });
+-            pathfindergoalwrapped.func_75249_e();
+-        });
++        // Paper start - remove streams from pathfindergoalselector
++        goal_update_loop: for (Iterator<PrioritizedGoal> iterator = this.field_220892_d.iterator(); iterator.hasNext();) {
++            PrioritizedGoal wrappedGoal = iterator.next();
++            if (wrappedGoal.func_220773_g()) {
++                continue;
++            }
++
++            OptimizedSmallEnumSet<Goal.Flag> wrappedGoalSet = wrappedGoal.getGoalTypes();
++
++            if (this.goalTypes.hasCommonElements(wrappedGoalSet)) {
++                continue;
++            }
++
++            long iterator1 = wrappedGoalSet.getBackingSet();
++            int wrappedGoalSize = wrappedGoalSet.size();
++            for (int i = 0; i < wrappedGoalSize; ++i) {
++                Goal.Flag type = PATHFINDER_GOAL_TYPES[Long.numberOfTrailingZeros(iterator1)];
++                iterator1 ^= com.destroystokyo.paper.util.math.IntegerUtil.getTrailingBit(iterator1);
++                PrioritizedGoal wrapped = this.field_220891_c.getOrDefault(type, GoalSelector.field_220890_b);
++                if (!wrapped.func_220771_a(wrappedGoal)) {
++                    continue goal_update_loop;
++                }
++            }
++
++            if (!wrappedGoal.func_75250_a()) {
++                continue;
++            }
++
++            iterator1 = wrappedGoalSet.getBackingSet();
++            wrappedGoalSize = wrappedGoalSet.size();
++            for (int i = 0; i < wrappedGoalSize; ++i) {
++                Goal.Flag type = PATHFINDER_GOAL_TYPES[Long.numberOfTrailingZeros(iterator1)];
++                iterator1 ^= com.destroystokyo.paper.util.math.IntegerUtil.getTrailingBit(iterator1);
++                PrioritizedGoal wrapped = this.field_220891_c.getOrDefault(type, GoalSelector.field_220890_b);
++
++                wrapped.func_75251_c();
++                this.field_220891_c.put(type, wrappedGoal);
++            }
++
++            wrappedGoal.func_75249_e();
++        }
++        // Paper end - remove streams from pathfindergoalselector
+         gameprofilerfiller.func_76319_b();
+         gameprofilerfiller.func_76320_a("goalTick");
+-        this.func_220888_c().forEach(PrioritizedGoal::func_75246_d);
++        // Paper start - remove streams from pathfindergoalselector
++        for (Iterator<PrioritizedGoal> iterator = this.field_220892_d.iterator(); iterator.hasNext();) {
++            PrioritizedGoal wrappedGoal = iterator.next();
++            if (wrappedGoal.func_220773_g()) {
++                wrappedGoal.func_75246_d();
++            }
++        }
++        // Paper end - remove streams from pathfindergoalselector
+         gameprofilerfiller.func_76319_b();
+     }
+ 
+@@ -129,11 +163,11 @@ public class GoalSelector {
+     }
+ 
+     public void func_220880_a(Goal.Flag p_220880_1_) {
+-        this.field_220893_f.add(p_220880_1_);
++        this.goalTypes.addUnchecked(p_220880_1_); // Paper - remove streams from pathfindergoalselector
+     }
+ 
+     public void func_220886_b(Goal.Flag p_220886_1_) {
+-        this.field_220893_f.remove(p_220886_1_);
++        this.goalTypes.removeUnchecked(p_220886_1_); // Paper - remove streams from pathfindergoalselector
+     }
+ 
+     public void func_220878_a(Goal.Flag p_220878_1_, boolean p_220878_2_) {
+diff --git a/src/main/java/net/minecraft/entity/ai/goal/PrioritizedGoal.java b/src/main/java/net/minecraft/entity/ai/goal/PrioritizedGoal.java
+index 8712500920ce2181b2eec35be9afea666514b36f..fe3254d172d0997369975705ea647a66a5cdd212 100644
+--- a/src/main/java/net/minecraft/entity/ai/goal/PrioritizedGoal.java
++++ b/src/main/java/net/minecraft/entity/ai/goal/PrioritizedGoal.java
+@@ -59,9 +59,10 @@ public class PrioritizedGoal extends Goal {
+         this.field_220774_a.func_220684_a(p_220684_1_);
+     }
+ 
+-    @Override
+-    public EnumSet<Goal.Flag> func_220686_i() {
+-        return this.field_220774_a.func_220686_i();
++    // Paper start - remove streams from pathfindergoalselector
++    public com.destroystokyo.paper.util.set.OptimizedSmallEnumSet<Goal.Flag> getGoalTypes() {
++        return this.field_220774_a.getGoalTypes();
++        // Paper end - remove streams from pathfindergoalselector
+     }
+ 
+     public boolean isRunning() { return this.func_220773_g(); } // Paper - OBFHELPER

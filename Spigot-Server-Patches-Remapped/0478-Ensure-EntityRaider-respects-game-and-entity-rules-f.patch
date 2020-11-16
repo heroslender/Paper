@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kickash32 <kickash32@gmail.com>
+Date: Sat, 9 May 2020 02:01:48 -0400
+Subject: [PATCH] Ensure EntityRaider respects game and entity rules for
+ picking up items
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/AbstractRaiderEntity.java b/src/main/java/net/minecraft/entity/monster/AbstractRaiderEntity.java
+index 5650e9836e12286fc2e36ad054ab385473c312cd..c725dee927df5f1d8965eb7df3c8bedeb16cf171 100644
+--- a/src/main/java/net/minecraft/entity/monster/AbstractRaiderEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/AbstractRaiderEntity.java
+@@ -523,7 +523,7 @@ public abstract class AbstractRaiderEntity extends PatrollerEntity {
+ 
+     public class PromoteLeaderGoal<T extends AbstractRaiderEntity> extends Goal {
+ 
+-        private final T field_220856_b;
++        private final T field_220856_b; private T getRaider() { return field_220856_b; } // Paper - obfhelper
+ 
+         public PromoteLeaderGoal(T entityraider) { // CraftBukkit - decompile error
+             this.field_220856_b = entityraider;
+@@ -532,6 +532,7 @@ public abstract class AbstractRaiderEntity extends PatrollerEntity {
+ 
+         @Override
+         public boolean func_75250_a() {
++            if (!getRaider().field_70170_p.func_82736_K().func_223586_b(GameRules.field_223599_b) || !getRaider().func_98052_bS()) return false; // Paper - respect game and entity rules for picking up items
+             Raid raid = this.field_220856_b.func_213663_ek();
+ 
+             if (this.field_220856_b.func_213657_el() && !this.field_220856_b.func_213663_ek().func_221319_a() && this.field_220856_b.func_213637_dY() && !ItemStack.func_77989_b(this.field_220856_b.func_184582_a(EquipmentSlotType.HEAD), Raid.func_221312_H())) {

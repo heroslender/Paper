@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Hugo Manrique <hugmanrique@gmail.com>
+Date: Mon, 23 Jul 2018 12:57:39 +0200
+Subject: [PATCH] Option to prevent armor stands from doing entity lookups
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 6e7e00678295b5b714a1be4753626e21ab469fd6..54d7f6efcf42d4c7a8c209dfe3c5485318afafe3 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -373,4 +373,9 @@ public class PaperWorldConfig {
+     private void scanForLegacyEnderDragon() {
+         scanForLegacyEnderDragon = getBoolean("game-mechanics.scan-for-legacy-ender-dragon", true);
+     }
++
++    public boolean armorStandEntityLookups = true;
++    private void armorStandEntityLookups() {
++        armorStandEntityLookups = getBoolean("armor-stands-do-collision-entity-lookups", true);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java b/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
+index d6621e4dcd678c0bccfd8701b183fd71500b77d7..651cd317b29ee85b4f57e7bbd04305b87f0ef399 100644
+--- a/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
+@@ -347,6 +347,7 @@ public class ArmorStandEntity extends LivingEntity {
+ 
+     @Override
+     protected void func_85033_bc() {
++        if (!field_70170_p.paperConfig.armorStandEntityLookups) return; // Paper
+         List<Entity> list = this.field_70170_p.func_175674_a(this, this.func_174813_aQ(), ArmorStandEntity.field_184798_bv);
+ 
+         for (int i = 0; i < list.size(); ++i) {
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index a0a2c6aad2893432d45751094992f831f0d28978..755e682b5e84965f9789352b6e38f2adec3555cf 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -26,6 +26,7 @@ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.crash.ReportedException;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.EntityType;
++import net.minecraft.entity.item.ArmorStandEntity;
+ import net.minecraft.entity.item.ItemEntity;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.fluid.FluidState;
+@@ -853,6 +854,13 @@ public abstract class World implements IWorld, AutoCloseable {
+             // Paper end
+         }
+     }
++    // Paper start - Prevent armor stands from doing entity lookups
++    @Override
++    public boolean func_226665_a__(@Nullable Entity p_226665_1_, AxisAlignedBB p_226665_2_) {
++        if (p_226665_1_ instanceof ArmorStandEntity && !p_226665_1_.field_70170_p.paperConfig.armorStandEntityLookups) return false;
++        return IWorld.super.func_226665_a__(p_226665_1_, p_226665_2_);
++    }
++    // Paper end
+ 
+     public Explosion func_217385_a(@Nullable Entity p_217385_1_, double p_217385_2_, double p_217385_3_, double p_217385_4_, float p_217385_5_, Explosion.Mode p_217385_6_) {
+         return this.func_230546_a_(p_217385_1_, (DamageSource) null, (ExplosionContext) null, p_217385_2_, p_217385_3_, p_217385_4_, p_217385_5_, false, p_217385_6_);

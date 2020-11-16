@@ -1,0 +1,50 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 23 Aug 2020 15:28:35 +0200
+Subject: [PATCH] Add more Evoker API
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/EvokerEntity.java b/src/main/java/net/minecraft/entity/monster/EvokerEntity.java
+index c19de768f05ed80c19a2fbfa23eca276a7fc6de3..0da0075119de821f350e34e1cf114cf7f7444462 100644
+--- a/src/main/java/net/minecraft/entity/monster/EvokerEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/EvokerEntity.java
+@@ -39,7 +39,7 @@ import net.minecraft.world.server.ServerWorld;
+ 
+ public class EvokerEntity extends SpellcastingIllagerEntity {
+ 
+-    private SheepEntity field_190763_bw;
++    private SheepEntity field_190763_bw; public final SheepEntity getWololoTarget() { return this.field_190763_bw; } public final void setWololoTarget(SheepEntity sheep) { this.field_190763_bw = sheep; } // Paper - OBFHELPER
+ 
+     public EvokerEntity(EntityType<? extends EvokerEntity> entitytypes, World world) {
+         super(entitytypes, world);
+@@ -58,7 +58,7 @@ public class EvokerEntity extends SpellcastingIllagerEntity {
+         this.field_70714_bg.func_75776_a(8, new RandomWalkingGoal(this, 0.6D));
+         this.field_70714_bg.func_75776_a(9, new LookAtGoal(this, PlayerEntity.class, 3.0F, 1.0F));
+         this.field_70714_bg.func_75776_a(10, new LookAtGoal(this, MobEntity.class, 8.0F));
+-        this.field_70715_bh.func_75776_a(1, (new HurtByTargetGoal(this, new Class[]{AbstractRaiderEntity.class})).func_75250_a());
++        this.field_70715_bh.func_75776_a(1, (new HurtByTargetGoal(this, new Class[]{AbstractRaiderEntity.class})).func_220794_a(new Class[0])); // Paper - decompile fix
+         this.field_70715_bh.func_75776_a(2, (new NearestAttackableTargetGoal<>(this, PlayerEntity.class, true)).func_190882_b(300));
+         this.field_70715_bh.func_75776_a(3, (new NearestAttackableTargetGoal<>(this, AbstractVillagerEntity.class, false)).func_190882_b(300));
+         this.field_70715_bh.func_75776_a(3, new NearestAttackableTargetGoal<>(this, IronGolemEntity.class, false));
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftEvoker.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftEvoker.java
+index f3b79581c870992954c9f0761257bd527876cc95..1185df6494f5f9a0a263d48590662ce0731c245a 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftEvoker.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftEvoker.java
+@@ -36,4 +36,17 @@ public class CraftEvoker extends CraftSpellcaster implements Evoker {
+     public void setCurrentSpell(Evoker.Spell spell) {
+         getHandle().setSpell(spell == null ? SpellcastingIllagerEntity.Spell.a : SpellcastingIllagerEntity.Spell.a(spell.ordinal()));
+     }
++
++    // Paper start
++    @Override
++    public org.bukkit.entity.Sheep getWololoTarget() {
++        net.minecraft.entity.passive.SheepEntity sheep = getHandle().getWololoTarget();
++        return sheep == null ? null : (org.bukkit.entity.Sheep) sheep.getBukkitEntity();
++    }
++
++    @Override
++    public void setWololoTarget(org.bukkit.entity.Sheep sheep) {
++        getHandle().setWololoTarget(sheep == null ? null : ((org.bukkit.craftbukkit.entity.CraftSheep) sheep).getHandle());
++    }
++    // Paper end
+ }

@@ -1,0 +1,119 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 29 May 2020 20:29:02 -0400
+Subject: [PATCH] Synchronize DataPaletteBlock instead of ReentrantLock
+
+Mojang has flaws in their logic about chunks being concurrently
+wrote to. So we constantly see crashes around multiple threads writing.
+
+Additionally, java has optimized synchronization so well that its
+in many times faster than trying to manage read wrote locks for low
+contention situations.
+
+And this is extremely a low contention situation.
+
+diff --git a/src/main/java/net/minecraft/util/palette/PalettedContainer.java b/src/main/java/net/minecraft/util/palette/PalettedContainer.java
+index 63cd969760b10331d35cb54b0ea2d321bfc27da8..bb4b0ef56771f548741c8d05712298520ce3fcfa 100644
+--- a/src/main/java/net/minecraft/util/palette/PalettedContainer.java
++++ b/src/main/java/net/minecraft/util/palette/PalettedContainer.java
+@@ -7,9 +7,6 @@ import java.util.concurrent.locks.ReentrantLock;
+ import java.util.function.Function;
+ import java.util.function.Predicate;
+ import java.util.stream.Collectors;
+-import net.minecraft.crash.CrashReport;
+-import net.minecraft.crash.CrashReportCategory;
+-import net.minecraft.crash.ReportedException;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.ListNBT;
+ import net.minecraft.network.PacketBuffer;
+@@ -32,23 +29,23 @@ public class PalettedContainer<T> implements IResizeCallback<T> {
+     private int field_186024_e; private int getBitsPerObject() { return this.field_186024_e; } // Paper - OBFHELPER
+     private final ReentrantLock field_210461_j = new ReentrantLock();
+ 
+-    public void func_210459_b() {
+-        if (this.field_210461_j.isLocked() && !this.field_210461_j.isHeldByCurrentThread()) {
++    public void func_210459_b() { /* // Paper start - disable this - use proper synchronization
++        if (this.j.isLocked() && !this.j.isHeldByCurrentThread()) {
+             String s = (String) Thread.getAllStackTraces().keySet().stream().filter(Objects::nonNull).map((thread) -> {
+                 return thread.getName() + ": \n\tat " + (String) Arrays.stream(thread.getStackTrace()).map(Object::toString).collect(Collectors.joining("\n\tat "));
+             }).collect(Collectors.joining("\n"));
+             CrashReport crashreport = new CrashReport("Writing into PalettedContainer from multiple threads", new IllegalStateException());
+-            CrashReportCategory crashreportsystemdetails = crashreport.func_85058_a("Thread dumps");
++            CrashReportSystemDetails crashreportsystemdetails = crashreport.a("Thread dumps");
+ 
+-            crashreportsystemdetails.func_71507_a("Thread dumps", (Object) s);
++            crashreportsystemdetails.a("Thread dumps", (Object) s);
+             throw new ReportedException(crashreport);
+         } else {
+-            this.field_210461_j.lock();
+-        }
++            this.j.lock();
++        } */ // Paper end
+     }
+ 
+     public void func_210460_c() {
+-        this.field_210461_j.unlock();
++        //this.j.unlock(); // Paper - disable this
+     }
+ 
+     public PalettedContainer(IPalette<T> datapalette, ObjectIntIdentityMap<T> registryblockid, Function<CompoundNBT, T> function, Function<T, CompoundNBT> function1, T t0) {
+@@ -84,7 +81,7 @@ public class PalettedContainer<T> implements IResizeCallback<T> {
+     }
+ 
+     @Override
+-    public int onResize(int i, T t0) {
++    public synchronized int onResize(int i, T t0) { // Paper - synchronize
+         this.func_210459_b();
+         BitArray databits = this.field_186021_b;
+         IPalette<T> datapalette = this.field_186022_c;
+@@ -107,18 +104,18 @@ public class PalettedContainer<T> implements IResizeCallback<T> {
+     }
+ 
+     public T func_222641_a(int p_222641_1_, int p_222641_2_, int p_222641_3_, T p_222641_4_) {
+-        this.func_210459_b();
+-        T t1 = this.func_222643_a(func_186011_b(p_222641_1_, p_222641_2_, p_222641_3_), p_222641_4_);
++        //this.a(); // Paper - remove to reduce ops - synchronize handled below
++        return this.func_222643_a(func_186011_b(p_222641_1_, p_222641_2_, p_222641_3_), p_222641_4_); // Paper
+ 
+-        this.func_210460_c();
+-        return t1;
++        //this.b(); // Paper
++        //return t1; // PAper
+     }
+ 
+     public T func_222639_b(int p_222639_1_, int p_222639_2_, int p_222639_3_, T p_222639_4_) {
+         return this.func_222643_a(func_186011_b(p_222639_1_, p_222639_2_, p_222639_3_), p_222639_4_);
+     }
+ 
+-    protected T func_222643_a(int p_222643_1_, T p_222643_2_) {
++    protected synchronized T func_222643_a(int p_222643_1_, T p_222643_2_) { // Paper - synchronize - writes
+         int j = this.field_186022_c.func_186041_a(p_222643_2_);
+         int k = this.field_186021_b.func_219789_a(p_222643_1_, j);
+         T t1 = this.field_186022_c.func_186039_a(k);
+@@ -143,7 +140,7 @@ public class PalettedContainer<T> implements IResizeCallback<T> {
+     }
+ 
+     public void writeDataPaletteBlock(PacketBuffer packetDataSerializer) { this.func_186009_b(packetDataSerializer); } // Paper - OBFHELPER
+-    public void func_186009_b(PacketBuffer p_186009_1_) {
++    public synchronized void func_186009_b(PacketBuffer p_186009_1_) { // Paper - synchronize
+         this.func_210459_b();
+         p_186009_1_.writeByte(this.field_186024_e);
+         this.field_186022_c.func_186037_b(p_186009_1_);
+@@ -151,7 +148,7 @@ public class PalettedContainer<T> implements IResizeCallback<T> {
+         this.func_210460_c();
+     }
+ 
+-    public void func_222642_a(ListNBT p_222642_1_, long[] p_222642_2_) {
++    public synchronized void func_222642_a(ListNBT p_222642_1_, long[] p_222642_2_) { // Paper - synchronize
+         this.func_210459_b();
+         int i = Math.max(4, MathHelper.func_151241_e(p_222642_1_.size()));
+ 
+@@ -184,7 +181,7 @@ public class PalettedContainer<T> implements IResizeCallback<T> {
+         this.func_210460_c();
+     }
+ 
+-    public void func_196963_b(CompoundNBT p_196963_1_, String p_196963_2_, String p_196963_3_) {
++    public synchronized void func_196963_b(CompoundNBT p_196963_1_, String p_196963_2_, String p_196963_3_) { // Paper - synchronize
+         this.func_210459_b();
+         HashMapPalette<T> datapalettehash = new HashMapPalette<>(this.field_205523_d, this.field_186024_e, this.field_205522_c, this.field_205524_e, this.field_205525_f);
+         T t0 = this.field_205526_g;

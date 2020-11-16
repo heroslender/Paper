@@ -1,0 +1,18 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mariell Hoversholm <proximyst@proximyst.com>
+Date: Fri, 14 Aug 2020 23:41:19 +0200
+Subject: [PATCH] Don't mark null chunk sections for block updates
+
+
+diff --git a/src/main/java/net/minecraft/world/server/ChunkHolder.java b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+index 09f535751f5984bc38ccdad29ef9e2156d9b8cc2..7f5206ec2a2dbd516b242ba836b1c952448a732e 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkHolder.java
++++ b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+@@ -444,6 +444,7 @@ public class ChunkHolder {
+                         this.func_244385_a(world, blockposition, iblockdata);
+                     } else {
+                         ChunkSection chunksection = p_219274_1_.func_76587_i()[sectionposition.func_177956_o()];
++                        if (chunksection == null) chunksection = new ChunkSection(sectionposition.func_177956_o(), p_219274_1_, world, true); // Paper - make a new chunk section if none was found
+                         SMultiBlockChangePacket packetplayoutmultiblockchange = new SMultiBlockChangePacket(sectionposition, shortset, chunksection, this.field_244384_x);
+ 
+                         this.func_219293_a(packetplayoutmultiblockchange, false);

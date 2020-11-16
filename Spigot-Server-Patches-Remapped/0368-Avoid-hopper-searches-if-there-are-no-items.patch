@@ -1,0 +1,131 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: CullanP <cullanpage@gmail.com>
+Date: Thu, 3 Mar 2016 02:13:38 -0600
+Subject: [PATCH] Avoid hopper searches if there are no items
+
+Hoppers searching for items and minecarts is the most expensive part of hopper ticking.
+We keep track of the number of minecarts and items in a chunk.
+If there are no items in the chunk, we skip searching for items.
+If there are no minecarts in the chunk, we skip searching for them.
+
+Usually hoppers aren't near items, so we can skip most item searches.
+And since minecart hoppers are used _very_ rarely near we can avoid alot of searching there.
+
+Combined, this adds up a lot.
+
+diff --git a/src/main/java/net/minecraft/util/EntityPredicates.java b/src/main/java/net/minecraft/util/EntityPredicates.java
+index 93527e4372b750bf732f788f61d9c561839381ab..35a0c8702fd1c18a505598bccb13116369a49c7f 100644
+--- a/src/main/java/net/minecraft/util/EntityPredicates.java
++++ b/src/main/java/net/minecraft/util/EntityPredicates.java
+@@ -19,6 +19,7 @@ public final class EntityPredicates {
+     public static final Predicate<Entity> field_152785_b = (entity) -> {
+         return entity.func_70089_S() && !entity.func_184207_aI() && !entity.func_184218_aH();
+     };
++    public static final Predicate<Entity> isInventory() { return field_96566_b; } // Paper - OBFHELPER
+     public static final Predicate<Entity> field_96566_b = (entity) -> {
+         return entity instanceof IInventory && entity.func_70089_S();
+     };
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index b979c01175df01426da4829b78796b71af8f37c3..785a3c3026e7575e752b37f6af9fa181aa6d1061 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -33,14 +33,17 @@ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.EntityType;
+ import net.minecraft.entity.boss.dragon.EnderDragonEntity;
+ import net.minecraft.entity.boss.dragon.EnderDragonPartEntity;
++import net.minecraft.entity.item.ItemEntity;
+ import net.minecraft.fluid.Fluid;
+ import net.minecraft.fluid.FluidState;
+ import net.minecraft.fluid.Fluids;
++import net.minecraft.inventory.IInventory;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.server.MCUtil;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.tileentity.MobSpawnerTileEntity;
+ import net.minecraft.tileentity.TileEntity;
++import net.minecraft.util.EntityPredicates;
+ import net.minecraft.util.math.AxisAlignedBB;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.ChunkPos;
+@@ -126,6 +129,10 @@ public class Chunk implements IChunk {
+             return removed;
+         }
+     }
++    // Track the number of minecarts and items
++    // Keep this synced with entitySlices.add() and entitySlices.remove()
++    private final int[] itemCounts = new int[16];
++    private final int[] inventoryEntityCounts = new int[16];
+     // Paper end
+ 
+     public Chunk(World world, ChunkPos chunkcoordintpair, BiomeContainer biomestorage, UpgradeData chunkconverter, ITickList<Block> ticklist, ITickList<Fluid> ticklist1, long i, @Nullable ChunkSection[] achunksection, @Nullable Consumer<Chunk> consumer) {
+@@ -583,6 +590,13 @@ public class Chunk implements IChunk {
+         p_76612_1_.field_70164_aj = this.field_212816_F.field_77275_b;
+         this.entities.add(p_76612_1_); // Paper - per chunk entity list
+         this.field_76645_j[k].add(p_76612_1_);
++        // Paper start
++        if (p_76612_1_ instanceof ItemEntity) {
++            itemCounts[k]++;
++        } else if (p_76612_1_ instanceof IInventory) {
++            inventoryEntityCounts[k]++;
++        }
++        // Paper end
+         p_76612_1_.entitySlice = this.field_76645_j[k]; // Paper
+         this.func_76630_e(); // Paper
+     }
+@@ -615,6 +629,11 @@ public class Chunk implements IChunk {
+         if (!this.field_76645_j[p_76608_2_].remove(p_76608_1_)) {
+             return;
+         }
++        if (p_76608_1_ instanceof ItemEntity) {
++            itemCounts[p_76608_2_]--;
++        } else if (p_76608_1_ instanceof IInventory) {
++            inventoryEntityCounts[p_76608_2_]--;
++        }
+         entityCounts.decrement(p_76608_1_.getMinecraftKeyString());
+         this.func_76630_e(); // Paper
+         // Paper end
+@@ -898,6 +917,14 @@ public class Chunk implements IChunk {
+         for (int k = i; k <= j; ++k) {
+             Iterator iterator = this.field_76645_j[k].iterator(); // Spigot
+ 
++            // Paper start - Don't search for inventories if we have none, and that is all we want
++            /*
++             * We check if they want inventories by seeing if it is the static `IEntitySelector.d`
++             *
++             * Make sure the inventory selector stays in sync.
++             * It should be the one that checks `var1 instanceof IInventory && var1.isAlive()`
++             */
++            if (p_217313_4_ == EntityPredicates.isInventory() && inventoryEntityCounts[k] <= 0) continue;
+             while (iterator.hasNext()) {
+                 T entity = (T) iterator.next(); // CraftBukkit - decompile error
+                 if (entity.shouldBeRemoved) continue; // Paper
+@@ -917,9 +944,29 @@ public class Chunk implements IChunk {
+         i = MathHelper.func_76125_a(i, 0, this.field_76645_j.length - 1);
+         j = MathHelper.func_76125_a(j, 0, this.field_76645_j.length - 1);
+ 
++        // Paper start
++        int[] counts;
++        if (ItemEntity.class.isAssignableFrom(p_177430_1_)) {
++            counts = itemCounts;
++        } else if (IInventory.class.isAssignableFrom(p_177430_1_)) {
++            counts = inventoryEntityCounts;
++        } else {
++            counts = null;
++        }
++        // Paper end
+         for (int k = i; k <= j; ++k) {
++            if (counts != null && counts[k] <= 0) continue; // Paper - Don't check a chunk if it doesn't have the type we are looking for
+             Iterator iterator = this.field_76645_j[k].iterator(); // Spigot
+ 
++            // Paper start - Don't search for inventories if we have none, and that is all we want
++            /*
++             * We check if they want inventories by seeing if it is the static `IEntitySelector.d`
++             *
++             * Make sure the inventory selector stays in sync.
++             * It should be the one that checks `var1 instanceof IInventory && var1.isAlive()`
++             */
++            if (p_177430_4_ == EntityPredicates.isInventory() && inventoryEntityCounts[k] <= 0) continue;
++            // Paper end
+             while (iterator.hasNext()) {
+                 T t0 = (T) iterator.next(); // CraftBukkit - decompile error
+                 if (t0.shouldBeRemoved) continue; // Paper

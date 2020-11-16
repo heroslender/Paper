@@ -1,0 +1,334 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 19 Dec 2017 16:31:46 -0500
+Subject: [PATCH] ExperienceOrbs API for Reason/Source/Triggering player
+
+Adds lots of information about why this orb exists.
+
+Replaces isFromBottle() with logic that persists entity reloads too.
+
+diff --git a/src/main/java/net/minecraft/block/Block.java b/src/main/java/net/minecraft/block/Block.java
+index b9faf8abaac13747026d3619e8d14d0532cb9f00..154afaf396e2197fd41202422e16d399b41abed4 100644
+--- a/src/main/java/net/minecraft/block/Block.java
++++ b/src/main/java/net/minecraft/block/Block.java
+@@ -14,6 +14,7 @@ import net.minecraft.entity.item.ExperienceOrbEntity;
+ import net.minecraft.entity.item.ItemEntity;
+ import net.minecraft.entity.monster.piglin.PiglinTasks;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.item.BlockItem;
+ import net.minecraft.item.BlockItemUseContext;
+ import net.minecraft.item.Item;
+@@ -266,13 +267,13 @@ public class Block extends AbstractBlock implements IItemProvider {
+         }
+     }
+ 
+-    protected void func_180637_b(ServerWorld p_180637_1_, BlockPos p_180637_2_, int p_180637_3_) {
+-        if (p_180637_1_.func_82736_K().func_223586_b(GameRules.field_223603_f)) {
+-            while (p_180637_3_ > 0) {
+-                int j = ExperienceOrbEntity.func_70527_a(p_180637_3_);
++    protected void dropExperience(ServerWorld worldserver, BlockPos blockposition, int i, ServerPlayerEntity player) { // Paper
++        if (worldserver.func_82736_K().func_223586_b(GameRules.field_223603_f)) {
++            while (i > 0) {
++                int j = ExperienceOrbEntity.func_70527_a(i);
+ 
+-                p_180637_3_ -= j;
+-                p_180637_1_.func_217376_c(new ExperienceOrbEntity(p_180637_1_, (double) p_180637_2_.func_177958_n() + 0.5D, (double) p_180637_2_.func_177956_o() + 0.5D, (double) p_180637_2_.func_177952_p() + 0.5D, j));
++                i -= j;
++                worldserver.func_217376_c(new ExperienceOrbEntity(worldserver, (double) blockposition.func_177958_n() + 0.5D, (double) blockposition.func_177956_o() + 0.5D, (double) blockposition.func_177952_p() + 0.5D, j, org.bukkit.entity.ExperienceOrb.SpawnReason.BLOCK_BREAK, player)); // Paper
+             }
+         }
+ 
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 3f7b33f5d4b0a741c1a8b1dd2151176632e64db0..cd00d12db79707b0dfd0966d6b4fa3b796617fbd 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -1584,7 +1584,8 @@ public abstract class LivingEntity extends Entity {
+                 int j = ExperienceOrbEntity.func_70527_a(i);
+ 
+                 i -= j;
+-                this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), j));
++                LivingEntity attacker = field_70717_bb != null ? field_70717_bb : field_70755_b; // Paper
++                this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), j, this instanceof ServerPlayerEntity ? org.bukkit.entity.ExperienceOrb.SpawnReason.PLAYER_DEATH : org.bukkit.entity.ExperienceOrb.SpawnReason.ENTITY_DEATH, attacker, this)); // Paper
+             }
+             this.expToDrop = 0;
+         }
+diff --git a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+index c3ad25988844a6f1639cd49f4d0c71689fb20646..3206fc7fc8a29ebbfddbadff4c04054811f84fce 100644
+--- a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
++++ b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+@@ -663,7 +663,7 @@ public class EnderDragonEntity extends MobEntity implements IMob {
+             int j = ExperienceOrbEntity.func_70527_a(p_184668_1_);
+ 
+             p_184668_1_ -= j;
+-            this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), j));
++            this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), j, org.bukkit.entity.ExperienceOrb.SpawnReason.ENTITY_DEATH, this.field_70717_bb, this)); // Paper
+         }
+ 
+     }
+diff --git a/src/main/java/net/minecraft/entity/item/ExperienceBottleEntity.java b/src/main/java/net/minecraft/entity/item/ExperienceBottleEntity.java
+index 29e4d054f9b6ba81709e4f1cd004a57c961dad6c..44ae51cffc768cd34110fdcb0043938c020a7cfe 100644
+--- a/src/main/java/net/minecraft/entity/item/ExperienceBottleEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ExperienceBottleEntity.java
+@@ -54,7 +54,7 @@ public class ExperienceBottleEntity extends ProjectileItemEntity {
+                 int j = ExperienceOrbEntity.func_70527_a(i);
+ 
+                 i -= j;
+-                this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), j));
++                this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), j, org.bukkit.entity.ExperienceOrb.SpawnReason.EXP_BOTTLE, func_234616_v_(), this)); // Paper
+             }
+ 
+             this.func_70106_y();
+diff --git a/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java b/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java
+index edf728c1bff8a28c089c844f524ce401dccc8f7f..f5407cce40060cf21e085bf28150e88111447262 100644
+--- a/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java
+@@ -35,9 +35,59 @@ public class ExperienceOrbEntity extends Entity {
+     public int field_70530_e;
+     private PlayerEntity field_80001_f;
+     private int field_80002_g;
++    // Paper start
++    public java.util.UUID sourceEntityId;
++    public java.util.UUID triggerEntityId;
++    public org.bukkit.entity.ExperienceOrb.SpawnReason spawnReason = org.bukkit.entity.ExperienceOrb.SpawnReason.UNKNOWN;
++
++    private void loadPaperNBT(CompoundNBT nbttagcompound) {
++        if (!nbttagcompound.func_150297_b("Paper.ExpData", 10)) { // 10 = compound
++            return;
++        }
++        CompoundNBT comp = nbttagcompound.func_74775_l("Paper.ExpData");
++        if (comp.hasUUID("source")) {
++            this.sourceEntityId = comp.getUUID("source");
++        }
++        if (comp.hasUUID("trigger")) {
++            this.triggerEntityId = comp.getUUID("trigger");
++        }
++        if (comp.func_74764_b("reason")) {
++            String reason = comp.func_74779_i("reason");
++            try {
++                this.spawnReason = org.bukkit.entity.ExperienceOrb.SpawnReason.valueOf(reason);
++            } catch (Exception e) {
++                this.field_70170_p.getServer().getLogger().warning("Invalid spawnReason set for experience orb: " + e.getMessage() + " - " + reason);
++            }
++        }
++    }
++    private void savePaperNBT(CompoundNBT nbttagcompound) {
++        CompoundNBT comp = new CompoundNBT();
++        if (this.sourceEntityId != null) {
++            comp.setUUID("source", this.sourceEntityId);
++        }
++        if (this.triggerEntityId != null) {
++            comp.setUUID("trigger", triggerEntityId);
++        }
++        if (this.spawnReason != null && this.spawnReason != org.bukkit.entity.ExperienceOrb.SpawnReason.UNKNOWN) {
++            comp.func_74778_a("reason", this.spawnReason.name());
++        }
++        nbttagcompound.func_218657_a("Paper.ExpData", comp);
++    }
+ 
+     public ExperienceOrbEntity(World world, double d0, double d1, double d2, int i) {
++        this(world, d0, d1, d2, i, null, null);
++    }
++
++    public EntityExperienceOrb(World world, double d0, double d1, double d2, int i, org.bukkit.entity.ExperienceOrb.SpawnReason reason, Entity triggerId) {
++        this(world, d0, d1, d2, i, reason, triggerId, null);
++    }
++
++    public EntityExperienceOrb(World world, double d0, double d1, double d2, int i, org.bukkit.entity.ExperienceOrb.SpawnReason reason, Entity triggerId, Entity sourceId) {
+         this(EntityType.field_200807_u, world);
++        this.sourceEntityId = sourceId != null ? sourceId.func_110124_au() : null;
++        this.triggerEntityId = triggerId != null ? triggerId.func_110124_au() : null;
++        this.spawnReason = reason != null ? reason : org.bukkit.entity.ExperienceOrb.SpawnReason.UNKNOWN;
++        // Paper end
+         this.func_70107_b(d0, d1, d2);
+         this.field_70177_z = (float) (this.field_70146_Z.nextDouble() * 360.0D);
+         this.func_213293_j((this.field_70146_Z.nextDouble() * 0.20000000298023224D - 0.10000000149011612D) * 2.0D, this.field_70146_Z.nextDouble() * 0.2D * 2.0D, (this.field_70146_Z.nextDouble() * 0.20000000298023224D - 0.10000000149011612D) * 2.0D);
+@@ -172,6 +222,7 @@ public class ExperienceOrbEntity extends Entity {
+         p_213281_1_.func_74777_a("Health", (short) this.field_70529_d);
+         p_213281_1_.func_74777_a("Age", (short) this.field_70531_b);
+         p_213281_1_.func_74777_a("Value", (short) this.field_70530_e);
++        this.savePaperNBT(p_213281_1_); // Paper
+     }
+ 
+     @Override
+@@ -179,6 +230,7 @@ public class ExperienceOrbEntity extends Entity {
+         this.field_70529_d = p_70037_1_.func_74765_d("Health");
+         this.field_70531_b = p_70037_1_.func_74765_d("Age");
+         this.field_70530_e = p_70037_1_.func_74765_d("Value");
++        this.loadPaperNBT(p_70037_1_); // Paper
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+index e89afd5928ce3e517e8c50ebffe33af23226e2f4..141ba3839a06c8ca046624d2aac5775dc16e5a7e 100644
+--- a/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
++++ b/src/main/java/net/minecraft/entity/merchant/villager/VillagerEntity.java
+@@ -604,7 +604,7 @@ public class VillagerEntity extends AbstractVillagerEntity implements IReputatio
+         }
+ 
+         if (p_213713_1_.func_222221_q()) {
+-            this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_() + 0.5D, this.func_226281_cx_(), i));
++            this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_() + 0.5D, this.func_226281_cx_(), i, org.bukkit.entity.ExperienceOrb.SpawnReason.VILLAGER_TRADE, this.func_70931_l_(), this)); // Paper
+         }
+ 
+     }
+diff --git a/src/main/java/net/minecraft/entity/merchant/villager/WanderingTraderEntity.java b/src/main/java/net/minecraft/entity/merchant/villager/WanderingTraderEntity.java
+index a55a2a108f741a35d84fb6d319d9eccbcc2d12f1..8fb1aec89ddc592d46fbfc6613d3d24a183a5e5b 100644
+--- a/src/main/java/net/minecraft/entity/merchant/villager/WanderingTraderEntity.java
++++ b/src/main/java/net/minecraft/entity/merchant/villager/WanderingTraderEntity.java
+@@ -187,7 +187,7 @@ public class WanderingTraderEntity extends AbstractVillagerEntity {
+         if (p_213713_1_.func_222221_q()) {
+             int i = 3 + this.field_70146_Z.nextInt(4);
+ 
+-            this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_() + 0.5D, this.func_226281_cx_(), i));
++            this.field_70170_p.func_217376_c(new ExperienceOrbEntity(this.field_70170_p, this.func_226277_ct_(), this.func_226278_cu_() + 0.5D, this.func_226281_cx_(), i, org.bukkit.entity.ExperienceOrb.SpawnReason.VILLAGER_TRADE, this.func_70931_l_(), this)); // Paper
+         }
+ 
+     }
+diff --git a/src/main/java/net/minecraft/entity/passive/AnimalEntity.java b/src/main/java/net/minecraft/entity/passive/AnimalEntity.java
+index a62c275019b70b790162fecdce02770f86df385c..dbda05ece84e13626399d66f042fdb6c74a0618d 100644
+--- a/src/main/java/net/minecraft/entity/passive/AnimalEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/AnimalEntity.java
+@@ -259,7 +259,7 @@ public abstract class AnimalEntity extends AgeableEntity {
+             if (p_234177_1_.func_82736_K().func_223586_b(GameRules.field_223602_e)) {
+                 // CraftBukkit start - use event experience
+                 if (experience > 0) {
+-                    p_234177_1_.func_217376_c(new ExperienceOrbEntity(p_234177_1_, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), experience));
++                    p_234177_1_.func_217376_c(new ExperienceOrbEntity(p_234177_1_, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), experience, org.bukkit.entity.ExperienceOrb.SpawnReason.BREED, entityplayer, entityageable)); // Paper
+                 }
+                 // CraftBukkit end
+             }
+diff --git a/src/main/java/net/minecraft/entity/passive/FoxEntity.java b/src/main/java/net/minecraft/entity/passive/FoxEntity.java
+index 547f29a85991723ada15603bb06d15edb2738f4c..ea3fb5555aba39cc052d68bdea84cb612a6405d1 100644
+--- a/src/main/java/net/minecraft/entity/passive/FoxEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/FoxEntity.java
+@@ -1304,7 +1304,7 @@ public class FoxEntity extends AnimalEntity {
+                 if (this.field_75394_a.func_82736_K().func_223586_b(GameRules.field_223602_e)) {
+                     // CraftBukkit start - use event experience
+                     if (experience > 0) {
+-                        this.field_75394_a.func_217376_c(new ExperienceOrbEntity(this.field_75394_a, this.field_75390_d.func_226277_ct_(), this.field_75390_d.func_226278_cu_(), this.field_75390_d.func_226281_cx_(), experience));
++                        this.field_75394_a.func_217376_c(new ExperienceOrbEntity(this.field_75394_a, this.field_75390_d.func_226277_ct_(), this.field_75390_d.func_226278_cu_(), this.field_75390_d.func_226281_cx_(), experience, org.bukkit.entity.ExperienceOrb.SpawnReason.BREED, entityplayer, entityfox)); // Paper
+                     }
+                     // CraftBukkit end
+                 }
+diff --git a/src/main/java/net/minecraft/entity/passive/TurtleEntity.java b/src/main/java/net/minecraft/entity/passive/TurtleEntity.java
+index 32a39dbb3422390a1a14e186fe6aa2c69c2101c6..fc2d02dc0224d1a5e7aceaf36cb04cb3a6757029 100644
+--- a/src/main/java/net/minecraft/entity/passive/TurtleEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/TurtleEntity.java
+@@ -560,7 +560,7 @@ public class TurtleEntity extends AnimalEntity {
+             Random random = this.field_75390_d.func_70681_au();
+ 
+             if (this.field_75394_a.func_82736_K().func_223586_b(GameRules.field_223602_e)) {
+-                this.field_75394_a.func_217376_c(new ExperienceOrbEntity(this.field_75394_a, this.field_75390_d.func_226277_ct_(), this.field_75390_d.func_226278_cu_(), this.field_75390_d.func_226281_cx_(), random.nextInt(7) + 1));
++                this.field_75394_a.func_217376_c(new ExperienceOrbEntity(this.field_75394_a, this.field_75390_d.func_226277_ct_(), this.field_75390_d.func_226278_cu_(), this.field_75390_d.func_226281_cx_(), random.nextInt(7) + 1, org.bukkit.entity.ExperienceOrb.SpawnReason.BREED, entityplayer)); // Paper;
+             }
+ 
+         }
+diff --git a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+index 07e4e405f53d73ed877e9e3a87d8004b1c7bb58b..1324dc8eb739a40f9c33d6d56eb00d5db84eb85a 100644
+--- a/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/FishingBobberEntity.java
+@@ -502,7 +502,7 @@ public class FishingBobberEntity extends ProjectileEntity {
+                     this.field_70170_p.func_217376_c(entityitem);
+                     // CraftBukkit start - this.random.nextInt(6) + 1 -> playerFishEvent.getExpToDrop()
+                     if (playerFishEvent.getExpToDrop() > 0) {
+-                        entityhuman.field_70170_p.func_217376_c(new ExperienceOrbEntity(entityhuman.field_70170_p, entityhuman.func_226277_ct_(), entityhuman.func_226278_cu_() + 0.5D, entityhuman.func_226281_cx_() + 0.5D, playerFishEvent.getExpToDrop()));
++                        entityhuman.field_70170_p.func_217376_c(new ExperienceOrbEntity(entityhuman.field_70170_p, entityhuman.func_226277_ct_(), entityhuman.func_226278_cu_() + 0.5D, entityhuman.func_226281_cx_() + 0.5D, playerFishEvent.getExpToDrop(), org.bukkit.entity.ExperienceOrb.SpawnReason.FISHING, this.func_234606_i_(), this)); // Paper
+                     }
+                     // CraftBukkit end
+                     if (itemstack1.func_77973_b().func_206844_a((ITag) ItemTags.field_206964_G)) {
+diff --git a/src/main/java/net/minecraft/inventory/container/FurnaceResultSlot.java b/src/main/java/net/minecraft/inventory/container/FurnaceResultSlot.java
+index 048583ca1bf23cb905c8342fd6cfce992a922a33..40bec716ffd9ccf5030c9d4b5e5040980161d05a 100644
+--- a/src/main/java/net/minecraft/inventory/container/FurnaceResultSlot.java
++++ b/src/main/java/net/minecraft/inventory/container/FurnaceResultSlot.java
+@@ -7,7 +7,7 @@ import net.minecraft.tileentity.AbstractFurnaceTileEntity;
+ 
+ public class FurnaceResultSlot extends Slot {
+ 
+-    private final PlayerEntity field_75229_a;
++    private final PlayerEntity field_75229_a; public final PlayerEntity getPlayer() { return this.field_75229_a; } // Paper OBFHELPER
+     private int field_75228_b;
+ 
+     public FurnaceResultSlot(PlayerEntity entityhuman, IInventory iinventory, int i, int j, int k) {
+diff --git a/src/main/java/net/minecraft/inventory/container/GrindstoneContainer.java b/src/main/java/net/minecraft/inventory/container/GrindstoneContainer.java
+index 142421ce0693efc5a8fe524cedf37adc8f74e6c2..716f2a41dd84574895c2aba59a2f39f95ab7efdf 100644
+--- a/src/main/java/net/minecraft/inventory/container/GrindstoneContainer.java
++++ b/src/main/java/net/minecraft/inventory/container/GrindstoneContainer.java
+@@ -95,7 +95,7 @@ public class GrindstoneContainer extends Container {
+                         int k = ExperienceOrbEntity.func_70527_a(j);
+ 
+                         j -= k;
+-                        world.func_217376_c(new ExperienceOrbEntity(world, (double) blockposition.func_177958_n(), (double) blockposition.func_177956_o() + 0.5D, (double) blockposition.func_177952_p() + 0.5D, k));
++                        world.func_217376_c(new ExperienceOrbEntity(world, (double) blockposition.func_177958_n(), (double) blockposition.func_177956_o() + 0.5D, (double) blockposition.func_177952_p() + 0.5D, k, org.bukkit.entity.ExperienceOrb.SpawnReason.GRINDSTONE, p_190901_1_)); // Paper
+                     }
+ 
+                     world.func_217379_c(1042, blockposition, 0);
+diff --git a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+index 46647312241f0c9c6d137ef71f55d196d69cad36..9730d0845560251b04b204b20bcebe69628b897f 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
++++ b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+@@ -409,7 +409,7 @@ public class PlayerInteractionManager {
+ 
+                 // Drop event experience
+                 if (flag && event != null) {
+-                    iblockdata.func_177230_c().func_180637_b(this.field_73092_a, p_180237_1_, event.getExpToDrop());
++                    iblockdata.func_177230_c().dropExperience(this.field_73092_a, p_180237_1_, event.getExpToDrop(), this.field_73090_b); // Paper
+                 }
+ 
+                 return true;
+diff --git a/src/main/java/net/minecraft/tileentity/AbstractFurnaceTileEntity.java b/src/main/java/net/minecraft/tileentity/AbstractFurnaceTileEntity.java
+index ff547bdf533685a9d06d6ed3e856c51a14f75632..7d76b953f5ad0d76ad4c71b06d9c4c48066fa2cd 100644
+--- a/src/main/java/net/minecraft/tileentity/AbstractFurnaceTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/AbstractFurnaceTileEntity.java
+@@ -602,7 +602,7 @@ public abstract class AbstractFurnaceTileEntity extends LockableTileEntity imple
+             int k = ExperienceOrbEntity.func_70527_a(j);
+ 
+             j -= k;
+-            world.func_217376_c(new ExperienceOrbEntity(world, vec3d.field_72450_a, vec3d.field_72448_b, vec3d.field_72449_c, k));
++            world.func_217376_c(new ExperienceOrbEntity(world, vec3d.field_72450_a, vec3d.field_72448_b, vec3d.field_72449_c, k, org.bukkit.entity.ExperienceOrb.SpawnReason.FURNACE, entityhuman)); // Paper
+         }
+ 
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index 1c3d23418c44dfb013ce41ad4bf41db7756f48e9..478890da896e9dfb02db8a2a0b5acbc79ca121fd 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -1799,7 +1799,7 @@ public class CraftWorld implements World {
+         } else if (TNTPrimed.class.isAssignableFrom(clazz)) {
+             entity = new TNTEntity(world, x, y, z, null);
+         } else if (ExperienceOrb.class.isAssignableFrom(clazz)) {
+-            entity = new ExperienceOrbEntity(world, x, y, z, 0);
++            entity = new ExperienceOrbEntity(world, x, y, z, 0, org.bukkit.entity.ExperienceOrb.SpawnReason.CUSTOM, null, null); // Paper
+         } else if (LightningStrike.class.isAssignableFrom(clazz)) {
+             entity = net.minecraft.entity.EntityType.field_200728_aG.func_200721_a(world);
+         } else if (AreaEffectCloud.class.isAssignableFrom(clazz)) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftExperienceOrb.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftExperienceOrb.java
+index a1247b68ac68781046269d0acf3ac36282480e42..fc74bf4bb9d6ddcca5cff0d0d1e6186f5d9b8423 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftExperienceOrb.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftExperienceOrb.java
+@@ -1,5 +1,6 @@
+ package org.bukkit.craftbukkit.entity;
+ 
++import SpawnReason;
+ import net.minecraft.entity.item.ExperienceOrbEntity;
+ import org.bukkit.craftbukkit.CraftServer;
+ import org.bukkit.entity.EntityType;
+@@ -20,6 +21,18 @@ public class CraftExperienceOrb extends CraftEntity implements ExperienceOrb {
+         getHandle().field_70530_e = value;
+     }
+ 
++    // Paper start
++    public java.util.UUID getTriggerEntityId() {
++        return getHandle().triggerEntityId;
++    }
++    public java.util.UUID getSourceEntityId() {
++        return getHandle().sourceEntityId;
++    }
++    public SpawnReason getSpawnReason() {
++        return getHandle().spawnReason;
++    }
++    // Paper end
++
+     @Override
+     public ExperienceOrbEntity getHandle() {
+         return (ExperienceOrbEntity) entity;

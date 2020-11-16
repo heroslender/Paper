@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Sat, 25 Apr 2020 17:10:55 -0700
+Subject: [PATCH] Reduce blockpos allocation from pathfinding
+
+
+diff --git a/src/main/java/net/minecraft/pathfinding/WalkNodeProcessor.java b/src/main/java/net/minecraft/pathfinding/WalkNodeProcessor.java
+index e359bb389be81ab7ae8fe921619bd4eb9df4355c..d44c90d875e3bc7cc34b7e86c6544cf787dcd97d 100644
+--- a/src/main/java/net/minecraft/pathfinding/WalkNodeProcessor.java
++++ b/src/main/java/net/minecraft/pathfinding/WalkNodeProcessor.java
+@@ -498,7 +498,7 @@ public class WalkNodeProcessor extends NodeProcessor {
+                             return PathNodeType.DANGER_FIRE;
+                         }
+ 
+-                        if (p_237232_0_.func_204610_c(p_237232_1_).func_206884_a((ITag) FluidTags.field_206959_a)) {
++                        if (iblockdata.func_204520_s().func_206884_a((ITag) FluidTags.field_206959_a)) { // Paper - remove another getType call
+                             return PathNodeType.WATER_BORDER;
+                         }
+                         } // Paper
+@@ -528,7 +528,7 @@ public class WalkNodeProcessor extends NodeProcessor {
+             } else if (iblockdata.func_203425_a(Blocks.field_150375_by)) {
+                 return PathNodeType.COCOA;
+             } else {
+-                FluidState fluid = p_237238_0_.func_204610_c(p_237238_1_);
++                FluidState fluid = iblockdata.func_204520_s(); // Paper - remove another get type call
+ 
+                 return fluid.func_206884_a((ITag) FluidTags.field_206959_a) ? PathNodeType.WATER : (fluid.func_206884_a((ITag) FluidTags.field_206960_b) ? PathNodeType.LAVA : (func_237233_a_(iblockdata) ? PathNodeType.DAMAGE_FIRE : (DoorBlock.func_235492_h_(iblockdata) && !(Boolean) iblockdata.func_177229_b(DoorBlock.field_176519_b) ? PathNodeType.DOOR_WOOD_CLOSED : (block instanceof DoorBlock && material == Material.field_151573_f && !(Boolean) iblockdata.func_177229_b(DoorBlock.field_176519_b) ? PathNodeType.DOOR_IRON_CLOSED : (block instanceof DoorBlock && (Boolean) iblockdata.func_177229_b(DoorBlock.field_176519_b) ? PathNodeType.DOOR_OPEN : (block instanceof AbstractRailBlock ? PathNodeType.RAIL : (block instanceof LeavesBlock ? PathNodeType.LEAVES : (!block.func_203417_a((ITag) BlockTags.field_219748_G) && !block.func_203417_a((ITag) BlockTags.field_219757_z) && (!(block instanceof FenceGateBlock) || (Boolean) iblockdata.func_177229_b(FenceGateBlock.field_176466_a)) ? (!iblockdata.func_196957_g(p_237238_0_, p_237238_1_, PathType.LAND) ? PathNodeType.BLOCKED : PathNodeType.OPEN) : PathNodeType.FENCE))))))));
+             }

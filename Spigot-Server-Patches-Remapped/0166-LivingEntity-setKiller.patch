@@ -1,0 +1,40 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Mon, 31 Jul 2017 01:49:48 -0500
+Subject: [PATCH] LivingEntity#setKiller
+
+
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index 1f4a64cd69b254c73c3197b5f4a3715d664afff3..56815337a56ea5a1269977a6c81d89fcc1c2c3a0 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -183,7 +183,7 @@ public abstract class LivingEntity extends Entity {
+     public float field_70747_aH;
+     @Nullable
+     public PlayerEntity field_70717_bb;
+-    protected int field_70718_bc;
++    public int field_70718_bc; // Paper - protected -> public
+     protected boolean field_70729_aU;
+     protected int field_70708_bq;
+     protected float field_70768_au;
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+index ae0e7f0971515500224ddb7c0958d29f5feb91e1..8ad8c1aa4a4aa8895542fb7832a62f6891ab10cc 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+@@ -342,6 +342,16 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+         return getHandle().field_70717_bb == null ? null : (Player) getHandle().field_70717_bb.getBukkitEntity();
+     }
+ 
++    // Paper start
++    @Override
++    public void setKiller(Player killer) {
++        net.minecraft.entity.player.ServerPlayerEntity entityPlayer = killer == null ? null : ((CraftPlayer) killer).getHandle();
++        getHandle().field_70717_bb = entityPlayer;
++        getHandle().field_70755_b = entityPlayer;
++        getHandle().field_70718_bc = entityPlayer == null ? 0 : 100; // 100 value taken from EntityLiving#damageEntity
++    }
++    // Paper end
++
+     @Override
+     public boolean addPotionEffect(PotionEffect effect) {
+         return addPotionEffect(effect, false);

@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: David Slovikosky <davidslovikosky@gmail.com>
+Date: Tue, 9 Jun 2020 00:10:03 -0700
+Subject: [PATCH] Fix missing chunks due to integer overflow
+
+This patch fixes a bug in the WorldChunkManagerTheEnd class where the distance
+from 0,0 squared overflows the maximum size of an integer. The overflow leads
+to hard chunk borders around 370,000 blocks from 0,0. After this cutoff there
+is a few hundred thousand block gap before end land resuming to generate at
+530,000 blocks from spawn. This is due to the integer flipping back and forth.
+
+The fix for the issue is quite simple, casting chunk coordinates to longs
+allows the distance calculation to avoid overflow and work as intended.
+
+diff --git a/src/main/java/net/minecraft/world/biome/provider/EndBiomeProvider.java b/src/main/java/net/minecraft/world/biome/provider/EndBiomeProvider.java
+index 43dbb6033d056023d6801391dd100c5f207bec7b..7ff2fe26de8e322c2e5692be0ce928d8da094557 100644
+--- a/src/main/java/net/minecraft/world/biome/provider/EndBiomeProvider.java
++++ b/src/main/java/net/minecraft/world/biome/provider/EndBiomeProvider.java
+@@ -77,7 +77,9 @@ public class EndBiomeProvider extends BiomeProvider {
+         int l = p_235317_2_ / 2;
+         int i1 = p_235317_1_ % 2;
+         int j1 = p_235317_2_ % 2;
+-        float f = 100.0F - MathHelper.func_76129_c((float) (p_235317_1_ * p_235317_1_ + p_235317_2_ * p_235317_2_)) * 8.0F;
++        // Paper start - cast ints to long to avoid integer overflow
++        float f = 100.0F - MathHelper.func_76133_a((long) p_235317_1_ * (long) p_235317_1_ + (long) p_235317_2_ * (long) p_235317_2_) * 8.0F;
++        // Paper end
+ 
+         f = MathHelper.func_76131_a(f, -100.0F, 80.0F);
+ 

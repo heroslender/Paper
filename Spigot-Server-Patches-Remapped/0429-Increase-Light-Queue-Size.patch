@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 8 Apr 2020 21:24:05 -0400
+Subject: [PATCH] Increase Light Queue Size
+
+Wiz mentioned that large WorldEdit operations cause light to run on
+main thread. The queue was small, set to 5.. this bumps it to 20
+but makes it configurable per-world.
+
+The main risk of increasing this higher is during shutdown, some
+queued light updates may be lost because mojang did not flush the
+light engine on shutdown...
+
+The queue size only puts a cap on max loss, doesn't solve that problem.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 1b49c214998a5a9b424472df040d634d9fcc0c4a..d7e22e1bf886800adbe8ed7baa3349e5d2ee1818 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -609,4 +609,9 @@ public class PaperWorldConfig {
+     private void zombieVillagerInfectionChance() {
+         zombieVillagerInfectionChance = getDouble("zombie-villager-infection-chance", zombieVillagerInfectionChance);
+     }
++
++    public int lightQueueSize = 20;
++    private void lightQueueSize() {
++        lightQueueSize = getInt("light-queue-size", lightQueueSize);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index b0a03eaa08f20f25bc5c4d0da8cd0cb129d12a71..1c14f0623eb8559dd498b37f7ccbed4e39700d7a 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -768,7 +768,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         this.executeModerately();
+         // CraftBukkit end
+         worldloadlistener.func_219510_b();
+-        chunkproviderserver.func_212863_j_().func_215598_a(5);
++        chunkproviderserver.func_212863_j_().func_215598_a(worldserver.paperConfig.lightQueueSize); // Paper - increase light queue size
+         // CraftBukkit start
+         // this.bc();
+         worldserver.func_72891_a(this.func_230536_N_(), this.func_230537_U_());
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 871b91e32060f1b63b3c8476203090f36e2e49f1..59d219f0a3cc077f97809b78b707084a800dbf28 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -112,7 +112,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+     public static final int field_219249_a = 33 + ChunkStatus.func_222600_b();
+     // Paper start - faster copying
+     public final Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219251_e = new com.destroystokyo.paper.util.map.Long2ObjectLinkedOpenHashMapFastCopy<>(); // Paper - faster copying
+-    public final Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219252_f = new net.minecraft.world.server.ChunkManager.ProtectedVisibleChunksMap(); // Paper - faster copying
++    public final Long2ObjectLinkedOpenHashMap<ChunkHolder> field_219252_f = new ProtectedVisibleChunksMap(); // Paper - faster copying
+ 
+     private class ProtectedVisibleChunksMap extends com.destroystokyo.paper.util.map.Long2ObjectLinkedOpenHashMapFastCopy<ChunkHolder> {
+         @Override
+@@ -316,7 +316,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         } finally {
+             this.isIterating = prev;
+             if (!this.isIterating && this.hasPendingVisibleUpdate) {
+-                ((net.minecraft.world.server.ChunkManager.ProtectedVisibleChunksMap)this.field_219252_f).copyFrom(this.pendingVisibleChunks);
++                ((ProtectedVisibleChunksMap)this.field_219252_f).copyFrom(this.pendingVisibleChunks);
+                 this.pendingVisibleChunks.clear();
+                 this.hasPendingVisibleUpdate = false;
+             }
+@@ -329,7 +329,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+             synchronized (this.field_219252_f) {
+                 if (DEBUG_ASYNC_VISIBLE_CHUNKS) new Throwable("Async getVisibleChunks").printStackTrace();
+                 if (this.visibleChunksClone == null) {
+-                    this.visibleChunksClone = this.hasPendingVisibleUpdate ? this.pendingVisibleChunks.clone() : ((net.minecraft.world.server.ChunkManager.ProtectedVisibleChunksMap)this.field_219252_f).clone();
++                    this.visibleChunksClone = this.hasPendingVisibleUpdate ? this.pendingVisibleChunks.clone() : ((ProtectedVisibleChunksMap)this.field_219252_f).clone();
+                 }
+                 return this.visibleChunksClone;
+             }
+@@ -342,10 +342,10 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         // Paper start - mt safe get
+         if (Thread.currentThread() != this.field_219255_i.field_217407_c) {
+             synchronized (this.field_219252_f) {
+-                return (ChunkHolder) (this.hasPendingVisibleUpdate ? this.pendingVisibleChunks.get(p_219219_1_) : ((net.minecraft.world.server.ChunkManager.ProtectedVisibleChunksMap)this.field_219252_f).safeGet(p_219219_1_));
++                return (ChunkHolder) (this.hasPendingVisibleUpdate ? this.pendingVisibleChunks.get(p_219219_1_) : ((ProtectedVisibleChunksMap)this.field_219252_f).safeGet(p_219219_1_));
+             }
+         }
+-        return (ChunkHolder) (this.hasPendingVisibleUpdate ? this.pendingVisibleChunks.get(p_219219_1_) : ((net.minecraft.world.server.ChunkManager.ProtectedVisibleChunksMap)this.field_219252_f).safeGet(p_219219_1_));
++        return (ChunkHolder) (this.hasPendingVisibleUpdate ? this.pendingVisibleChunks.get(p_219219_1_) : ((ProtectedVisibleChunksMap)this.field_219252_f).safeGet(p_219219_1_));
+         // Paper end
+     }
+ 
+@@ -743,7 +743,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+                 } else {
+                     hasPendingVisibleUpdate = false;
+                     this.pendingVisibleChunks.clear();
+-                    ((net.minecraft.world.server.ChunkManager.ProtectedVisibleChunksMap)this.field_219252_f).copyFrom((com.destroystokyo.paper.util.map.Long2ObjectLinkedOpenHashMapFastCopy<ChunkHolder>)this.field_219251_e);
++                    ((ProtectedVisibleChunksMap)this.field_219252_f).copyFrom((com.destroystokyo.paper.util.map.Long2ObjectLinkedOpenHashMapFastCopy<ChunkHolder>)this.field_219251_e);
+                     this.visibleChunksClone = null;
+                 }
+             }

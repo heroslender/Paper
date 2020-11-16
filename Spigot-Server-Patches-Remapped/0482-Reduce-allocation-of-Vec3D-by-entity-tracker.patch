@@ -1,0 +1,69 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Mon, 27 Apr 2020 00:04:16 -0700
+Subject: [PATCH] Reduce allocation of Vec3D by entity tracker
+
+
+diff --git a/src/main/java/net/minecraft/world/TrackedEntity.java b/src/main/java/net/minecraft/world/TrackedEntity.java
+index a7bda8dd334a3a529c65fd2219c128a4873f46c0..cb00a6093f0445708dfcdf5161bbdc5294861663 100644
+--- a/src/main/java/net/minecraft/world/TrackedEntity.java
++++ b/src/main/java/net/minecraft/world/TrackedEntity.java
+@@ -157,8 +157,12 @@ public class TrackedEntity {
+                 ++this.field_219473_o;
+                 i = MathHelper.func_76141_d(this.field_219461_c.field_70177_z * 256.0F / 360.0F);
+                 j = MathHelper.func_76141_d(this.field_219461_c.field_70125_A * 256.0F / 360.0F);
+-                Vector3d vec3d = this.field_219461_c.func_213303_ch().func_178788_d(SEntityPacket.func_218744_a(this.field_219465_g, this.field_219466_h, this.field_219467_i));
+-                boolean flag1 = vec3d.func_189985_c() >= 7.62939453125E-6D;
++                // Paper start - reduce allocation of Vec3D here
++                double vec3d_dx = this.field_219461_c.func_226277_ct_() - 2.44140625E-4D*(this.field_219465_g);
++                double vec3d_dy = this.field_219461_c.func_226278_cu_() - 2.44140625E-4D*(this.field_219466_h);
++                double vec3d_dz = this.field_219461_c.func_226281_cx_() - 2.44140625E-4D*(this.field_219467_i);
++                boolean flag1 = (vec3d_dx * vec3d_dx + vec3d_dy * vec3d_dy + vec3d_dz * vec3d_dz) >= 7.62939453125E-6D;
++                // Paper end - reduce allocation of Vec3D here
+                 IPacket<?> packet1 = null;
+                 boolean flag2 = flag1 || this.field_219472_n % 60 == 0;
+                 boolean flag3 = Math.abs(i - this.field_219468_j) >= 1 || Math.abs(j - this.field_219469_k) >= 1;
+@@ -175,9 +179,11 @@ public class TrackedEntity {
+                 // CraftBukkit end
+ 
+                 if (this.field_219472_n > 0 || this.field_219461_c instanceof AbstractArrowEntity) {
+-                    long k = SEntityPacket.func_218743_a(vec3d.field_72450_a);
+-                    long l = SEntityPacket.func_218743_a(vec3d.field_72448_b);
+-                    long i1 = SEntityPacket.func_218743_a(vec3d.field_72449_c);
++                    // Paper start - remove allocation of Vec3D here
++                    long k = SEntityPacket.func_218743_a(vec3d_dx);
++                    long l = SEntityPacket.func_218743_a(vec3d_dy);
++                    long i1 = SEntityPacket.func_218743_a(vec3d_dz);
++                    // Paper end - remove allocation of Vec3D here
+                     boolean flag4 = k < -32768L || k > 32767L || l < -32768L || l > 32767L || i1 < -32768L || i1 > 32767L;
+ 
+                     if (!flag4 && this.field_219473_o <= 400 && !this.field_219475_q && this.field_219476_r == this.field_219461_c.func_233570_aj_()) {
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 5cfedad4f257d26f2de6f893824d57974fede10a..97dc0ae6fbe21f497e7ca4fc5c4e3af942420012 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -79,7 +79,6 @@ import net.minecraft.util.concurrent.ThreadTaskExecutor;
+ import net.minecraft.util.math.ChunkPos;
+ import net.minecraft.util.math.MathHelper;
+ import net.minecraft.util.math.SectionPos;
+-import net.minecraft.util.math.vector.Vector3d;
+ import net.minecraft.util.palette.UpgradeData;
+ import net.minecraft.village.PointOfInterestManager;
+ import net.minecraft.world.GameRules;
+@@ -2190,9 +2189,14 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         public void func_219400_b(ServerPlayerEntity p_219400_1_) {
+             org.spigotmc.AsyncCatcher.catchOp("player tracker update"); // Spigot
+             if (p_219400_1_ != this.field_219403_c) {
+-                Vector3d vec3d = p_219400_1_.func_213303_ch().func_178788_d(this.field_219403_c.func_213303_ch()); // MC-155077, SPIGOT-5113
++                // Paper start - remove allocation of Vec3D here
++                //Vec3D vec3d = entityplayer.getPositionVector().d(this.tracker.getPositionVector()); // MC-155077, SPIGOT-5113
++                double vec3d_dx = p_219400_1_.func_226277_ct_() - this.field_219403_c.func_226277_ct_();
++                double vec3d_dy = p_219400_1_.func_226278_cu_() - this.field_219403_c.func_226278_cu_();
++                double vec3d_dz = p_219400_1_.func_226281_cx_() - this.field_219403_c.func_226281_cx_();
++                // Paper end - remove allocation of Vec3D here
+                 int i = Math.min(this.func_229843_b_(), (ChunkManager.this.field_219247_A - 1) * 16);
+-                boolean flag = vec3d.field_72450_a >= (double) (-i) && vec3d.field_72450_a <= (double) i && vec3d.field_72449_c >= (double) (-i) && vec3d.field_72449_c <= (double) i && this.field_219403_c.func_174827_a(p_219400_1_);
++                boolean flag = vec3d_dx >= (double) (-i) && vec3d_dx <= (double) i && vec3d_dz >= (double) (-i) && vec3d_dz <= (double) i && this.field_219403_c.func_174827_a(p_219400_1_); // Paper - remove allocation of Vec3D here
+ 
+                 if (flag) {
+                     boolean flag1 = this.field_219403_c.field_98038_p;

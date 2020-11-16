@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 17 Oct 2018 19:17:27 -0400
+Subject: [PATCH] MC-50319: Check other worlds for shooter of projectiles
+
+Say a player shoots an arrow through a nether portal, the game
+would lose the shooter for determining things such as Player Kills,
+because the entity is in another world.
+
+If the projectile fails to find the shooter in the current world, check
+other worlds.
+
+diff --git a/src/main/java/net/minecraft/entity/projectile/ProjectileEntity.java b/src/main/java/net/minecraft/entity/projectile/ProjectileEntity.java
+index 56cd6fefc8f6b2cbf69f10e3955adda158451da4..116c082f9b639784dc7d739ff08df1b2f8f10e40 100644
+--- a/src/main/java/net/minecraft/entity/projectile/ProjectileEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/ProjectileEntity.java
+@@ -41,7 +41,18 @@ public abstract class ProjectileEntity extends Entity {
+ 
+     @Nullable
+     public Entity func_234616_v_() {
+-        return this.field_234609_b_ != null && this.field_70170_p instanceof ServerWorld ? ((ServerWorld) this.field_70170_p).func_217461_a(this.field_234609_b_) : (this.field_234610_c_ != 0 ? this.field_70170_p.func_73045_a(this.field_234610_c_) : null);
++        // Paper start - MC-50319 - shooter might be in another world (arrows through portals)
++        Entity entity = this.field_234609_b_ != null && this.field_70170_p instanceof ServerWorld ? ((ServerWorld) this.field_70170_p).func_217461_a(this.field_234609_b_) : (this.field_234610_c_ != 0 ? this.field_70170_p.func_73045_a(this.field_234610_c_) : null);
++        if (entity == null) {
++            for (ServerWorld world : field_70170_p.func_73046_m().func_212370_w()) {
++                entity = world.func_217461_a(this.field_234609_b_);
++                if (entity != null) {
++                    break;
++                }
++            }
++        }
++        return entity;
++        // Paper end
+     }
+ 
+     @Override

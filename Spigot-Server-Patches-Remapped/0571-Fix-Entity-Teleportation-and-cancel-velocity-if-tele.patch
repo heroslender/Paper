@@ -1,0 +1,71 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 25 Aug 2020 20:45:36 -0400
+Subject: [PATCH] Fix Entity Teleportation and cancel velocity if teleported
+
+Uses correct setPositionRotation for Entity teleporting instead of setLocation
+as this is how Vanilla teleports entities.
+
+Cancel any pending motion when teleported.
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 464dd62d6199e2280ec2be14fbbd0038f5ba11fa..64336153b23d1f5a98bccad086984b42ee0da8fa 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -149,6 +149,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+ 
+     // CraftBukkit start
+     private static final int CURRENT_LEVEL = 2;
++    boolean preserveMotion = true; // Paper - keep initial motion on first setPositionRotation
+     static boolean isLevelAtLeast(CompoundNBT tag, int level) {
+         return tag.func_74764_b("Bukkit.updateLevel") && tag.func_74762_e("Bukkit.updateLevel") >= level;
+     }
+@@ -1412,6 +1413,13 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     public void func_70012_b(double p_70012_1_, double p_70012_2_, double p_70012_3_, float p_70012_4_, float p_70012_5_) {
++        // Paper - cancel entity velocity if teleported
++        if (!preserveMotion) {
++            this.field_213327_at = Vector3d.field_186680_a;
++        } else {
++            this.preserveMotion = false;
++        }
++        // Paper end
+         this.func_226286_f_(p_70012_1_, p_70012_2_, p_70012_3_);
+         this.field_70177_z = p_70012_4_;
+         this.field_70125_A = p_70012_5_;
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index d006cae73a5da58412d3a36a055fb0d573f4a89b..0867f0d56d6252cd216df6baf7315248e817b9ff 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -689,7 +689,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     public void func_184339_a(CConfirmTeleportPacket p_184339_1_) {
+         PacketThreadUtil.func_218796_a(p_184339_1_, this, this.field_147369_b.func_71121_q());
+         if (p_184339_1_.func_186987_a() == this.field_184363_z && this.field_184362_y != null) { // CraftBukkit
+-            this.field_147369_b.func_70080_a(this.field_184362_y.field_72450_a, this.field_184362_y.field_72448_b, this.field_184362_y.field_72449_c, this.field_147369_b.field_70177_z, this.field_147369_b.field_70125_A);
++            this.field_147369_b.func_70012_b(this.field_184362_y.field_72450_a, this.field_184362_y.field_72448_b, this.field_184362_y.field_72449_c, this.field_147369_b.field_70177_z, this.field_147369_b.field_70125_A); // Paper - use proper setPositionRotation for teleportation
+             this.field_184352_o = this.field_184362_y.field_72450_a;
+             this.field_184353_p = this.field_184362_y.field_72448_b;
+             this.field_184354_q = this.field_184362_y.field_72449_c;
+@@ -1523,7 +1523,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+         // CraftBukkit end
+ 
+         this.field_184343_A = this.field_147368_e;
+-        this.field_147369_b.func_70080_a(d0, d1, d2, f, f1);
++        this.field_147369_b.func_70012_b(d0, d1, d2, f, f1); // Paper - use proper setPositionRotation for teleportation
+         this.field_147369_b.forceCheckHighPriority(); // Paper
+         this.field_147369_b.field_71135_a.func_147359_a(new SPlayerPositionLookPacket(d0 - d3, d1 - d4, d2 - d5, f - f2, f1 - f3, set, this.field_184363_z));
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+index ced708bbe8ec7d5cc7f90a08cbf51d45e40f2b33..1473bde9fe84a68bb4c0e138711d2529ac2b0663 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
+@@ -549,7 +549,7 @@ public abstract class CraftEntity implements org.bukkit.entity.Entity {
+         }
+ 
+         // entity.setLocation() throws no event, and so cannot be cancelled
+-        entity.func_70080_a(location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch());
++        entity.func_70012_b(location.getX(), location.getY(), location.getZ(), location.getYaw(), location.getPitch()); // Paper - use proper setPosition, as per vanilla teleporting
+         // SPIGOT-619: Force sync head rotation also
+         entity.func_70034_d(location.getYaw());
+         ((net.minecraft.world.server.ServerWorld) entity.field_70170_p).func_217464_b(entity); // Spigot - register to new chunk

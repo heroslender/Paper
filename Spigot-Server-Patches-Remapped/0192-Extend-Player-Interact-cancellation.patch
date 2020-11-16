@@ -1,0 +1,79 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Shane Freeder <theboyetronic@gmail.com>
+Date: Sun, 11 Feb 2018 10:43:46 +0000
+Subject: [PATCH] Extend Player Interact cancellation
+
+GUIs are opened on the client, meaning that the server cannot block them from opening,
+However, it is possible to close these GUIs from the server.
+
+Flower pots are also not updated on the client when interaction is cancelled, this patch
+also resolves this.
+
+Update adjacent blocks of doors, double plants, pistons and beds
+when cancelling interaction.
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+index 9730d0845560251b04b204b20bcebe69628b897f..0c22b8de98c703859b6d606f7d1bd4ea43cd662c 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
++++ b/src/main/java/net/minecraft/server/management/PlayerInteractionManager.java
+@@ -8,6 +8,7 @@ import net.minecraft.block.Blocks;
+ import net.minecraft.block.CakeBlock;
+ import net.minecraft.block.CommandBlockBlock;
+ import net.minecraft.block.DoorBlock;
++import net.minecraft.block.FlowerPotBlock;
+ import net.minecraft.block.JigsawBlock;
+ import net.minecraft.block.StructureBlock;
+ import net.minecraft.block.TrapDoorBlock;
+@@ -19,6 +20,7 @@ import net.minecraft.item.ItemStack;
+ import net.minecraft.item.ItemUseContext;
+ import net.minecraft.network.play.client.CPlayerDiggingPacket;
+ import net.minecraft.network.play.server.SChangeBlockPacket;
++import net.minecraft.network.play.server.SCloseWindowPacket;
+ import net.minecraft.network.play.server.SPlayerDiggingPacket;
+ import net.minecraft.network.play.server.SPlayerListItemPacket;
+ import net.minecraft.server.MinecraftServer;
+@@ -180,6 +182,11 @@ public class PlayerInteractionManager {
+                 PlayerInteractEvent event = CraftEventFactory.callPlayerInteractEvent(this.field_73090_b, Action.LEFT_CLICK_BLOCK, p_225416_1_, p_225416_3_, this.field_73090_b.field_71071_by.func_70448_g(), Hand.MAIN_HAND);
+                 if (event.isCancelled()) {
+                     // Let the client know the block still exists
++                    // Paper start - brute force neighbor blocks for any attached blocks
++                    for (Direction dir : Direction.values()) {
++                        this.field_73090_b.field_71135_a.func_147359_a(new SChangeBlockPacket(field_73092_a, p_225416_1_.func_177972_a(dir)));
++                    }
++                    // Paper end
+                     this.field_73090_b.field_71135_a.func_147359_a(new SChangeBlockPacket(this.field_73092_a, p_225416_1_));
+                     // Update any tile entity data for this block
+                     TileEntity tileentity = this.field_73092_a.func_175625_s(p_225416_1_);
+@@ -484,13 +491,32 @@ public class PlayerInteractionManager {
+         interactItemStack = p_219441_3_.func_77946_l();
+ 
+         if (event.useInteractedBlock() == Event.Result.DENY) {
++
+             // If we denied a door from opening, we need to send a correcting update to the client, as it already opened the door.
+             if (iblockdata.func_177230_c() instanceof DoorBlock) {
+                 boolean bottom = iblockdata.func_177229_b(DoorBlock.field_176523_O) == DoubleBlockHalf.LOWER;
+                 p_219441_1_.field_71135_a.func_147359_a(new SChangeBlockPacket(p_219441_2_, bottom ? blockposition.func_177984_a() : blockposition.func_177977_b()));
+             } else if (iblockdata.func_177230_c() instanceof CakeBlock) {
+                 p_219441_1_.getBukkitEntity().sendHealthUpdate(); // SPIGOT-1341 - reset health for cake
++            // Paper start  - extend Player Interact cancellation // TODO: consider merging this into the extracted method
++            } else if (iblockdata.func_177230_c() instanceof StructureBlock) {
++                p_219441_1_.field_71135_a.func_147359_a(new SCloseWindowPacket());
++            } else if (iblockdata.func_177230_c() instanceof CommandBlockBlock) {
++                p_219441_1_.field_71135_a.func_147359_a(new SCloseWindowPacket());
++            } else if (iblockdata.func_177230_c() instanceof FlowerPotBlock) {
++                // Send a block change to air and then send back the correct block, just to make the client happy
++                SChangeBlockPacket packet = new SChangeBlockPacket(this.field_73092_a, blockposition);
++                packet.field_197686_b = Blocks.field_150350_a.func_176223_P();
++                this.field_73090_b.field_71135_a.func_147359_a(packet);
++
++                this.field_73090_b.field_71135_a.func_147359_a(new SChangeBlockPacket(this.field_73092_a, blockposition));
++
++                TileEntity tileentity = this.field_73092_a.func_175625_s(blockposition);
++                if (tileentity != null) {
++                    field_73090_b.field_71135_a.func_147359_a(tileentity.func_189518_D_());
++                }
+             }
++            // Paper end - extend Player Interact cancellation
+             p_219441_1_.getBukkitEntity().updateInventory(); // SPIGOT-2867
+             enuminteractionresult = (event.useItemInHand() != Event.Result.ALLOW) ? ActionResultType.SUCCESS : ActionResultType.PASS;
+         } else if (this.field_73091_c == GameType.SPECTATOR) {

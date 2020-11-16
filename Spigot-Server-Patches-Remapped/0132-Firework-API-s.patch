@@ -1,0 +1,116 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 28 Dec 2016 07:18:33 +0100
+Subject: [PATCH] Firework API's
+
+
+diff --git a/src/main/java/net/minecraft/entity/projectile/FireworkRocketEntity.java b/src/main/java/net/minecraft/entity/projectile/FireworkRocketEntity.java
+index 832e20243c93794c980c6e25ae7fc2e6afbd7449..d68e7eea801e20512d322a70bc199add1e30b538 100644
+--- a/src/main/java/net/minecraft/entity/projectile/FireworkRocketEntity.java
++++ b/src/main/java/net/minecraft/entity/projectile/FireworkRocketEntity.java
+@@ -37,7 +37,8 @@ public class FireworkRocketEntity extends ProjectileEntity {
+     public static final DataParameter<Boolean> field_213895_d = EntityDataManager.func_187226_a(FireworkRocketEntity.class, DataSerializers.field_187198_h);
+     private int field_92056_a;
+     public int field_92055_b;
+-    private LivingEntity field_191513_e;
++    public LivingEntity field_191513_e; // Paper - public
++    public java.util.UUID spawningEntity; // Paper
+ 
+     public FireworkRocketEntity(EntityType<? extends FireworkRocketEntity> entitytypes, World world) {
+         super(entitytypes, world);
+@@ -284,6 +285,11 @@ public class FireworkRocketEntity extends ProjectileEntity {
+         }
+ 
+         p_213281_1_.func_74757_a("ShotAtAngle", (Boolean) this.field_70180_af.func_187225_a(FireworkRocketEntity.field_213895_d));
++        // Paper start
++        if (this.spawningEntity != null) {
++            p_213281_1_.setUUID("SpawningEntity", this.spawningEntity);
++        }
++        // Paper end
+     }
+ 
+     @Override
+@@ -300,7 +306,11 @@ public class FireworkRocketEntity extends ProjectileEntity {
+         if (p_70037_1_.func_74764_b("ShotAtAngle")) {
+             this.field_70180_af.func_187227_b(FireworkRocketEntity.field_213895_d, p_70037_1_.func_74767_n("ShotAtAngle"));
+         }
+-
++        // Paper start
++        if (p_70037_1_.hasUUID("SpawningEntity")) {
++            this.spawningEntity = p_70037_1_.getUUID("SpawningEntity");
++        }
++        // Paper end
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/item/CrossbowItem.java b/src/main/java/net/minecraft/item/CrossbowItem.java
+index f883e389989e36832032b3fe701c65f408b64665..298ef37636c404b37c3f3942810c8e5e3ea232f3 100644
+--- a/src/main/java/net/minecraft/item/CrossbowItem.java
++++ b/src/main/java/net/minecraft/item/CrossbowItem.java
+@@ -207,6 +207,7 @@ public class CrossbowItem extends ShootableItem implements IVanishable {
+ 
+             if (flag1) {
+                 object = new FireworkRocketEntity(p_220016_0_, p_220016_4_, p_220016_1_, p_220016_1_.func_226277_ct_(), p_220016_1_.func_226280_cw_() - 0.15000000596046448D, p_220016_1_.func_226281_cx_(), true);
++                ((FireworkRocketEntity) object).spawningEntity = p_220016_1_.func_110124_au(); // Paper
+             } else {
+                 object = func_220024_a(p_220016_0_, p_220016_1_, p_220016_3_, p_220016_4_);
+                 if (p_220016_6_ || p_220016_9_ != 0.0F) {
+diff --git a/src/main/java/net/minecraft/item/FireworkRocketItem.java b/src/main/java/net/minecraft/item/FireworkRocketItem.java
+index a59bafeb16ac220579d58f83266a8350c06114f3..16fea7403267f034608fd2911bb3fea0746d9200 100644
+--- a/src/main/java/net/minecraft/item/FireworkRocketItem.java
++++ b/src/main/java/net/minecraft/item/FireworkRocketItem.java
+@@ -26,6 +26,7 @@ public class FireworkRocketItem extends Item {
+             Vector3d vec3d = p_195939_1_.func_221532_j();
+             Direction enumdirection = p_195939_1_.func_196000_l();
+             FireworkRocketEntity entityfireworks = new FireworkRocketEntity(world, p_195939_1_.func_195999_j(), vec3d.field_72450_a + (double) enumdirection.func_82601_c() * 0.15D, vec3d.field_72448_b + (double) enumdirection.func_96559_d() * 0.15D, vec3d.field_72449_c + (double) enumdirection.func_82599_e() * 0.15D, itemstack);
++            entityfireworks.spawningEntity = p_195939_1_.func_195999_j().func_110124_au(); // Paper
+ 
+             world.func_217376_c(entityfireworks);
+             itemstack.func_190918_g(1);
+@@ -40,7 +41,11 @@ public class FireworkRocketItem extends Item {
+             ItemStack itemstack = p_77659_2_.func_184586_b(p_77659_3_);
+ 
+             if (!p_77659_1_.field_72995_K) {
+-                p_77659_1_.func_217376_c(new FireworkRocketEntity(p_77659_1_, itemstack, p_77659_2_));
++                // Paper start
++                final FireworkRocketEntity entityfireworks = new FireworkRocketEntity(p_77659_1_, itemstack, p_77659_2_);
++                entityfireworks.spawningEntity = p_77659_2_.func_110124_au();
++                p_77659_1_.func_217376_c(entityfireworks);
++                // Paper end
+                 if (!p_77659_2_.field_71075_bZ.field_75098_d) {
+                     itemstack.func_190918_g(1);
+                 }
+diff --git a/src/main/java/net/minecraft/nbt/CompoundNBT.java b/src/main/java/net/minecraft/nbt/CompoundNBT.java
+index 3a5194ad42af8168c772258b42e4625e33d6c534..a0bf35dcf0762ac693cc0863dd960b7cf14ff004 100644
+--- a/src/main/java/net/minecraft/nbt/CompoundNBT.java
++++ b/src/main/java/net/minecraft/nbt/CompoundNBT.java
+@@ -151,6 +151,7 @@ public class CompoundNBT implements INBT {
+         return NBTUtil.func_186860_b(this.func_74781_a(p_186857_1_));
+     }
+ 
++    public final boolean hasUUID(String s) { return this.func_186855_b(s); } // Paper - OBFHELPER
+     public boolean func_186855_b(String p_186855_1_) {
+         INBT nbtbase = this.func_74781_a(p_186855_1_);
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftFirework.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftFirework.java
+index 485f37ca21116c0baf25b9436302a4019fd7f913..fe2bb06969b30f5f9f0489aa392abb3a5e0413dd 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftFirework.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftFirework.java
+@@ -78,4 +78,17 @@ public class CraftFirework extends CraftProjectile implements Firework {
+     public void setShotAtAngle(boolean shotAtAngle) {
+         getHandle().func_184212_Q().func_187227_b(FireworkRocketEntity.field_213895_d, shotAtAngle);
+     }
++
++    // Paper start
++    @Override
++    public java.util.UUID getSpawningEntity() {
++        return getHandle().spawningEntity;
++    }
++
++    @Override
++    public org.bukkit.entity.LivingEntity getBoostedEntity() {
++        net.minecraft.entity.LivingEntity boostedEntity = getHandle().field_191513_e;
++        return boostedEntity != null ? (org.bukkit.entity.LivingEntity) boostedEntity.getBukkitEntity() : null;
++    }
++    // Paper end
+ }

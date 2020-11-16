@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joseph Hirschfeld <joe@ibj.io>
+Date: Thu, 3 Mar 2016 02:39:54 -0600
+Subject: [PATCH] Change implementation of (tile)entity removal list
+
+use sets for faster removal
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index d34db6af134ce83c9acf18d8b24517374462c3c0..c97e4ac2497ea1427bcefdb74e425962d235a03b 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -88,7 +88,7 @@ public abstract class World implements IWorld, AutoCloseable {
+     public final List<TileEntity> field_147482_g = Lists.newArrayList();
+     public final List<TileEntity> field_175730_i = Lists.newArrayList();
+     protected final List<TileEntity> field_147484_a = Lists.newArrayList();
+-    protected final List<TileEntity> field_147483_b = Lists.newArrayList();
++    protected final java.util.Set<TileEntity> field_147483_b = com.google.common.collect.Sets.newHashSet();
+     public final Thread field_217407_c;
+     private final boolean field_234916_c_;
+     private int field_73008_k;

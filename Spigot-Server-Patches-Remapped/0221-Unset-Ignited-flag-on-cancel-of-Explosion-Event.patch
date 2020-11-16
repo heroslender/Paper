@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 10 Jun 2018 01:18:49 -0400
+Subject: [PATCH] Unset Ignited flag on cancel of Explosion Event
+
+Otherwise the creeper infinite explodes
+
+diff --git a/src/main/java/net/minecraft/entity/monster/CreeperEntity.java b/src/main/java/net/minecraft/entity/monster/CreeperEntity.java
+index 895bd0a742a9cef33f859384af48cbfd145fffb6..a4b3b622168d149f1b5adde5273ecf16f89a83fb 100644
+--- a/src/main/java/net/minecraft/entity/monster/CreeperEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/CreeperEntity.java
+@@ -47,7 +47,7 @@ public class CreeperEntity extends MonsterEntity {
+ 
+     private static final DataParameter<Integer> field_184713_a = EntityDataManager.func_187226_a(CreeperEntity.class, DataSerializers.field_187192_b);
+     private static final DataParameter<Boolean> field_184714_b = EntityDataManager.func_187226_a(CreeperEntity.class, DataSerializers.field_187198_h);
+-    private static final DataParameter<Boolean> field_184715_c = EntityDataManager.func_187226_a(CreeperEntity.class, DataSerializers.field_187198_h);
++    private static final DataParameter<Boolean> field_184715_c = EntityDataManager.func_187226_a(CreeperEntity.class, DataSerializers.field_187198_h); private static final DataParameter<Boolean> isIgnitedDW = field_184715_c; // Paper OBFHELPER
+     private int field_70834_e;
+     private int field_70833_d;
+     public int field_82225_f = 30;
+@@ -252,6 +252,7 @@ public class CreeperEntity extends MonsterEntity {
+                 this.func_190741_do();
+             } else {
+                 field_70833_d = 0;
++                this.field_70180_af.func_187227_b(isIgnitedDW, Boolean.valueOf(false)); // Paper
+             }
+             // CraftBukkit end
+         }

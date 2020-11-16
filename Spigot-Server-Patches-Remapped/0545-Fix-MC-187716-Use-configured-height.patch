@@ -1,0 +1,45 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 15 Aug 2020 08:04:49 -0500
+Subject: [PATCH] Fix MC-187716 Use configured height
+
+
+diff --git a/src/main/java/net/minecraft/world/gen/surfacebuilders/NetherForestsSurfaceBuilder.java b/src/main/java/net/minecraft/world/gen/surfacebuilders/NetherForestsSurfaceBuilder.java
+index c8abafe9fefd3656ba09f028415d35ba94ad6100..acc60273581939190a80b471b9b8264e146db8c6 100644
+--- a/src/main/java/net/minecraft/world/gen/surfacebuilders/NetherForestsSurfaceBuilder.java
++++ b/src/main/java/net/minecraft/world/gen/surfacebuilders/NetherForestsSurfaceBuilder.java
+@@ -34,7 +34,7 @@ public class NetherForestsSurfaceBuilder extends SurfaceBuilder<SurfaceBuilderCo
+         int j2 = -1;
+         BlockState iblockdata2 = p_205610_12_.func_204109_b();
+ 
+-        for (int k2 = 127; k2 >= 0; --k2) {
++        for (int k2 = p_205610_6_; k2 >= 0; --k2) { // Paper - fix MC-187716 - use configured height
+             blockposition_mutableblockposition.func_181079_c(k1, k2, l1);
+             BlockState iblockdata3 = p_205610_12_.func_204108_a();
+             BlockState iblockdata4 = p_205610_2_.func_180495_p(blockposition_mutableblockposition);
+diff --git a/src/main/java/net/minecraft/world/gen/surfacebuilders/NetherSurfaceBuilder.java b/src/main/java/net/minecraft/world/gen/surfacebuilders/NetherSurfaceBuilder.java
+index 731ac624beb8dc837c86499f0fb82f010ff88969..80a44a64350b10c3c42d98339e48d6a50782e894 100644
+--- a/src/main/java/net/minecraft/world/gen/surfacebuilders/NetherSurfaceBuilder.java
++++ b/src/main/java/net/minecraft/world/gen/surfacebuilders/NetherSurfaceBuilder.java
+@@ -36,7 +36,7 @@ public class NetherSurfaceBuilder extends SurfaceBuilder<SurfaceBuilderConfig> {
+         BlockState iblockdata2 = p_205610_12_.func_204108_a();
+         BlockState iblockdata3 = p_205610_12_.func_204109_b();
+ 
+-        for (int k2 = 127; k2 >= 0; --k2) {
++        for (int k2 = p_205610_6_; k2 >= 0; --k2) { // Paper - fix MC-187716 - use configured height
+             blockposition_mutableblockposition.func_181079_c(k1, k2, l1);
+             BlockState iblockdata4 = p_205610_2_.func_180495_p(blockposition_mutableblockposition);
+ 
+diff --git a/src/main/java/net/minecraft/world/gen/surfacebuilders/ValleySurfaceBuilder.java b/src/main/java/net/minecraft/world/gen/surfacebuilders/ValleySurfaceBuilder.java
+index c3fd7d44fe309a91b47d5a9bf2130916972e75f9..8c42dcfbb1588263036a5e551c25c720b28d02a5 100644
+--- a/src/main/java/net/minecraft/world/gen/surfacebuilders/ValleySurfaceBuilder.java
++++ b/src/main/java/net/minecraft/world/gen/surfacebuilders/ValleySurfaceBuilder.java
+@@ -44,7 +44,7 @@ public abstract class ValleySurfaceBuilder extends SurfaceBuilder<SurfaceBuilder
+         BlockPos.Mutable blockposition_mutableblockposition = new BlockPos.Mutable();
+         BlockState iblockdata4 = p_205610_2_.func_180495_p(blockposition_mutableblockposition.func_181079_c(k1, 128, l1));
+ 
+-        for (int k2 = 127; k2 >= 0; --k2) {
++        for (int k2 = p_205610_6_; k2 >= 0; --k2) { // Paper - fix MC-187716 - use configured height
+             blockposition_mutableblockposition.func_181079_c(k1, k2, l1);
+             BlockState iblockdata5 = p_205610_2_.func_180495_p(blockposition_mutableblockposition);
+             int l2;

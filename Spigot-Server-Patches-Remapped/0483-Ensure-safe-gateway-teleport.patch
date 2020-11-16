@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kickash32 <kickash32@gmail.com>
+Date: Fri, 15 May 2020 01:10:03 -0400
+Subject: [PATCH] Ensure safe gateway teleport
+
+
+diff --git a/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java b/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
+index be84c5002c418bfddf8a06ffcec0e2e9d62e810c..3d7054a67740aa5a0b2047e814ca99bea72d2d06 100644
+--- a/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/EndGatewayTileEntity.java
+@@ -87,9 +87,14 @@ public class EndGatewayTileEntity extends EndPortalTileEntity implements ITickab
+         } else if (!this.field_145850_b.field_72995_K) {
+             List<Entity> list = this.field_145850_b.func_175647_a(Entity.class, new AxisAlignedBB(this.func_174877_v()), EndGatewayTileEntity::func_242690_a);
+ 
+-            if (!list.isEmpty()) {
+-                this.func_195496_a((Entity) list.get(this.field_145850_b.field_73012_v.nextInt(list.size())));
++            // Paper start
++            for (Entity entity : list) {
++                if (entity.func_184222_aU()) {
++                    this.func_195496_a(entity);
++                    break;
++                }
+             }
++            // Paper end
+ 
+             if (this.field_195504_f % 2400L == 0L) {
+                 this.func_195490_f();

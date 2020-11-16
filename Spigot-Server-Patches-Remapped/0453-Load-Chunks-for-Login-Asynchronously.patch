@@ -1,0 +1,403 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 19 Apr 2020 04:28:29 -0400
+Subject: [PATCH] Load Chunks for Login Asynchronously
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 13ce2a74f231097b1ab476ce4bfb404936b175b3..d6e6d3da4dee79ed01f4536ca5f226c8251638a9 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -1377,7 +1377,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         this.field_70167_r = p_242281_2_;
+         this.field_70166_s = d4;
+         this.func_70107_b(d3, p_242281_2_, d4);
+-        field_70170_p.func_212866_a_((int) Math.floor(this.func_226277_ct_()) >> 4, (int) Math.floor(this.func_226281_cx_()) >> 4); // CraftBukkit
++        if (valid) field_70170_p.func_212866_a_((int) Math.floor(this.func_226277_ct_()) >> 4, (int) Math.floor(this.func_226281_cx_()) >> 4); // CraftBukkit // Paper
+     }
+ 
+     public void func_233576_c_(Vector3d p_233576_1_) {
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index f1ec2bbeaec734505367642125bb0745e3077c9d..afeef843258fd6c309d15a42c5b976011efc168b 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -56,6 +56,7 @@ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.INBT;
+ import net.minecraft.nbt.NBTDynamicOps;
+ import net.minecraft.network.IPacket;
++import net.minecraft.network.NetworkManager;
+ import net.minecraft.network.play.ServerPlayNetHandler;
+ import net.minecraft.network.play.client.CClientSettingsPacket;
+ import net.minecraft.network.play.server.SAnimateHandPacket;
+@@ -171,6 +172,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+ 
+     private static final Logger field_147102_bM = LogManager.getLogger();
+     public ServerPlayNetHandler field_71135_a;
++    public NetworkManager networkManager; // Paper
+     public final MinecraftServer field_71133_b;
+     public final PlayerInteractionManager field_71134_c;
+     public final Deque<Integer> field_71130_g = new ArrayDeque<>(); // Paper
+@@ -236,6 +238,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     public boolean joining = true;
+     public boolean sentListPacket = false;
+     public boolean supressTrackerForLogin = false; // Paper
++    public boolean didPlayerJoinEvent = false; // Paper
+     public Integer clientViewDistance;
+     // CraftBukkit end
+     public PlayerNaturallySpawnCreaturesEvent playerNaturallySpawnedEvent; // Paper
+diff --git a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+index 6ade97e4708341fc5253541ce48457bdbcfd17fe..d0c5191761558dcd79d0ca46c83dfdd66717f845 100644
+--- a/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
++++ b/src/main/java/net/minecraft/network/login/ServerLoginNetHandler.java
+@@ -85,7 +85,7 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+             }
+             // Paper end
+         } else if (this.field_147328_g == ServerLoginNetHandler.State.DELAY_ACCEPT) {
+-            ServerPlayerEntity entityplayer = this.field_147327_f.func_184103_al().func_177451_a(this.field_147337_i.getId());
++            ServerPlayerEntity entityplayer = this.field_147327_f.func_184103_al().getActivePlayer(this.field_147337_i.getId()); // Paper
+ 
+             if (entityplayer == null) {
+                 this.field_147328_g = ServerLoginNetHandler.State.READY_TO_ACCEPT;
+@@ -184,7 +184,7 @@ public class ServerLoginNetHandler implements IServerLoginNetHandler {
+             }
+ 
+             this.field_147333_a.func_179290_a(new SLoginSuccessPacket(this.field_147337_i));
+-            ServerPlayerEntity entityplayer = this.field_147327_f.func_184103_al().func_177451_a(this.field_147337_i.getId());
++            ServerPlayerEntity entityplayer = this.field_147327_f.func_184103_al().getActivePlayer(this.field_147337_i.getId()); // Paper
+ 
+             if (entityplayer != null) {
+                 this.field_147328_g = ServerLoginNetHandler.State.DELAY_ACCEPT;
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index f08ce5755cbb0dc78cc273d12e23b0aa866c6a6e..3a4a5d2c174c495e542d187eb4ac628dfe1a4ef1 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -220,6 +220,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     private static final Logger field_147370_c = LogManager.getLogger();
+     public final NetworkManager field_147371_a;
+     private final MinecraftServer field_147367_d;
++    Runnable playerJoinReady; // Paper
+     public ServerPlayerEntity field_147369_b;
+     private int field_147368_e;
+     private long field_194402_f = Util.func_211177_b(); private void setLastPing(long lastPing) { this.field_194402_f = lastPing;}; private long getLastPing() { return this.field_194402_f;}; // Paper - OBFHELPER
+@@ -298,6 +299,15 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+     // CraftBukkit end
+ 
+     public void func_73660_a() {
++        // Paper start - login async
++        Runnable playerJoinReady = this.playerJoinReady;
++        if (playerJoinReady != null) {
++            this.playerJoinReady = null;
++            playerJoinReady.run();
++        }
++        // Don't tick if not valid (dead), otherwise we load chunks below
++        if (this.field_147369_b.valid) {
++        // Paper end
+         this.func_184342_d();
+         this.field_147369_b.field_70169_q = this.field_147369_b.func_226277_ct_();
+         this.field_147369_b.field_70167_r = this.field_147369_b.func_226278_cu_();
+@@ -339,7 +349,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+             this.field_184355_r = null;
+             this.field_184345_D = false;
+             this.field_184346_E = 0;
+-        }
++        }} // Paper - end if (valid)
+ 
+         this.field_147367_d.func_213185_aS().func_76320_a("keepAlive");
+         // Paper Start - give clients a longer time to respond to pings as per pre 1.12.2 timings
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index c11e2a0f7d23bed966719c813f5dfac6c17a35fc..287eb31540c3c6a991651a7f88bf9f1517f6afe9 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -36,6 +36,7 @@ import net.minecraft.network.play.ServerPlayNetHandler;
+ import net.minecraft.network.play.server.SChangeGameStatePacket;
+ import net.minecraft.network.play.server.SChatPacket;
+ import net.minecraft.network.play.server.SCustomPayloadPlayPacket;
++import net.minecraft.network.play.server.SDisconnectPacket;
+ import net.minecraft.network.play.server.SEntityMetadataPacket;
+ import net.minecraft.network.play.server.SEntityStatusPacket;
+ import net.minecraft.network.play.server.SHeldItemChangePacket;
+@@ -88,6 +89,8 @@ import net.minecraft.world.World;
+ import net.minecraft.world.biome.BiomeManager;
+ import net.minecraft.world.border.IBorderListener;
+ import net.minecraft.world.border.WorldBorder;
++import net.minecraft.world.server.ChunkHolder;
++import net.minecraft.world.server.ChunkManager;
+ import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.server.TicketType;
+ import net.minecraft.world.storage.FolderName;
+@@ -128,11 +131,12 @@ public abstract class PlayerList {
+     private static final SimpleDateFormat field_72403_e = new SimpleDateFormat("yyyy-MM-dd 'at' HH:mm:ss z");
+     private final MinecraftServer field_72400_f;
+     public final List<ServerPlayerEntity> field_72404_b = new java.util.concurrent.CopyOnWriteArrayList(); // CraftBukkit - ArrayList -> CopyOnWriteArrayList: Iterator safety
+-    private final Map<UUID, ServerPlayerEntity> field_177454_f = Maps.newHashMap();
++    private final Map<UUID, ServerPlayerEntity> field_177454_f = Maps.newHashMap();Map<UUID, ServerPlayerEntity> getUUIDMap() { return field_177454_f; } // Paper - OBFHELPER
+     private final BanList field_72401_g;
+     private final IPBanList field_72413_h;
+     private final OpList field_72414_i;
+     private final WhiteList field_72411_j;
++    private final Map<UUID, ServerPlayerEntity> pendingPlayers = Maps.newHashMap(); // Paper
+     // CraftBukkit start
+     // private final Map<UUID, ServerStatisticManager> o;
+     // private final Map<UUID, AdvancementDataPlayer> p;
+@@ -171,6 +175,11 @@ public abstract class PlayerList {
+     }
+ 
+     public void func_72355_a(NetworkManager p_72355_1_, ServerPlayerEntity p_72355_2_) {
++        ServerPlayerEntity prev = pendingPlayers.put(p_72355_2_.func_110124_au(), p_72355_2_);// Paper
++        if (prev != null) {
++            disconnectPendingPlayer(prev);
++        }
++        p_72355_2_.networkManager = p_72355_1_; // Paper
+         p_72355_2_.loginTime = System.currentTimeMillis(); // Paper
+         GameProfile gameprofile = p_72355_2_.func_146103_bH();
+         PlayerProfileCache usercache = this.field_72400_f.func_152358_ax();
+@@ -184,7 +193,7 @@ public abstract class PlayerList {
+         if (nbttagcompound != null && nbttagcompound.func_74764_b("bukkit")) {
+             CompoundNBT bukkit = nbttagcompound.func_74775_l("bukkit");
+             s = bukkit.func_150297_b("lastKnownName", 8) ? bukkit.func_74779_i("lastKnownName") : s;
+-        }
++        }String lastKnownName = s; // Paper
+         // CraftBukkit end
+ 
+         if (nbttagcompound != null) {
+@@ -257,34 +266,79 @@ public abstract class PlayerList {
+         p_72355_2_.func_192037_E().func_192826_c(p_72355_2_);
+         this.func_96456_a(worldserver1.func_96441_U(), p_72355_2_);
+         this.field_72400_f.func_147132_au();
++        // Paper start - async load spawn in chunk
++        ServerWorld finalWorldserver = worldserver1;
++        int chunkX = loc.getBlockX() >> 4;
++        int chunkZ = loc.getBlockZ() >> 4;
++        final ChunkPos pos = new ChunkPos(chunkX, chunkZ);
++        ChunkManager playerChunkMap = worldserver1.func_72863_F().field_217237_a;
++        playerChunkMap.field_219267_u.addTicketAtLevel(TicketType.LOGIN, pos, 31, pos.func_201841_a());
++        worldserver1.func_72863_F().func_217235_l();
++        worldserver1.func_72863_F().getChunkAtAsynchronously(chunkX, chunkZ, true, true).thenApply(chunk -> {
++            ChunkHolder updatingChunk = playerChunkMap.func_219220_a(pos.func_201841_a());
++            if (updatingChunk != null) {
++                return updatingChunk.getEntityTickingFuture();
++            } else {
++                return java.util.concurrent.CompletableFuture.completedFuture(chunk);
++            }
++        }).thenAccept(chunk -> {
++            playerconnection.playerJoinReady = () -> {
++                postChunkLoadJoin(
++                    p_72355_2_, finalWorldserver, p_72355_1_, playerconnection,
++                    nbttagcompound, p_72355_1_.func_74430_c().toString(), lastKnownName
++                );
++            };
++        });
++    }
++
++    ServerPlayerEntity getActivePlayer(UUID uuid) {
++        ServerPlayerEntity player = this.getUUIDMap().get(uuid);
++        return player != null ? player : pendingPlayers.get(uuid);
++    }
++
++    void disconnectPendingPlayer(ServerPlayerEntity entityplayer) {
++        TranslationTextComponent msg = new TranslationTextComponent("multiplayer.disconnect.duplicate_login", new Object[0]);
++        entityplayer.networkManager.func_201058_a(new SDisconnectPacket(msg), (future) -> {
++            entityplayer.networkManager.func_150718_a(msg);
++            entityplayer.networkManager = null;
++        });
++    }
++
++    private void postChunkLoadJoin(ServerPlayerEntity entityplayer, ServerWorld worldserver1, NetworkManager networkmanager, ServerPlayNetHandler playerconnection, CompoundNBT nbttagcompound, String s1, String s) {
++        pendingPlayers.remove(entityplayer.func_110124_au(), entityplayer);
++        if (!networkmanager.func_150724_d()) {
++            return;
++        }
++        entityplayer.didPlayerJoinEvent = true;
++        // Paper end
+         TranslationTextComponent chatmessage;
+ 
+-        if (p_72355_2_.func_146103_bH().getName().equalsIgnoreCase(s)) {
+-            chatmessage = new TranslationTextComponent("multiplayer.player.joined", new Object[]{p_72355_2_.func_145748_c_()});
++        if (entityplayer.func_146103_bH().getName().equalsIgnoreCase(s)) {
++            chatmessage = new TranslationTextComponent("multiplayer.player.joined", new Object[]{entityplayer.func_145748_c_()});
+         } else {
+-            chatmessage = new TranslationTextComponent("multiplayer.player.joined.renamed", new Object[]{p_72355_2_.func_145748_c_(), s});
++            chatmessage = new TranslationTextComponent("multiplayer.player.joined.renamed", new Object[]{entityplayer.func_145748_c_(), s});
+         }
+         // CraftBukkit start
+         chatmessage.func_240699_a_(TextFormatting.YELLOW);
+         String joinMessage = CraftChatMessage.fromComponent(chatmessage);
+ 
+-        playerconnection.func_147364_a(p_72355_2_.func_226277_ct_(), p_72355_2_.func_226278_cu_(), p_72355_2_.func_226281_cx_(), p_72355_2_.field_70177_z, p_72355_2_.field_70125_A);
+-        this.field_72404_b.add(p_72355_2_);
+-        this.playersByName.put(p_72355_2_.func_195047_I_().toLowerCase(java.util.Locale.ROOT), p_72355_2_); // Spigot
+-        this.field_177454_f.put(p_72355_2_.func_110124_au(), p_72355_2_);
++        playerconnection.func_147364_a(entityplayer.func_226277_ct_(), entityplayer.func_226278_cu_(), entityplayer.func_226281_cx_(), entityplayer.field_70177_z, entityplayer.field_70125_A);
++        this.field_72404_b.add(entityplayer);
++        this.playersByName.put(entityplayer.func_195047_I_().toLowerCase(java.util.Locale.ROOT), entityplayer); // Spigot
++        this.field_177454_f.put(entityplayer.func_110124_au(), entityplayer);
+         // this.sendAll(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.ADD_PLAYER, new EntityPlayer[]{entityplayer})); // CraftBukkit - replaced with loop below
+ 
+         // Paper start - correctly register player BEFORE PlayerJoinEvent, so the entity is valid and doesn't require tick delay hacks
+-        p_72355_2_.supressTrackerForLogin = true;
+-        worldserver1.func_217435_c(p_72355_2_);
+-        this.field_72400_f.func_201300_aS().func_201383_a(p_72355_2_); // see commented out section below worldserver.addPlayerJoin(entityplayer);
+-        mountSavedVehicle(p_72355_2_, worldserver1, nbttagcompound);
++        entityplayer.supressTrackerForLogin = true;
++        worldserver1.func_217435_c(entityplayer);
++        this.field_72400_f.func_201300_aS().func_201383_a(entityplayer); // see commented out section below worldserver.addPlayerJoin(entityplayer);
++        mountSavedVehicle(entityplayer, worldserver1, nbttagcompound);
+         // Paper end
+         // CraftBukkit start
+-        PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(cserver.getPlayer(p_72355_2_), joinMessage);
++        PlayerJoinEvent playerJoinEvent = new PlayerJoinEvent(cserver.getPlayer(entityplayer), joinMessage);
+         cserver.getPluginManager().callEvent(playerJoinEvent);
+ 
+-        if (!p_72355_2_.field_71135_a.field_147371_a.func_150724_d()) {
++        if (!entityplayer.field_71135_a.field_147371_a.func_150724_d()) {
+             return;
+         }
+ 
+@@ -298,51 +352,51 @@ public abstract class PlayerList {
+         // CraftBukkit end
+ 
+         // CraftBukkit start - sendAll above replaced with this loop
+-        SPlayerListItemPacket packet = new SPlayerListItemPacket(SPlayerListItemPacket.Action.ADD_PLAYER, p_72355_2_);
++        SPlayerListItemPacket packet = new SPlayerListItemPacket(SPlayerListItemPacket.Action.ADD_PLAYER, entityplayer);
+ 
+         for (int i = 0; i < this.field_72404_b.size(); ++i) {
+             ServerPlayerEntity entityplayer1 = (ServerPlayerEntity) this.field_72404_b.get(i);
+ 
+-            if (entityplayer1.getBukkitEntity().canSee(p_72355_2_.getBukkitEntity())) {
++            if (entityplayer1.getBukkitEntity().canSee(entityplayer.getBukkitEntity())) {
+                 entityplayer1.field_71135_a.func_147359_a(packet);
+             }
+ 
+-            if (!p_72355_2_.getBukkitEntity().canSee(entityplayer1.getBukkitEntity())) {
++            if (!entityplayer.getBukkitEntity().canSee(entityplayer1.getBukkitEntity())) {
+                 continue;
+             }
+ 
+-            p_72355_2_.field_71135_a.func_147359_a(new SPlayerListItemPacket(SPlayerListItemPacket.Action.ADD_PLAYER, new ServerPlayerEntity[] { entityplayer1}));
++            entityplayer.field_71135_a.func_147359_a(new SPlayerListItemPacket(SPlayerListItemPacket.Action.ADD_PLAYER, new ServerPlayerEntity[] { entityplayer1}));
+         }
+-        p_72355_2_.sentListPacket = true;
+-        p_72355_2_.supressTrackerForLogin = false; // Paper
+-        ((ServerWorld)p_72355_2_.field_70170_p).func_72863_F().field_217237_a.func_219210_a(p_72355_2_); // Paper - track entity now
++        entityplayer.sentListPacket = true;
++        entityplayer.supressTrackerForLogin = false; // Paper
++        ((ServerWorld)entityplayer.field_70170_p).func_72863_F().field_217237_a.func_219210_a(entityplayer); // Paper - track entity now
+         // CraftBukkit end
+ 
+-        p_72355_2_.field_71135_a.func_147359_a(new SEntityMetadataPacket(p_72355_2_.func_145782_y(), p_72355_2_.field_70180_af, true)); // CraftBukkit - BungeeCord#2321, send complete data to self on spawn
++        entityplayer.field_71135_a.func_147359_a(new SEntityMetadataPacket(entityplayer.func_145782_y(), entityplayer.field_70180_af, true)); // CraftBukkit - BungeeCord#2321, send complete data to self on spawn
+ 
+         // CraftBukkit start - Only add if the player wasn't moved in the event
+-        if (p_72355_2_.field_70170_p == worldserver1 && !worldserver1.func_217369_A().contains(p_72355_2_)) {
+-            worldserver1.func_217435_c(p_72355_2_);
+-            this.field_72400_f.func_201300_aS().func_201383_a(p_72355_2_);
++        if (entityplayer.field_70170_p == worldserver1 && !worldserver1.func_217369_A().contains(entityplayer)) {
++            worldserver1.func_217435_c(entityplayer);
++            this.field_72400_f.func_201300_aS().func_201383_a(entityplayer);
+         }
+ 
+-        worldserver1 = p_72355_2_.func_71121_q();  // CraftBukkit - Update in case join event changed it
++        worldserver1 = entityplayer.func_71121_q();  // CraftBukkit - Update in case join event changed it
+         // CraftBukkit end
+-        this.func_72354_b(p_72355_2_, worldserver1);
++        this.func_72354_b(entityplayer, worldserver1);
+         if (!this.field_72400_f.func_147133_T().isEmpty()) {
+-            p_72355_2_.func_175397_a(this.field_72400_f.func_147133_T(), this.field_72400_f.func_175581_ab());
++            entityplayer.func_175397_a(this.field_72400_f.func_147133_T(), this.field_72400_f.func_175581_ab());
+         }
+ 
+-        Iterator iterator = p_72355_2_.func_70651_bq().iterator();
++        Iterator iterator = entityplayer.func_70651_bq().iterator();
+ 
+         while (iterator.hasNext()) {
+             EffectInstance mobeffect = (EffectInstance) iterator.next();
+ 
+-            playerconnection.func_147359_a(new SPlayEntityEffectPacket(p_72355_2_.func_145782_y(), mobeffect));
++            playerconnection.func_147359_a(new SPlayEntityEffectPacket(entityplayer.func_145782_y(), mobeffect));
+         }
+ 
+         // Paper start - move vehicle into method so it can be called above - short circuit around that code
+-        onPlayerJoinFinish(p_72355_2_, worldserver1, s1);
++        onPlayerJoinFinish(entityplayer, worldserver1, s1);
+     }
+     private void mountSavedVehicle(ServerPlayerEntity entityplayer, ServerWorld worldserver1, CompoundNBT nbttagcompound) {
+         // Paper end
+@@ -493,6 +547,7 @@ public abstract class PlayerList {
+ 
+     protected void func_72391_b(ServerPlayerEntity p_72391_1_) {
+         if (!p_72391_1_.getBukkitEntity().isPersistent()) return; // CraftBukkit
++        if (!p_72391_1_.didPlayerJoinEvent) return; // Paper - If we never fired PJE, we disconnected during login. Data has not changed, and additionally, our saved vehicle is not loaded! If we save now, we will lose our vehicle (CraftBukkit bug)
+         this.field_72412_k.func_237335_a_(p_72391_1_);
+         ServerStatisticsManager serverstatisticmanager = (ServerStatisticsManager) p_72391_1_.func_147099_x(); // CraftBukkit
+ 
+@@ -520,7 +575,7 @@ public abstract class PlayerList {
+         }
+ 
+         PlayerQuitEvent playerQuitEvent = new PlayerQuitEvent(cserver.getPlayer(entityplayer), "\u00A7e" + entityplayer.func_195047_I_() + " left the game");
+-        cserver.getPluginManager().callEvent(playerQuitEvent);
++        if (entityplayer.didPlayerJoinEvent) cserver.getPluginManager().callEvent(playerQuitEvent); // Paper - if we disconnected before join ever fired, don't fire quit
+         entityplayer.getBukkitEntity().disconnect(playerQuitEvent.getQuitMessage());
+ 
+         if (field_72400_f.func_213162_bc()) entityplayer.func_71127_g(); // SPIGOT-924 // Paper - don't tick during emergency shutdowns (Watchdog)
+@@ -573,6 +628,13 @@ public abstract class PlayerList {
+             // this.p.remove(uuid);
+             // CraftBukkit end
+         }
++        // Paper start
++        entityplayer1 = pendingPlayers.get(uuid);
++        if (entityplayer1 == entityplayer) {
++            pendingPlayers.remove(uuid);
++        }
++        entityplayer.networkManager = null;
++        // Paper end
+ 
+         // CraftBukkit start
+         // this.sendAll(new PacketPlayOutPlayerInfo(PacketPlayOutPlayerInfo.EnumPlayerInfoAction.REMOVE_PLAYER, new EntityPlayer[]{entityplayer}));
+@@ -590,7 +652,7 @@ public abstract class PlayerList {
+         cserver.getScoreboardManager().removePlayer(entityplayer.getBukkitEntity());
+         // CraftBukkit end
+ 
+-        return playerQuitEvent.getQuitMessage(); // CraftBukkit
++        return entityplayer.didPlayerJoinEvent ? playerQuitEvent.getQuitMessage() : null; // CraftBukkit // Paper - don't print quit if we never printed join
+     }
+ 
+     // CraftBukkit start - Whole method, SocketAddress to LoginListener, added hostname to signature, return EntityPlayer
+@@ -609,6 +671,13 @@ public abstract class PlayerList {
+                 list.add(entityplayer);
+             }
+         }
++        // Paper start - check pending players too
++        entityplayer = pendingPlayers.get(uuid);
++        if (entityplayer != null) {
++            this.pendingPlayers.remove(uuid);
++            disconnectPendingPlayer(entityplayer);
++        }
++        // Paper end
+ 
+         Iterator iterator = list.iterator();
+ 
+diff --git a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+index f897fa11f8fb67ab18a5493bfcecb9d6217f8781..24335b24b86f2f166c70b66c885cf295a8c696f6 100644
+--- a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
++++ b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+@@ -633,7 +633,7 @@ public class ServerChunkProvider extends AbstractChunkProvider {
+         return this.field_217243_i.func_213168_p();
+     }
+ 
+-    private boolean func_217235_l() {
++    public boolean func_217235_l() { // Paper - private -> public
+         boolean flag = this.field_217240_d.func_219353_a(this.field_217237_a);
+         boolean flag1 = this.field_217237_a.func_219245_b();
+ 
+diff --git a/src/main/java/net/minecraft/world/server/TicketType.java b/src/main/java/net/minecraft/world/server/TicketType.java
+index 779d6f5a3500445c372a9b5c6cd00ccf27ae5ae5..df148625acfd1f9b803bdc2082d4f27354bc8203 100644
+--- a/src/main/java/net/minecraft/world/server/TicketType.java
++++ b/src/main/java/net/minecraft/world/server/TicketType.java
+@@ -21,6 +21,7 @@ public class TicketType<T> {
+     public static final TicketType<ChunkPos> field_219491_d = func_219484_a("forced", Comparator.comparingLong(ChunkPos::func_201841_a));
+     public static final TicketType<ChunkPos> field_219492_e = func_219484_a("light", Comparator.comparingLong(ChunkPos::func_201841_a));
+     public static final TicketType<BlockPos> field_219493_f = func_223183_a("portal", Vector3i::compareTo, 300);
++    public static final TicketType<Long> LOGIN = func_223183_a("login", Long::compareTo, 100); // Paper
+     public static final TicketType<Integer> field_223185_g = func_223183_a("post_teleport", Integer::compareTo, 5);
+     public static final TicketType<ChunkPos> field_219494_g = func_223183_a("unknown", Comparator.comparingLong(ChunkPos::func_201841_a), 1);
+     public static final TicketType<Unit> PLUGIN = func_219484_a("plugin", (a, b) -> 0); // CraftBukkit

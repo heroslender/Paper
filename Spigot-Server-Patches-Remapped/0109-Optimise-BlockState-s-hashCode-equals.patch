@@ -1,0 +1,84 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Alfie Cleveland <alfeh@me.com>
+Date: Fri, 19 Aug 2016 01:52:56 +0100
+Subject: [PATCH] Optimise BlockState's hashCode/equals
+
+These are singleton "single instance" objects. We can rely on
+object identity checks safely.
+
+Use a simpler optimized hashcode
+
+diff --git a/src/main/java/net/minecraft/state/BooleanProperty.java b/src/main/java/net/minecraft/state/BooleanProperty.java
+index 88f571af2bd01cde09da5cdfb71c4229ee535ab0..07898bf18f5331c3cb6364069b3e03d4d32f7c78 100644
+--- a/src/main/java/net/minecraft/state/BooleanProperty.java
++++ b/src/main/java/net/minecraft/state/BooleanProperty.java
+@@ -30,8 +30,7 @@ public class BooleanProperty extends Property<Boolean> {
+         return p_177702_1_.toString();
+     }
+ 
+-    @Override
+-    public boolean equals(Object object) {
++    public boolean equals_unused(Object object) { // Paper
+         if (this == object) {
+             return true;
+         } else if (object instanceof BooleanProperty && super.equals(object)) {
+diff --git a/src/main/java/net/minecraft/state/EnumProperty.java b/src/main/java/net/minecraft/state/EnumProperty.java
+index 8ce8a49712dfffa0051c5dace1b2fc29bfdc1837..939d2f58f33860c0069c278d1fd3b51b7d966081 100644
+--- a/src/main/java/net/minecraft/state/EnumProperty.java
++++ b/src/main/java/net/minecraft/state/EnumProperty.java
+@@ -50,8 +50,7 @@ public class EnumProperty<T extends Enum<T> & IStringSerializable> extends Prope
+         return ((IStringSerializable) p_177702_1_).func_176610_l();
+     }
+ 
+-    @Override
+-    public boolean equals(Object object) {
++    public boolean equals_unused(Object object) { // Paper
+         if (this == object) {
+             return true;
+         } else if (object instanceof EnumProperty && super.equals(object)) {
+diff --git a/src/main/java/net/minecraft/state/IntegerProperty.java b/src/main/java/net/minecraft/state/IntegerProperty.java
+index 1a4e753becf67b0f731b22d09a40d2c5b4ca0224..65c8aadd87ff9da470c8c5dfa6ad3c1f96a7b142 100644
+--- a/src/main/java/net/minecraft/state/IntegerProperty.java
++++ b/src/main/java/net/minecraft/state/IntegerProperty.java
+@@ -38,8 +38,7 @@ public class IntegerProperty extends Property<Integer> {
+         return this.field_177720_a;
+     }
+ 
+-    @Override
+-    public boolean equals(Object object) {
++    public boolean equals_unused(Object object) { // Paper
+         if (this == object) {
+             return true;
+         } else if (object instanceof IntegerProperty && super.equals(object)) {
+diff --git a/src/main/java/net/minecraft/state/Property.java b/src/main/java/net/minecraft/state/Property.java
+index baf16d1ee3af01c5da8e058533312f505f77fd31..a6630f23d8d7fafd481cbae9d83500940f5a201c 100644
+--- a/src/main/java/net/minecraft/state/Property.java
++++ b/src/main/java/net/minecraft/state/Property.java
+@@ -59,23 +59,17 @@ public abstract class Property<T extends Comparable<T>> {
+     }
+ 
+     public boolean equals(Object object) {
+-        if (this == object) {
+-            return true;
+-        } else if (!(object instanceof Property)) {
+-            return false;
+-        } else {
+-            Property<?> iblockstate = (Property) object;
+-
+-            return this.field_235913_a_.equals(iblockstate.field_235913_a_) && this.field_235914_b_.equals(iblockstate.field_235914_b_);
+-        }
++        return this == object; // Paper - only one instance per configuration
+     }
+ 
++    private static final java.util.concurrent.atomic.AtomicInteger hashId = new java.util.concurrent.atomic.AtomicInteger(1); // Paper - only one instance per configuration
++    private final int hashCode = 92821 * hashId.getAndIncrement(); // Paper - only one instance per configuration
+     public final int hashCode() {
+         if (this.field_235915_c_ == null) {
+             this.field_235915_c_ = this.func_206906_c();
+         }
+ 
+-        return this.field_235915_c_;
++        return this.hashCode; // Paper - only one instance per configuration
+     }
+ 
+     public int func_206906_c() {

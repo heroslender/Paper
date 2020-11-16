@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mariell Hoversholm <proximyst@proximyst.com>
+Date: Wed, 12 Aug 2020 11:33:04 +0200
+Subject: [PATCH] Import fastutil classes
+
+
+diff --git a/src/main/java/net/minecraft/network/datasync/EntityDataManager.java b/src/main/java/net/minecraft/network/datasync/EntityDataManager.java
+index 97e30fa5c4628b6d85b60a88fac622c7f7141739..786f0e92510733aab877a21dd7fac0f07ae09713 100644
+--- a/src/main/java/net/minecraft/network/datasync/EntityDataManager.java
++++ b/src/main/java/net/minecraft/network/datasync/EntityDataManager.java
+@@ -14,6 +14,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
+ import javax.annotation.Nullable;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.network.PacketBuffer;
++import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap; // Paper
+ import org.apache.commons.lang3.ObjectUtils;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+@@ -23,7 +24,7 @@ public class EntityDataManager {
+     private static final Logger field_190303_a = LogManager.getLogger();
+     private static final Map<Class<? extends Entity>, Integer> field_187232_a = Maps.newHashMap();
+     private final Entity field_187233_b;
+-    private final it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<EntityDataManager.DataEntry<?>> field_187234_c = new it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap<>(); // Spigot - use better map // PAIL
++    private final Int2ObjectOpenHashMap<DataEntry<?>> field_187234_c = new Int2ObjectOpenHashMap<>(); // Spigot - use better map // PAIL
+     // private final ReadWriteLock lock = new ReentrantReadWriteLock(); // Spigot - not required
+     private boolean field_187236_e = true;
+     private boolean field_187237_f;

@@ -1,0 +1,64 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 29 Jun 2020 03:26:17 -0400
+Subject: [PATCH] Support old UUID format for NBT
+
+We have stored UUID in plenty of places that did not get DFU'd
+
+So just look for old format and load it if it exists.
+
+diff --git a/src/main/java/net/minecraft/nbt/CompoundNBT.java b/src/main/java/net/minecraft/nbt/CompoundNBT.java
+index b123252988516924bc3a519951fee844743e0220..72b8781f3c937b9ab5821c72b9f49ba2962dff03 100644
+--- a/src/main/java/net/minecraft/nbt/CompoundNBT.java
++++ b/src/main/java/net/minecraft/nbt/CompoundNBT.java
+@@ -142,6 +142,12 @@ public class CompoundNBT implements INBT {
+ 
+     public void setUUID(String prefix, UUID uuid) { func_186854_a(prefix, uuid); } // Paper - OBFHELPER
+     public void func_186854_a(String p_186854_1_, UUID p_186854_2_) {
++        // Paper start - support old format
++        if (this.func_150297_b(p_186854_1_ + "Most", 99) && this.func_150297_b(p_186854_1_ + "Least", 99)) {
++            this.field_74784_a.remove(p_186854_1_ + "Most");
++            this.field_74784_a.remove(p_186854_1_ + "Least");
++        }
++        // Paper end
+         this.field_74784_a.put(p_186854_1_, NBTUtil.func_240626_a_(p_186854_2_));
+     }
+ 
+@@ -149,11 +155,21 @@ public class CompoundNBT implements INBT {
+     @Nullable public UUID getUUID(String prefix) { return func_186857_a(prefix); } // Paper - OBFHELPER
+     @Nullable
+     public UUID func_186857_a(String p_186857_1_) {
++        // Paper start - support old format
++        if (!func_150297_b(p_186857_1_, 11) && this.func_150297_b(p_186857_1_ + "Most", 99) && this.func_150297_b(p_186857_1_ + "Least", 99)) {
++            return new UUID(this.func_74763_f(p_186857_1_ + "Most"), this.func_74763_f(p_186857_1_ + "Least"));
++        }
++        // Paper end
+         return NBTUtil.func_186860_b(this.func_74781_a(p_186857_1_));
+     }
+ 
+     public final boolean hasUUID(String s) { return this.func_186855_b(s); } // Paper - OBFHELPER
+     public boolean func_186855_b(String p_186855_1_) {
++        // Paper start - support old format
++        if (this.func_150297_b(p_186855_1_ + "Most", 99) && this.func_150297_b(p_186855_1_ + "Least", 99)) {
++            return true;
++        }
++        // Paper end
+         INBT nbtbase = this.func_74781_a(p_186855_1_);
+ 
+         return nbtbase != null && nbtbase.func_225647_b_() == IntArrayNBT.field_229690_a_ && ((IntArrayNBT) nbtbase).func_150302_c().length == 4;
+diff --git a/src/main/java/net/minecraft/nbt/NBTUtil.java b/src/main/java/net/minecraft/nbt/NBTUtil.java
+index fbaeaa978840fa58ce170163cfe8c693e256bc24..79be2d125ffa1f72c3abbacbb39554fdfe4a1af1 100644
+--- a/src/main/java/net/minecraft/nbt/NBTUtil.java
++++ b/src/main/java/net/minecraft/nbt/NBTUtil.java
+@@ -40,6 +40,11 @@ public final class NBTUtil {
+             s = p_152459_0_.func_74779_i("Name");
+         }
+ 
++        // Paper start - support string UUID's
++        if (p_152459_0_.func_150297_b("Id", 8)) {
++            uuid = UUID.fromString(p_152459_0_.func_74779_i("Id"));
++        }
++        // Paper end
+         if (p_152459_0_.func_186855_b("Id")) {
+             uuid = p_152459_0_.func_186857_a("Id");
+         }

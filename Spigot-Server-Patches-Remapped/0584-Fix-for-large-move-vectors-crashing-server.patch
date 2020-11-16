@@ -1,0 +1,66 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Sun, 17 May 2020 23:47:33 -0700
+Subject: [PATCH] Fix for large move vectors crashing server
+
+Check movement distance also based on current position.
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 0867f0d56d6252cd216df6baf7315248e817b9ff..109401b0b79e09885213ab5b0c45f8929cf33e45 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -514,19 +514,24 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+ 
+             if (entity != this.field_147369_b && entity.func_184179_bs() == this.field_147369_b && entity == this.field_184355_r) {
+                 ServerWorld worldserver = this.field_147369_b.func_71121_q();
+-                double d0 = entity.func_226277_ct_();
+-                double d1 = entity.func_226278_cu_();
+-                double d2 = entity.func_226281_cx_();
+-                double d3 = p_184338_1_.func_187004_a();
+-                double d4 = p_184338_1_.func_187002_b();
+-                double d5 = p_184338_1_.func_187003_c();
++                double d0 = entity.func_226277_ct_();double fromX = d0; // Paper - OBFHELPER
++                double d1 = entity.func_226278_cu_();double fromY = d1; // Paper - OBFHELPER
++                double d2 = entity.func_226281_cx_();double fromZ = d2; // Paper - OBFHELPER
++                double d3 = p_184338_1_.func_187004_a();double toX = d3; // Paper - OBFHELPER
++                double d4 = p_184338_1_.func_187002_b();double toY = d4; // Paper - OBFHELPER
++                double d5 = p_184338_1_.func_187003_c();double toZ = d5; // Paper - OBFHELPER
+                 float f = p_184338_1_.func_187006_d();
+                 float f1 = p_184338_1_.func_187005_e();
+                 double d6 = d3 - this.field_184356_s;
+                 double d7 = d4 - this.field_184357_t;
+                 double d8 = d5 - this.field_184358_u;
+                 double d9 = entity.func_213322_ci().func_189985_c();
+-                double d10 = d6 * d6 + d7 * d7 + d8 * d8;
++                // Paper start - fix large move vectors killing the server
++                double currDeltaX = toX - fromX;
++                double currDeltaY = toY - fromY;
++                double currDeltaZ = toZ - fromZ;
++                double d10 = Math.max(d6 * d6 + d7 * d7 + d8 * d8, (currDeltaX * currDeltaX + currDeltaY * currDeltaY + currDeltaZ * currDeltaZ) - 1);
++                // Paper end - fix large move vectors killing the server
+ 
+ 
+                 // CraftBukkit start - handle custom speeds and skipped ticks
+@@ -1218,7 +1223,7 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                         double d2 = this.field_147369_b.func_226281_cx_();
+                         double d3 = this.field_147369_b.func_226278_cu_();
+                         double d4 = p_147347_1_.func_186997_a(this.field_147369_b.func_226277_ct_());double toX = d4; // Paper - OBFHELPER
+-                        double d5 = p_147347_1_.func_186996_b(this.field_147369_b.func_226278_cu_());
++                        double d5 = p_147347_1_.func_186996_b(this.field_147369_b.func_226278_cu_());double toY = d5; // Paper - OBFHELPER
+                         double d6 = p_147347_1_.func_187000_c(this.field_147369_b.func_226281_cx_());double toZ = d6; // Paper - OBFHELPER
+                         float f = p_147347_1_.func_186999_a(this.field_147369_b.field_70177_z);
+                         float f1 = p_147347_1_.func_186998_b(this.field_147369_b.field_70125_A);
+@@ -1226,7 +1231,12 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+                         double d8 = d5 - this.field_184350_m;
+                         double d9 = d6 - this.field_184351_n;
+                         double d10 = this.field_147369_b.func_213322_ci().func_189985_c();
+-                        double d11 = d7 * d7 + d8 * d8 + d9 * d9;
++                        // Paper start - fix large move vectors killing the server
++                        double currDeltaX = toX - prevX;
++                        double currDeltaY = toY - prevY;
++                        double currDeltaZ = toZ - prevZ;
++                        double d11 = Math.max(d7 * d7 + d8 * d8 + d9 * d9, (currDeltaX * currDeltaX + currDeltaY * currDeltaY + currDeltaZ * currDeltaZ) - 1);
++                        // Paper end - fix large move vectors killing the server
+ 
+                         if (this.field_147369_b.func_70608_bn()) {
+                             if (d11 > 1.0D) {

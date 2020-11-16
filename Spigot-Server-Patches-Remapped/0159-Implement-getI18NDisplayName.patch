@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 4 May 2016 23:59:38 -0400
+Subject: [PATCH] Implement getI18NDisplayName
+
+Gets the Display name as seen in the Client.
+Currently the server only supports the English language. To override this,
+You must replace the language file embedded in the server jar.
+
+diff --git a/src/main/java/net/minecraft/util/text/LanguageMap.java b/src/main/java/net/minecraft/util/text/LanguageMap.java
+index 835b03d7108778aca63ba5773122440eddcdf64a..b89f6aeb631e154d2ec133cf8891b30b53d58d04 100644
+--- a/src/main/java/net/minecraft/util/text/LanguageMap.java
++++ b/src/main/java/net/minecraft/util/text/LanguageMap.java
+@@ -30,7 +30,7 @@ public abstract class LanguageMap {
+ 
+     private static LanguageMap func_240595_c_() {
+         Builder<String, String> builder = ImmutableMap.builder();
+-        BiConsumer biconsumer = builder::put;
++        BiConsumer<String, String> biconsumer = builder::put; // Paper - decompile fix
+ 
+         try {
+             InputStream inputstream = LanguageMap.class.getResourceAsStream("/assets/minecraft/lang/en_us.json");
+@@ -87,10 +87,12 @@ public abstract class LanguageMap {
+ 
+     }
+ 
++    public static LanguageMap getInstance() { return func_74808_a(); } // Paper - OBFHELPER
+     public static LanguageMap func_74808_a() {
+         return LanguageMap.field_240592_d_;
+     }
+ 
++    public String translateKey(String key) { return func_230503_a_(key); } // Paper - OBFHELPER
+     public abstract String func_230503_a_(String p_230503_1_);
+ 
+     public abstract boolean func_230506_b_(String p_230506_1_);
+diff --git a/src/main/java/org/bukkit/craftbukkit/inventory/CraftItemFactory.java b/src/main/java/org/bukkit/craftbukkit/inventory/CraftItemFactory.java
+index bee1de72de76738d5eed2e0ca5ae8c0a65be7595..1d5e410529957a6c495718e6aa910fefe15257ec 100644
+--- a/src/main/java/org/bukkit/craftbukkit/inventory/CraftItemFactory.java
++++ b/src/main/java/org/bukkit/craftbukkit/inventory/CraftItemFactory.java
+@@ -339,5 +339,18 @@ public final class CraftItemFactory implements ItemFactory {
+     public ItemStack ensureServerConversions(ItemStack item) {
+         return CraftItemStack.asCraftMirror(CraftItemStack.asNMSCopy(item));
+     }
++
++    @Override
++    public String getI18NDisplayName(ItemStack item) {
++        net.minecraft.item.ItemStack nms = null;
++        if (item instanceof CraftItemStack) {
++            nms = ((CraftItemStack) item).handle;
++        }
++        if (nms == null) {
++            nms = CraftItemStack.asNMSCopy(item);
++        }
++
++        return nms != null ? net.minecraft.util.text.LanguageMap.getInstance().translateKey(nms.func_77973_b().func_77658_a()) : null;
++    }
+     // Paper end
+ }

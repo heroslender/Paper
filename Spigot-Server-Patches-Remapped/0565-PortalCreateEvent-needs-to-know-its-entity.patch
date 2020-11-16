@@ -1,0 +1,147 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mariell Hoversholm <proximyst@proximyst.com>
+Date: Fri, 21 Aug 2020 20:57:54 +0200
+Subject: [PATCH] PortalCreateEvent needs to know its entity
+
+
+diff --git a/src/main/java/net/minecraft/block/AbstractBlock.java b/src/main/java/net/minecraft/block/AbstractBlock.java
+index 156f1c421fc44da996c243503b97f2421a65129b..ddc73bdcfa4444a90b63224ea23fcb9399543899 100644
+--- a/src/main/java/net/minecraft/block/AbstractBlock.java
++++ b/src/main/java/net/minecraft/block/AbstractBlock.java
+@@ -25,6 +25,7 @@ import net.minecraft.item.BlockItemUseContext;
+ import net.minecraft.item.DyeColor;
+ import net.minecraft.item.Item;
+ import net.minecraft.item.ItemStack;
++import net.minecraft.item.ItemUseContext;
+ import net.minecraft.loot.LootContext;
+ import net.minecraft.loot.LootParameterSets;
+ import net.minecraft.loot.LootParameters;
+@@ -116,6 +117,12 @@ public abstract class AbstractBlock {
+         DebugPacketSender.func_218806_a(p_220069_2_, p_220069_3_);
+     }
+ 
++    // Paper start - add ItemActionContext param
++    @Deprecated
++    public void onPlace(BlockState iblockdata, World world, BlockPos blockposition, BlockState iblockdata1, boolean flag, ItemUseContext itemActionContext) {
++        this.func_220082_b(iblockdata, world, blockposition, iblockdata1, flag);
++    }
++    // Paper end
+     @Deprecated
+     public void func_220082_b(BlockState p_220082_1_, World p_220082_2_, BlockPos p_220082_3_, BlockState p_220082_4_, boolean p_220082_5_) {
+         org.spigotmc.AsyncCatcher.catchOp("block onPlace"); // Spigot
+diff --git a/src/main/java/net/minecraft/block/AbstractFireBlock.java b/src/main/java/net/minecraft/block/AbstractFireBlock.java
+index 4593ca058cd9e774a3207dd3f15ecdfe3a9140fa..a52eac56760d6122d5efc8303a8894ed08172089 100644
+--- a/src/main/java/net/minecraft/block/AbstractFireBlock.java
++++ b/src/main/java/net/minecraft/block/AbstractFireBlock.java
+@@ -4,6 +4,7 @@ import java.util.Optional;
+ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.item.BlockItemUseContext;
++import net.minecraft.item.ItemUseContext;
+ import net.minecraft.util.DamageSource;
+ import net.minecraft.util.Direction;
+ import net.minecraft.util.math.BlockPos;
+@@ -64,20 +65,23 @@ public abstract class AbstractFireBlock extends Block {
+         super.func_196262_a(p_196262_1_, p_196262_2_, p_196262_3_, p_196262_4_);
+     }
+ 
++    // Paper start - ItemActionContext param
++    @Override public void func_220082_b(BlockState p_220082_1_, World p_220082_2_, BlockPos p_220082_3_, BlockState p_220082_4_, boolean p_220082_5_) { this.onPlace(p_220082_1_, p_220082_2_, p_220082_3_, p_220082_4_, p_220082_5_, null); }
+     @Override
+-    public void func_220082_b(BlockState p_220082_1_, World p_220082_2_, BlockPos p_220082_3_, BlockState p_220082_4_, boolean p_220082_5_) {
+-        if (!p_220082_4_.func_203425_a(p_220082_1_.func_177230_c())) {
+-            if (func_242649_a(p_220082_2_)) {
+-                Optional<PortalSize> optional = PortalSize.func_242964_a((IWorld) p_220082_2_, p_220082_3_, Direction.Axis.X);
++    public void onPlace(BlockState iblockdata, World world, BlockPos blockposition, BlockState iblockdata1, boolean flag, ItemUseContext itemActionContext) {
++        // Paper end
++        if (!iblockdata1.func_203425_a(iblockdata.func_177230_c())) {
++            if (func_242649_a(world)) {
++                Optional<PortalSize> optional = PortalSize.func_242964_a((IWorld) world, blockposition, Direction.Axis.X);
+ 
+                 if (optional.isPresent()) {
+-                    ((PortalSize) optional.get()).createPortal();
++                    ((PortalSize) optional.get()).createPortal(itemActionContext); // Paper - pass ItemActionContext param
+                     return;
+                 }
+             }
+ 
+-            if (!p_220082_1_.func_196955_c(p_220082_2_, p_220082_3_)) {
+-                fireExtinguished(p_220082_2_, p_220082_3_); // CraftBukkit - fuel block broke
++            if (!iblockdata.func_196955_c(world, blockposition)) {
++                fireExtinguished(world, blockposition); // CraftBukkit - fuel block broke
+             }
+ 
+         }
+diff --git a/src/main/java/net/minecraft/block/FireBlock.java b/src/main/java/net/minecraft/block/FireBlock.java
+index 573a95db353f8260ee7a047000b88b598ab2e8f8..e4f1d0d0440e6022d63ca8f8d68640e07f163385 100644
+--- a/src/main/java/net/minecraft/block/FireBlock.java
++++ b/src/main/java/net/minecraft/block/FireBlock.java
+@@ -9,6 +9,7 @@ import java.util.Random;
+ import java.util.function.Function;
+ import java.util.stream.Collectors;
+ import net.minecraft.item.BlockItemUseContext;
++import net.minecraft.item.ItemUseContext;
+ import net.minecraft.server.MCUtil;
+ import net.minecraft.state.BooleanProperty;
+ import net.minecraft.state.IntegerProperty;
+@@ -361,9 +362,11 @@ public class FireBlock extends AbstractFireBlock {
+     }
+ 
+     @Override
+-    public void func_220082_b(BlockState p_220082_1_, World p_220082_2_, BlockPos p_220082_3_, BlockState p_220082_4_, boolean p_220082_5_) {
+-        super.func_220082_b(p_220082_1_, p_220082_2_, p_220082_3_, p_220082_4_, p_220082_5_);
+-        p_220082_2_.func_205220_G_().func_205360_a(p_220082_3_, this, func_235495_a_(p_220082_2_.field_73012_v));
++    // Paper start - ItemActionContext param
++    public void onPlace(BlockState iblockdata, World world, BlockPos blockposition, BlockState iblockdata1, boolean flag, ItemUseContext itemActionContext) {
++        super.onPlace(iblockdata, world, blockposition, iblockdata1, flag, itemActionContext);
++        // Paper end
++        world.func_205220_G_().func_205360_a(blockposition, this, func_235495_a_(world.field_73012_v));
+     }
+ 
+     private static int func_235495_a_(Random p_235495_0_) {
+diff --git a/src/main/java/net/minecraft/block/PortalSize.java b/src/main/java/net/minecraft/block/PortalSize.java
+index 41d4d6886b71c33192f1c72161bace960871c364..a76f2718eb73bfd3c9495320922ea95bc57e3968 100644
+--- a/src/main/java/net/minecraft/block/PortalSize.java
++++ b/src/main/java/net/minecraft/block/PortalSize.java
+@@ -4,6 +4,7 @@ import java.util.Optional;
+ import java.util.function.Predicate;
+ import javax.annotation.Nullable;
+ import net.minecraft.entity.EntitySize;
++import net.minecraft.item.ItemUseContext;
+ import net.minecraft.state.properties.BlockStateProperties;
+ import net.minecraft.tags.BlockTags;
+ import net.minecraft.tags.ITag;
+@@ -172,7 +173,10 @@ public class PortalSize {
+     }
+ 
+     // CraftBukkit start - return boolean
+-    public boolean createPortal() {
++    // Paper start - ItemActionContext param
++    @Deprecated public boolean createPortal() { return this.createPortal(null); }
++    public boolean createPortal(ItemUseContext itemActionContext) {
++        // Paper end
+         org.bukkit.World bworld = this.field_150867_a.getMinecraftWorld().getWorld();
+ 
+         // Copy below for loop
+@@ -184,7 +188,7 @@ public class PortalSize {
+             blocks.add(state);
+         });
+ 
+-        PortalCreateEvent event = new PortalCreateEvent(blocks, bworld, null, PortalCreateEvent.CreateReason.FIRE);
++        PortalCreateEvent event = new PortalCreateEvent(blocks, bworld, itemActionContext == null || itemActionContext.func_195999_j() == null ? null : itemActionContext.func_195999_j().getBukkitEntity(), PortalCreateEvent.CreateReason.FIRE); // Paper - pass entity param
+         this.field_150867_a.getMinecraftWorld().func_73046_m().server.getPluginManager().callEvent(event);
+ 
+         if (event.isCancelled()) {
+diff --git a/src/main/java/net/minecraft/item/ItemStack.java b/src/main/java/net/minecraft/item/ItemStack.java
+index 01657cd5caa010ab078cbca3887e4839488cf92a..87a58cc8aaa3039d547f1a9a357f6e41159b7f88 100644
+--- a/src/main/java/net/minecraft/item/ItemStack.java
++++ b/src/main/java/net/minecraft/item/ItemStack.java
+@@ -367,7 +367,7 @@ public final class ItemStack {
+                         net.minecraft.block.BlockState block = world.func_180495_p(newblockposition);
+ 
+                         if (!(block.func_177230_c() instanceof ContainerBlock)) { // Containers get placed automatically
+-                            block.func_177230_c().func_220082_b(block, world, newblockposition, oldBlock, true);
++                            block.func_177230_c().onPlace(block, world, newblockposition, oldBlock, true, itemactioncontext); // Paper - pass itemactioncontext
+                         }
+ 
+                         world.notifyAndUpdatePhysics(newblockposition, null, oldBlock, block, world.func_180495_p(newblockposition), updateFlag, 512); // send null chunk as chunk.k() returns false by this point

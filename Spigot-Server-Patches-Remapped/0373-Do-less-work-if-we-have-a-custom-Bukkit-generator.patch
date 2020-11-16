@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Paul Sauve <paul@burngames.net>
+Date: Sun, 14 Jul 2019 21:05:03 -0500
+Subject: [PATCH] Do less work if we have a custom Bukkit generator
+
+If the Bukkit generator already has a spawn, use it immediately instead
+of spending time generating one that we won't use
+
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index bee380ff9538d1106ceae99621770947b4e9cab0..0d76219d42ca1f6064d20ff7aef0443fedfe90ad 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -616,12 +616,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         } else if (p_240786_3_) {
+             p_240786_1_.func_176143_a(BlockPos.field_177992_a.func_177984_a(), 0.0F);
+         } else {
+-            BiomeProvider worldchunkmanager = chunkgenerator.func_202090_b();
+-            Random random = new Random(p_240786_0_.func_72905_C());
+-            BlockPos blockposition = worldchunkmanager.func_225531_a_(0, p_240786_0_.func_181545_F(), 0, 256, (biomebase) -> {
+-                return biomebase.func_242433_b().func_242562_b();
+-            }, random);
+-            ChunkPos chunkcoordintpair = blockposition == null ? new ChunkPos(0, 0) : new ChunkPos(blockposition);
++            // Paper start - moved down
+             // CraftBukkit start
+             if (p_240786_0_.generator != null) {
+                 Random rand = new Random(p_240786_0_.func_72905_C());
+@@ -637,6 +632,15 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+                 }
+             }
+             // CraftBukkit end
++            // Paper start - if the generator created a spawn for us, then there is no need for us to also create a spawn -
++            // only do it if the generator did not
++            BiomeProvider worldchunkmanager = chunkgenerator.func_202090_b();
++            Random random = new Random(p_240786_0_.func_72905_C());
++            BlockPos blockposition = worldchunkmanager.func_225531_a_(0, p_240786_0_.func_181545_F(), 0, 256, (biomebase) -> {
++                return biomebase.func_242433_b().func_242562_b();
++            }, random);
++            ChunkPos chunkcoordintpair = blockposition == null ? new ChunkPos(0, 0) : new ChunkPos(blockposition);
++            // Paper end
+ 
+             if (blockposition == null) {
+                 MinecraftServer.field_147145_h.warn("Unable to find spawn biome");

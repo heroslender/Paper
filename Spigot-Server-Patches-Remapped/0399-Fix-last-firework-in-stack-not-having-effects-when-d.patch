@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Fri, 17 Jan 2020 18:44:55 -0800
+Subject: [PATCH] Fix last firework in stack not having effects when dispensed
+ - #2871
+
+CB used the resulting item in the dispenser rather than the item
+dispensed. The resulting item would have size == 0 and therefore
+be convertered to air, hence why the effects disappeared.
+
+diff --git a/src/main/java/net/minecraft/dispenser/IDispenseItemBehavior.java b/src/main/java/net/minecraft/dispenser/IDispenseItemBehavior.java
+index 2dc01439fad45a6f509a4f3b64d7d61609bf83f3..18ea5e107646e3252f3df8909b59d429194a4df7 100644
+--- a/src/main/java/net/minecraft/dispenser/IDispenseItemBehavior.java
++++ b/src/main/java/net/minecraft/dispenser/IDispenseItemBehavior.java
+@@ -424,7 +424,7 @@ public interface IDispenseItemBehavior {
+                 }
+ 
+                 itemstack1 = CraftItemStack.asNMSCopy(event.getItem());
+-                FireworkRocketEntity entityfireworks = new FireworkRocketEntity(p_82487_1_.func_197524_h(), p_82487_2_, p_82487_1_.func_82615_a(), p_82487_1_.func_82617_b(), p_82487_1_.func_82615_a(), true);
++                FireworkRocketEntity entityfireworks = new FireworkRocketEntity(p_82487_1_.func_197524_h(), itemstack1, p_82487_1_.func_82615_a(), p_82487_1_.func_82617_b(), p_82487_1_.func_82615_a(), true); // Paper - GH-2871 - fix last firework in stack having no effects when dispensed
+ 
+                 IDispenseItemBehavior.func_239785_a_(p_82487_1_, entityfireworks, enumdirection);
+                 entityfireworks.func_70186_c((double) enumdirection.func_82601_c(), (double) enumdirection.func_96559_d(), (double) enumdirection.func_82599_e(), 0.5F, 1.0F);

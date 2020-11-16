@@ -1,0 +1,98 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 19 Jan 2018 00:36:25 -0500
+Subject: [PATCH] Add setPlayerProfile API for Skulls
+
+This allows you to create already filled textures on Skulls to avoid texture lookups
+which commonly cause rate limit issues with Mojang API
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftSkull.java b/src/main/java/org/bukkit/craftbukkit/block/CraftSkull.java
+index 7ce4eb67e56ad56dc3e2b7f0e10ff5dca20d0ed9..7a4932c81e4177c0616178f71c17609848155af7 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftSkull.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftSkull.java
+@@ -1,5 +1,7 @@
+ package org.bukkit.craftbukkit.block;
+ 
++import com.destroystokyo.paper.profile.CraftPlayerProfile;
++import com.destroystokyo.paper.profile.PlayerProfile;
+ import com.google.common.base.Preconditions;
+ import com.mojang.authlib.GameProfile;
+ import net.minecraft.server.MinecraftServer;
+@@ -15,6 +17,7 @@ import org.bukkit.block.data.BlockData;
+ import org.bukkit.block.data.Directional;
+ import org.bukkit.block.data.Rotatable;
+ import org.bukkit.craftbukkit.entity.CraftPlayer;
++import javax.annotation.Nullable;
+ 
+ public class CraftSkull extends CraftBlockEntityState<SkullTileEntity> implements Skull {
+ 
+@@ -105,6 +108,20 @@ public class CraftSkull extends CraftBlockEntityState<SkullTileEntity> implement
+         }
+     }
+ 
++    // Paper start
++    @Override
++    public void setPlayerProfile(PlayerProfile profile) {
++        Preconditions.checkNotNull(profile, "profile");
++        this.profile = CraftPlayerProfile.asAuthlibCopy(profile);
++    }
++
++    @Nullable
++    @Override
++    public PlayerProfile getPlayerProfile() {
++        return profile != null ? CraftPlayerProfile.asBukkitCopy(profile) : null;
++    }
++    // Paper end
++
+     @Override
+     public BlockFace getRotation() {
+         BlockData blockData = getBlockData();
+diff --git a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaSkull.java b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaSkull.java
+index 9b67c3bef8cbee0e8096fd3c7f984ca19709d565..f1ea43c7a9a4b5f8b000267fc01b5267152a9b0d 100644
+--- a/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaSkull.java
++++ b/src/main/java/org/bukkit/craftbukkit/inventory/CraftMetaSkull.java
+@@ -4,10 +4,8 @@ import com.google.common.collect.ImmutableMap.Builder;
+ import com.mojang.authlib.GameProfile;
+ import java.util.Map;
+ import java.util.UUID;
+-import net.minecraft.nbt.CompoundNBT;
+-import net.minecraft.nbt.INBT;
+-import net.minecraft.nbt.NBTUtil;
+-import net.minecraft.tileentity.SkullTileEntity;
++import com.destroystokyo.paper.profile.CraftPlayerProfile;
++import com.destroystokyo.paper.profile.PlayerProfile;
+ import org.bukkit.Bukkit;
+ import org.bukkit.Material;
+ import org.bukkit.OfflinePlayer;
+@@ -17,6 +15,11 @@ import org.bukkit.craftbukkit.inventory.CraftMetaItem.SerializableMeta;
+ import org.bukkit.craftbukkit.util.CraftMagicNumbers;
+ import org.bukkit.inventory.meta.SkullMeta;
+ 
++import javax.annotation.Nullable;
++import net.minecraft.nbt.CompoundNBT;
++import net.minecraft.nbt.INBT;
++import net.minecraft.nbt.NBTUtil;
++import net.minecraft.tileentity.SkullTileEntity;
+ @DelegateDeserialization(SerializableMeta.class)
+ class CraftMetaSkull extends CraftMetaItem implements SkullMeta {
+ 
+@@ -148,6 +151,19 @@ class CraftMetaSkull extends CraftMetaItem implements SkullMeta {
+         return hasOwner() ? profile.getName() : null;
+     }
+ 
++    // Paper start
++    @Override
++    public void setPlayerProfile(@Nullable PlayerProfile profile) {
++        setProfile((profile == null) ? null : CraftPlayerProfile.asAuthlibCopy(profile));
++    }
++
++    @Nullable
++    @Override
++    public PlayerProfile getPlayerProfile() {
++        return profile != null ? CraftPlayerProfile.asBukkitCopy(profile) : null;
++    }
++    // Paper end
++
+     @Override
+     public OfflinePlayer getOwningPlayer() {
+         if (hasOwner()) {

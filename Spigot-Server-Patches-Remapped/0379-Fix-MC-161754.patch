@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Tue, 24 Sep 2019 16:03:00 -0700
+Subject: [PATCH] Fix MC-161754
+
+Fixes https://github.com/PaperMC/Paper/issues/2580
+
+We can use an entity valid check since this method is invoked for
+each inventory iteraction (thanks to CB) and on player tick (vanilla).
+
+diff --git a/src/main/java/net/minecraft/inventory/container/HorseInventoryContainer.java b/src/main/java/net/minecraft/inventory/container/HorseInventoryContainer.java
+index 8112d2df2fee0ba9cc35e6d4bd00bc01578e704a..95a9567670927996f805553e3be9fd4c67e847d5 100644
+--- a/src/main/java/net/minecraft/inventory/container/HorseInventoryContainer.java
++++ b/src/main/java/net/minecraft/inventory/container/HorseInventoryContainer.java
+@@ -84,7 +84,7 @@ public class HorseInventoryContainer extends Container {
+ 
+     @Override
+     public boolean func_75145_c(PlayerEntity p_75145_1_) {
+-        return this.field_111243_a.func_70300_a(p_75145_1_) && this.field_111242_f.func_70089_S() && this.field_111242_f.func_70032_d((Entity) p_75145_1_) < 8.0F;
++        return this.field_111243_a.func_70300_a(p_75145_1_) && (this.field_111242_f.func_70089_S() && this.field_111242_f.valid) && this.field_111242_f.func_70032_d((Entity) p_75145_1_) < 8.0F; // Paper - Fix MC-161754
+     }
+ 
+     @Override

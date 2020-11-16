@@ -1,0 +1,42 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Sat, 18 Feb 2017 19:29:58 -0600
+Subject: [PATCH] Do not let armorstands drown
+
+
+diff --git a/src/main/java/net/minecraft/entity/LivingEntity.java b/src/main/java/net/minecraft/entity/LivingEntity.java
+index ceb7d36f7d1e0403f5833ec88bfb57f3d0339fe8..1f4a64cd69b254c73c3197b5f4a3715d664afff3 100644
+--- a/src/main/java/net/minecraft/entity/LivingEntity.java
++++ b/src/main/java/net/minecraft/entity/LivingEntity.java
+@@ -341,6 +341,7 @@ public abstract class LivingEntity extends Entity {
+         super.func_184231_a(p_184231_1_, p_184231_2_, p_184231_3_, p_184231_4_);
+     }
+ 
++    public boolean canBreatheUnderwater() { return this.func_70648_aU(); } // Paper - OBFHELPER
+     public boolean func_70648_aU() {
+         return this.func_70668_bt() == CreatureAttribute.field_223223_b_;
+     }
+@@ -384,7 +385,7 @@ public abstract class LivingEntity extends Entity {
+ 
+         if (this.func_70089_S()) {
+             if (this.func_208600_a((ITag) FluidTags.field_206959_a) && !this.field_70170_p.func_180495_p(new BlockPos(this.func_226277_ct_(), this.func_226280_cw_(), this.func_226281_cx_())).func_203425_a(Blocks.field_203203_C)) {
+-                if (!this.func_70648_aU() && !EffectUtils.func_205133_c(this) && !flag1) {
++                if (!this.canBreatheUnderwater() && !EffectUtils.func_205133_c(this) && !flag1) {  // Paper - use OBFHELPER so it can be overridden
+                     this.func_70050_g(this.func_70682_h(this.func_70086_ai()));
+                     if (this.func_70086_ai() == -20) {
+                         this.func_70050_g(0);
+diff --git a/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java b/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
+index d0d7027b2539fc5bcc8d499a5c8fce2c02a92c8c..d6621e4dcd678c0bccfd8701b183fd71500b77d7 100644
+--- a/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
+@@ -863,5 +863,10 @@ public class ArmorStandEntity extends LivingEntity {
+             super.func_213315_a(p_213315_1_, p_213315_2_);
+         }
+     }
++
++    @Override
++    public boolean canBreatheUnderwater() { // Skips a bit of damage handling code, probably a micro-optimization
++        return true;
++    }
+     // Paper end
+ }

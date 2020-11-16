@@ -1,0 +1,65 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 18 Mar 2016 20:16:03 -0400
+Subject: [PATCH] Add World Util Methods
+
+Methods that can be used for other patches to help improve logic.
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index c8d6a72a80c4d9163ce1ae1c41ad23f8abb2bf9b..1ba29ea184b47284eb1a02fcbb747c878c638345 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -296,11 +296,27 @@ public abstract class World implements IWorld, AutoCloseable {
+     }
+ 
+     @Override
+-    public FluidState getFluidIfLoaded(BlockPos blockposition) {
++    public final FluidState getFluidIfLoaded(BlockPos blockposition) {
+         IChunk chunk = this.getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
+ 
+         return chunk == null ? null : chunk.func_204610_c(blockposition);
+     }
++
++    public final boolean isLoadedAndInBounds(BlockPos blockposition) { // Paper - final for inline
++        return func_175723_af().isInBounds(blockposition) && getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4) != null;
++    }
++
++    public Chunk getChunkIfLoaded(int x, int z) { // Overridden in WorldServer for ABI compat which has final
++        return ((ServerWorld) this).func_72863_F().getChunkAtIfLoadedImmediately(x, z);
++    }
++    public final Chunk getChunkIfLoaded(BlockPos blockposition) {
++        return ((ServerWorld) this).func_72863_F().getChunkAtIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4);
++    }
++
++    //  reduces need to do isLoaded before getType
++    public final BlockState getTypeIfLoadedAndInBounds(BlockPos blockposition) {
++        return func_175723_af().isInBounds(blockposition) ? getTypeIfLoaded(blockposition) : null;
++    }
+     // Paper end
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/border/WorldBorder.java b/src/main/java/net/minecraft/world/border/WorldBorder.java
+index 5bc2b8a43fbb433cc79e68274d5983d6df7b4310..cbdec584d41abdbddbdefc9b6e0c4a106e6c1c98 100644
+--- a/src/main/java/net/minecraft/world/border/WorldBorder.java
++++ b/src/main/java/net/minecraft/world/border/WorldBorder.java
+@@ -32,6 +32,7 @@ public class WorldBorder {
+ 
+     public WorldBorder() {}
+ 
++    public final boolean isInBounds(BlockPos blockposition) { return this.func_177746_a(blockposition); } // Paper - OBFHELPER
+     public boolean func_177746_a(BlockPos p_177746_1_) {
+         return (double) (p_177746_1_.func_177958_n() + 1) > this.func_177726_b() && (double) p_177746_1_.func_177958_n() < this.func_177728_d() && (double) (p_177746_1_.func_177952_p() + 1) > this.func_177736_c() && (double) p_177746_1_.func_177952_p() < this.func_177733_e();
+     }
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 6209c106290c610a26c810239efbfc9ced7ee8bf..3dc58a6a17c8fafbacfca1afb32d9df8f24ecd8d 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -192,7 +192,7 @@ public class ServerWorld extends World implements ISeedReader {
+     public final SaveFormat.LevelSave convertable;
+     public final UUID uuid;
+ 
+-    public Chunk getChunkIfLoaded(int x, int z) {
++    @Override public Chunk getChunkIfLoaded(int x, int z) { // Paper - this was added in world too but keeping here for NMS ABI
+         return this.field_241102_C_.func_217205_a(x, z, false);
+     }
+ 

@@ -1,0 +1,46 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <blake.galbreath@gmail.com>
+Date: Sat, 22 Aug 2020 23:36:21 +0200
+Subject: [PATCH] Fix SpawnChangeEvent not firing for all use-cases
+
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index ea038b03fb601138c919d123c2c234c8a357a360..6a06b2a7208d3deeb0d991b294d44d5458495b25 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1973,12 +1973,14 @@ public class ServerWorld extends World implements ISeedReader {
+     }
+     // Paper end
+ 
++    public final void setSpawn(BlockPos blockposition, float f) { this.func_241124_a__(blockposition, f); } // Paper - OBFHELPER
+     public void func_241124_a__(BlockPos p_241124_1_, float p_241124_2_) {
+         // Paper - configurable spawn radius
+         BlockPos prevSpawn = this.getSpawn();
+         //ChunkCoordIntPair chunkcoordintpair = new ChunkCoordIntPair(new BlockPosition(this.worldData.a(), 0, this.worldData.c()));
+ 
+         this.field_72986_A.func_176143_a(p_241124_1_, p_241124_2_);
++        new org.bukkit.event.world.SpawnChangeEvent(getWorld(), MCUtil.toLocation(this, prevSpawn)).callEvent(); // Paper
+         if (this.keepSpawnInMemory) {
+             // if this keepSpawnInMemory is false a plugin has already removed our tickets, do not re-add
+             this.removeTicketsForSpawn(this.paperConfig.keepLoadedRange, prevSpawn);
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index ce9e5c5ca1dd9852f7a8ddce778899b396f42fbb..d7b5192cd3d9c3397bc61c5d8baed56cc83a0c08 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -382,11 +382,13 @@ public class CraftWorld implements World {
+     public boolean setSpawnLocation(int x, int y, int z, float angle) {
+         try {
+             Location previousLocation = getSpawnLocation();
+-            world.field_72986_A.func_176143_a(new BlockPos(x, y, z), angle);
++            world.setSpawn(new BlockPos(x, y, z), angle); // Paper - use WorldServer#setSpawn
+ 
++            // Paper start - move to nms.World
+             // Notify anyone who's listening.
+-            SpawnChangeEvent event = new SpawnChangeEvent(this, previousLocation);
+-            server.getPluginManager().callEvent(event);
++            // SpawnChangeEvent event = new SpawnChangeEvent(this, previousLocation);
++            // server.getPluginManager().callEvent(event);
++            // Paper end
+ 
+             return true;
+         } catch (Exception e) {

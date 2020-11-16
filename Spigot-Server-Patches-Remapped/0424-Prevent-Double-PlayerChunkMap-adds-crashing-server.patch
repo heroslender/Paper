@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 2 Apr 2020 01:42:39 -0400
+Subject: [PATCH] Prevent Double PlayerChunkMap adds crashing server
+
+Suspected case would be around the technique used in .stopRiding
+Stack will identify any causer of this and warn instead of crashing.
+
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index 77b9ee45adc1046b9af96da727ad69ca9b182e0e..891ab06272090bb14fac47500f05c4d55c4c3967 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -1499,6 +1499,14 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+ 
+     protected void func_219210_a(Entity p_219210_1_) {
+         org.spigotmc.AsyncCatcher.catchOp("entity track"); // Spigot
++        // Paper start - ignore and warn about illegal addEntity calls instead of crashing server
++        if (!p_219210_1_.valid || p_219210_1_.field_70170_p != this.field_219255_i || this.field_219272_z.containsKey(p_219210_1_.func_145782_y())) {
++            new Throwable("[ERROR] Illegal PlayerChunkMap::addEntity for world " + this.field_219255_i.getWorld().getName()
++                + ": " + p_219210_1_  + (this.field_219272_z.containsKey(p_219210_1_.func_145782_y()) ? " ALREADY CONTAINED (This would have crashed your server)" : ""))
++                .printStackTrace();
++            return;
++        }
++        // Paper end
+         if (!(p_219210_1_ instanceof EnderDragonPartEntity)) {
+             EntityType<?> entitytypes = p_219210_1_.func_200600_R();
+             int i = entitytypes.func_233602_m_() * 16;
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index d252dfb49c0876001195a858a959b171a42b5f7f..f5d76f286e98fb6df9bfb6be6dd60692bd69f34a 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1522,7 +1522,7 @@ public class ServerWorld extends World implements ISeedReader {
+                 }
+             }
+ 
+-            this.func_72863_F().func_217230_c(p_217465_1_);
++            // this.getChunkProvider().addEntity(entity); // Paper - moved down below valid=true
+             // CraftBukkit start - SPIGOT-5278
+             if (p_217465_1_ instanceof DrownedEntity) {
+                 this.field_217495_I.add(((DrownedEntity) p_217465_1_).field_204716_a);
+@@ -1533,6 +1533,7 @@ public class ServerWorld extends World implements ISeedReader {
+                 this.field_217495_I.add(((MobEntity) p_217465_1_).func_70661_as());
+             }
+             p_217465_1_.valid = true; // CraftBukkit
++            this.func_72863_F().func_217230_c(p_217465_1_); // Paper - from above to be below valid=true
+             // Paper start - Set origin location when the entity is being added to the world
+             if (p_217465_1_.origin == null) {
+                 p_217465_1_.origin = p_217465_1_.getBukkitEntity().getLocation();

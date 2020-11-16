@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sun, 23 Aug 2020 15:47:34 +0200
+Subject: [PATCH] Add zombie targets turtle egg config
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index dd8ed18ae93aed4b9a4f11460de5ce23d8fd8c43..5e2ae5758d6e649d00f8047c7ab0d263fd7f96e8 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -657,4 +657,9 @@ public class PaperWorldConfig {
+             maxLightningFlashDistance = 512; // Vanilla value
+         }
+     }
++
++    public boolean zombiesTargetTurtleEggs = true;
++    private void zombiesTargetTurtleEggs() {
++        zombiesTargetTurtleEggs = getBoolean("zombies-target-turtle-eggs", zombiesTargetTurtleEggs);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+index c6aecd449555c7506909fa19a3fc3a4df8dedde5..1347f9cf1d47f2e125ccc4143f80465981c6e461 100644
+--- a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+@@ -107,7 +107,7 @@ public class ZombieEntity extends MonsterEntity {
+ 
+     @Override
+     protected void func_184651_r() {
+-        this.field_70714_bg.func_75776_a(4, new ZombieEntity.AttackTurtleEggGoal(this, 1.0D, 3));
++        if (field_70170_p.paperConfig.zombiesTargetTurtleEggs) this.field_70714_bg.func_75776_a(4, new ZombieEntity.AttackTurtleEggGoal(this, 1.0D, 3)); // Paper
+         this.field_70714_bg.func_75776_a(8, new LookAtGoal(this, PlayerEntity.class, 8.0F));
+         this.field_70714_bg.func_75776_a(8, new LookRandomlyGoal(this));
+         this.func_175456_n();

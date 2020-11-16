@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 5 Jun 2018 22:47:26 -0400
+Subject: [PATCH] WitchReadyPotionEvent
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/WitchEntity.java b/src/main/java/net/minecraft/entity/monster/WitchEntity.java
+index 164c0f7e2154c80bd39d369c9bc3e518949075f7..6208309c5ec4df11cae5e8958c27061248a4c641 100644
+--- a/src/main/java/net/minecraft/entity/monster/WitchEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/WitchEntity.java
+@@ -157,7 +157,11 @@ public class WitchEntity extends AbstractRaiderEntity implements IRangedAttackMo
+                 }
+ 
+                 if (potionregistry != null) {
+-                    this.func_184201_a(EquipmentSlotType.MAINHAND, PotionUtils.func_185188_a(new ItemStack(Items.field_151068_bn), potionregistry));
++                    // Paper start
++                    ItemStack potion = PotionUtils.func_185188_a(new ItemStack(Items.field_151068_bn), potionregistry);
++                    org.bukkit.inventory.ItemStack bukkitStack = com.destroystokyo.paper.event.entity.WitchReadyPotionEvent.process((org.bukkit.entity.Witch) this.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(potion));
++                    this.func_184201_a(EquipmentSlotType.MAINHAND, org.bukkit.craftbukkit.inventory.CraftItemStack.asNMSCopy(bukkitStack));
++                    // Paper end
+                     this.field_82200_e = this.func_184614_ca().func_77988_m();
+                     this.func_82197_f(true);
+                     if (!this.func_174814_R()) {

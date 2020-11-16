@@ -1,0 +1,23 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Fri, 26 Jun 2020 22:35:08 -0700
+Subject: [PATCH] Hide sync chunk writes behind flag
+
+Syncing writes on each write call has terrible performance
+on harddrives.
+
+-DPaper.enable-sync-chunk-writes=true to enable
+
+diff --git a/src/main/java/net/minecraft/server/dedicated/ServerProperties.java b/src/main/java/net/minecraft/server/dedicated/ServerProperties.java
+index b2163bc42575e93c30f9086d2e64be972d8b8add..6555c12841fda761ddafe0770168edb691c7ab17 100644
+--- a/src/main/java/net/minecraft/server/dedicated/ServerProperties.java
++++ b/src/main/java/net/minecraft/server/dedicated/ServerProperties.java
+@@ -106,7 +106,7 @@ public class ServerProperties extends PropertyManager<ServerProperties> {
+         this.field_219004_Q = this.func_218962_a("max-world-size", (integer) -> {
+             return MathHelper.func_76125_a(integer, 1, 29999984);
+         }, 29999984);
+-        this.field_241078_O_ = this.func_218982_a("sync-chunk-writes", true);
++        this.field_241078_O_ = this.func_218982_a("sync-chunk-writes", true) && Boolean.getBoolean("Paper.enable-sync-chunk-writes"); // Paper - hide behind flag
+         this.field_241079_P_ = this.func_218982_a("enable-jmx-monitoring", false);
+         this.field_241080_Q_ = this.func_218982_a("enable-status", true);
+         this.field_241081_R_ = this.func_218962_a("entity-broadcast-range-percentage", (integer) -> {

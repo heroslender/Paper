@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Tue, 22 Mar 2016 12:04:28 -0500
+Subject: [PATCH] Configurable spawn chances for skeleton horses
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 4c956da69261d3092cd9abb1b98f7c9a220cc91e..6998ec2d7550094498649deb9028988700982e04 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -224,4 +224,12 @@ public class PaperWorldConfig {
+         log("Non Player Arrow Despawn Rate: " + nonPlayerArrowDespawnRate);
+         log("Creative Arrow Despawn Rate: " + creativeArrowDespawnRate);
+     }
++
++    public double skeleHorseSpawnChance;
++    private void skeleHorseSpawnChance() {
++        skeleHorseSpawnChance = getDouble("skeleton-horse-thunder-spawn-chance", 0.01D);
++        if (skeleHorseSpawnChance < 0) {
++            skeleHorseSpawnChance = 0.01D; // Vanilla value
++        }
++    }
+ }
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 3dc58a6a17c8fafbacfca1afb32d9df8f24ecd8d..4ff9acc6a09692f5be13cc62cbfa0b1dcc8fdcaf 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -583,7 +583,7 @@ public class ServerWorld extends World implements ISeedReader {
+             blockposition = this.func_175736_a(this.func_217383_a(j, 0, k, 15));
+             if (this.func_175727_C(blockposition)) {
+                 DifficultyInstance difficultydamagescaler = this.func_175649_E(blockposition);
+-                boolean flag1 = this.func_82736_K().func_223586_b(GameRules.field_223601_d) && this.field_73012_v.nextDouble() < (double) difficultydamagescaler.func_180168_b() * 0.01D;
++                boolean flag1 = this.func_82736_K().func_223586_b(GameRules.field_223601_d) && this.field_73012_v.nextDouble() < (double) difficultydamagescaler.func_180168_b() * paperConfig.skeleHorseSpawnChance; // Paper
+ 
+                 if (flag1) {
+                     SkeletonHorseEntity entityhorseskeleton = (SkeletonHorseEntity) EntityType.field_200742_ah.func_200721_a((World) this);

@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 15 Jun 2013 19:51:17 -0400
+Subject: [PATCH] Improve EntityShootBowEvent
+
+Adds missing call to Illagers and also adds Arrow ItemStack to skeltons
+
+diff --git a/src/main/java/net/minecraft/entity/monster/AbstractSkeletonEntity.java b/src/main/java/net/minecraft/entity/monster/AbstractSkeletonEntity.java
+index b126a917dc5b9fa85e674445e7277475a6a28839..1d0fdaf24dfacc102958f9f51cf438d303ee35d7 100644
+--- a/src/main/java/net/minecraft/entity/monster/AbstractSkeletonEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/AbstractSkeletonEntity.java
+@@ -199,7 +199,7 @@ public abstract class AbstractSkeletonEntity extends MonsterEntity implements IR
+ 
+         entityarrow.func_70186_c(d0, d1 + d3 * 0.20000000298023224D, d2, 1.6F, (float) (14 - this.field_70170_p.func_175659_aa().func_151525_a() * 4));
+         // CraftBukkit start
+-        org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(this, this.func_184614_ca(), null, entityarrow, Hand.MAIN_HAND, 0.8F, true);
++        org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(this, this.func_184614_ca(), entityarrow.getOriginalItemStack(), entityarrow, Hand.MAIN_HAND, 0.8F, true); // Paper
+         if (event.isCancelled()) {
+             event.getProjectile().remove();
+             return;
+diff --git a/src/main/java/net/minecraft/entity/monster/IllusionerEntity.java b/src/main/java/net/minecraft/entity/monster/IllusionerEntity.java
+index 47543f630e3e4777b4f102c5cdb62e86730940f2..54d1c4eb6dd4add9ac8497f6e4a50cb7db443d5d 100644
+--- a/src/main/java/net/minecraft/entity/monster/IllusionerEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/IllusionerEntity.java
+@@ -171,8 +171,18 @@ public class IllusionerEntity extends SpellcastingIllagerEntity implements IRang
+         double d3 = (double) MathHelper.func_76133_a(d0 * d0 + d2 * d2);
+ 
+         entityarrow.func_70186_c(d0, d1 + d3 * 0.20000000298023224D, d2, 1.6F, (float) (14 - this.field_70170_p.func_175659_aa().func_151525_a() * 4));
++        // Paper start
++        org.bukkit.event.entity.EntityShootBowEvent event = org.bukkit.craftbukkit.event.CraftEventFactory.callEntityShootBowEvent(this, this.func_184614_ca(), entityarrow.getOriginalItemStack(), entityarrow, p_82196_1_.func_184600_cs(), 0.8F, true);
++        if (event.isCancelled()) {
++            event.getProjectile().remove();
++            return;
++        }
++
++        if (event.getProjectile() == entityarrow.getBukkitEntity()) {
++            this.field_70170_p.func_217376_c(entityarrow);
++        }
+         this.func_184185_a(SoundEvents.field_187866_fi, 1.0F, 1.0F / (this.func_70681_au().nextFloat() * 0.4F + 0.8F));
+-        this.field_70170_p.func_217376_c(entityarrow);
++        // Paper end
+     }
+ 
+     class BlindnessSpellGoal extends SpellcastingIllagerEntity.UseSpellGoal {

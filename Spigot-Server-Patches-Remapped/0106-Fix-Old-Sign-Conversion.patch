@@ -1,0 +1,59 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 17 Jun 2016 20:50:11 -0400
+Subject: [PATCH] Fix Old Sign Conversion
+
+1) Sign loading code was trying to parse the JSON before the check for oldSign.
+   That code could then skip the old sign converting code if it triggers a JSON parse exception.
+2) New Mojang Schematic system has Tile Entities in the new converted format, but missing the Bukkit.isConverted flag
+   This causes Igloos and such to render broken signs. We fix this by ignoring sign conversion for Defined Structures
+
+diff --git a/src/main/java/net/minecraft/tileentity/SignTileEntity.java b/src/main/java/net/minecraft/tileentity/SignTileEntity.java
+index fb8741971df3d849fd98d2b53aa4f454441b619b..bfa47592d140878bde9dcf139b321889a4350dff 100644
+--- a/src/main/java/net/minecraft/tileentity/SignTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/SignTileEntity.java
+@@ -79,13 +79,14 @@ public class SignTileEntity extends TileEntity implements ICommandSource { // Cr
+             }
+ 
+             try {
+-                IFormattableTextComponent ichatmutablecomponent = ITextComponent.Serializer.func_240643_a_(s.isEmpty() ? "\"\"" : s);
++                //IChatMutableComponent ichatmutablecomponent = IChatBaseComponent.ChatSerializer.a(s.isEmpty() ? "\"\"" : s); // Paper - move down - the old format might throw a json error
+ 
+-                if (oldSign) {
++                if (oldSign && !isLoadingStructure) { // Paper - saved structures will be in the new format, but will not have isConverted
+                     field_145915_a[i] = org.bukkit.craftbukkit.util.CraftChatMessage.fromString(s)[0];
+                     continue;
+                 }
+                 // CraftBukkit end
++                IFormattableTextComponent ichatmutablecomponent = ITextComponent.Serializer.func_240643_a_(s.isEmpty() ? "\"\"" : s); // Paper - after old sign
+ 
+                 if (this.field_145850_b instanceof ServerWorld) {
+                     try {
+diff --git a/src/main/java/net/minecraft/tileentity/TileEntity.java b/src/main/java/net/minecraft/tileentity/TileEntity.java
+index fdf6479028cbf00dff2e5aab0bff4f1f9887f873..96e65b6634526e646bc069b0d22013b179b497c6 100644
+--- a/src/main/java/net/minecraft/tileentity/TileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/TileEntity.java
+@@ -33,6 +33,7 @@ public abstract class TileEntity implements KeyedObject { // Paper
+     public CraftPersistentDataContainer persistentDataContainer;
+     // CraftBukkit end
+     private static final Logger field_145852_a = LogManager.getLogger();
++    boolean isLoadingStructure = false; // Paper
+     private final TileEntityType<?> field_200663_e; public TileEntityType getTileEntityType() { return field_200663_e; } // Paper - OBFHELPER
+     @Nullable
+     protected World field_145850_b;
+diff --git a/src/main/java/net/minecraft/world/gen/feature/template/Template.java b/src/main/java/net/minecraft/world/gen/feature/template/Template.java
+index e401d6b00cc1c1f70e2e0f8eb8a2a957f06dc22d..9f5f38597b5cc09f8ecf0d235b007d6ddd161086 100644
+--- a/src/main/java/net/minecraft/world/gen/feature/template/Template.java
++++ b/src/main/java/net/minecraft/world/gen/feature/template/Template.java
+@@ -278,9 +278,11 @@ public class Template {
+                                         definedstructure_blockinfo.field_186244_c.func_74772_a("LootTableSeed", p_237146_5_.nextLong());
+                                     }
+ 
++                                    tileentity.isLoadingStructure = true; // Paper
+                                     tileentity.func_230337_a_(definedstructure_blockinfo.field_186243_b, definedstructure_blockinfo.field_186244_c);
+                                     tileentity.func_189668_a(p_237146_4_.func_186212_b());
+                                     tileentity.func_189667_a(p_237146_4_.func_186215_c());
++                                    tileentity.isLoadingStructure = false; // Paper
+                                 }
+                             }
+ 

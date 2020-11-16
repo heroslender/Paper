@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Sat, 25 Aug 2018 19:56:51 -0500
+Subject: [PATCH] Add PhantomPreSpawnEvent
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/PhantomEntity.java b/src/main/java/net/minecraft/entity/monster/PhantomEntity.java
+index d97bfce66a1aadf38882333ad7890745ca48182b..0552b5bcb1036fbe0545bab8c26aa744ee5515b2 100644
+--- a/src/main/java/net/minecraft/entity/monster/PhantomEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/PhantomEntity.java
+@@ -161,6 +161,11 @@ public class PhantomEntity extends FlyingEntity implements IMob {
+         }
+ 
+         this.func_203034_a(p_70037_1_.func_74762_e("Size"));
++        // Paper start
++        if (p_70037_1_.hasUUID("Paper.SpawningEntity")) {
++            this.spawningEntity = p_70037_1_.getUUID("Paper.SpawningEntity");
++        }
++        // Paper end
+     }
+ 
+     @Override
+@@ -170,6 +175,11 @@ public class PhantomEntity extends FlyingEntity implements IMob {
+         p_213281_1_.func_74768_a("AY", this.field_203037_c.func_177956_o());
+         p_213281_1_.func_74768_a("AZ", this.field_203037_c.func_177952_p());
+         p_213281_1_.func_74768_a("Size", this.func_203032_dq());
++        // Paper start
++        if (this.spawningEntity != null) {
++            p_213281_1_.setUUID("Paper.SpawningEntity", this.spawningEntity);
++        }
++        // Paper end
+     }
+ 
+     @Override
+@@ -216,6 +226,14 @@ public class PhantomEntity extends FlyingEntity implements IMob {
+         return entitysize.func_220313_a(f);
+     }
+ 
++    // Paper start
++    java.util.UUID spawningEntity;
++
++    public java.util.UUID getSpawningEntity() {
++        return spawningEntity;
++    }
++    // Paper end
++
+     class AttackPlayerGoal extends Goal {
+ 
+         private final EntityPredicate field_220842_b;
+diff --git a/src/main/java/net/minecraft/world/spawner/PhantomSpawner.java b/src/main/java/net/minecraft/world/spawner/PhantomSpawner.java
+index 7613e68275e81a6227d9738d0af90434ec66d005..c115287df714efaef7f03b5488e5ff01dd366c7d 100644
+--- a/src/main/java/net/minecraft/world/spawner/PhantomSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/PhantomSpawner.java
+@@ -11,6 +11,7 @@ import net.minecraft.entity.player.PlayerEntity;
+ import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.fluid.FluidState;
+ import net.minecraft.nbt.CompoundNBT;
++import net.minecraft.server.MCUtil;
+ import net.minecraft.stats.ServerStatisticsManager;
+ import net.minecraft.stats.Stats;
+ import net.minecraft.util.math.BlockPos;
+@@ -71,8 +72,17 @@ public class PhantomSpawner implements ISpecialSpawner {
+                                             int k = 1 + random.nextInt(difficultydamagescaler.func_203095_a().func_151525_a() + 1);
+ 
+                                             for (int l = 0; l < k; ++l) {
++                                                // Paper start
++                                                com.destroystokyo.paper.event.entity.PhantomPreSpawnEvent event = new com.destroystokyo.paper.event.entity.PhantomPreSpawnEvent(MCUtil.toLocation(p_230253_1_, blockposition1), ((ServerPlayerEntity) entityhuman).getBukkitEntity(), org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL);
++                                                if (!event.callEvent()) {
++                                                    if (event.shouldAbortSpawn()) {
++                                                        break;
++                                                    }
++                                                    continue;
++                                                }
++                                                // Paper end
+                                                 PhantomEntity entityphantom = (PhantomEntity) EntityType.field_203097_aH.func_200721_a((World) p_230253_1_);
+-
++                                                entityphantom.spawningEntity = entityhuman.field_96093_i; // Paper
+                                                 entityphantom.func_174828_a(blockposition1, 0.0F, 0.0F);
+                                                 groupdataentity = entityphantom.func_213386_a(p_230253_1_, difficultydamagescaler, SpawnReason.NATURAL, groupdataentity, (CompoundNBT) null);
+                                                 p_230253_1_.addAllEntities(entityphantom, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.NATURAL); // CraftBukkit
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPhantom.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPhantom.java
+index 333f8f81024b5e43644c93d4007415b30af06f23..f5e5b33019c3c054a7d23d67d2dd86b17c3802b0 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPhantom.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPhantom.java
+@@ -35,4 +35,10 @@ public class CraftPhantom extends CraftFlying implements Phantom {
+     public EntityType getType() {
+         return EntityType.PHANTOM;
+     }
++
++    // Paper start
++    public java.util.UUID getSpawningEntity() {
++        return getHandle().getSpawningEntity();
++    }
++    // Paper end
+ }

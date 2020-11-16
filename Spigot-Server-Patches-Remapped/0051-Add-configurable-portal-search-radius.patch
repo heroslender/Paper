@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Joseph Hirschfeld <joe@ibj.io>
+Date: Thu, 3 Mar 2016 02:46:17 -0600
+Subject: [PATCH] Add configurable portal search radius
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index e2cb804fd40e236337c37d89dfc85a02486c1bf4..cff769a0cffd81501f919fad0c6456e1268bd223 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -192,4 +192,11 @@ public class PaperWorldConfig {
+     private void allChunksAreSlimeChunks() {
+         allChunksAreSlimeChunks = getBoolean("all-chunks-are-slime-chunks", false);
+     }
++
++    public int portalSearchRadius;
++    public int portalCreateRadius;
++    private void portalSearchRadius() {
++        portalSearchRadius = getInt("portal-search-radius", 128);
++        portalCreateRadius = getInt("portal-create-radius", 16);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 32d93a096c1642c8e64832133c858acbb35bf44a..9bcb1a66cc60733ea86d436283a22a5718c96ef2 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -2618,7 +2618,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+                 double d4 = DimensionType.func_242715_a(this.field_70170_p.func_230315_m_(), p_241829_1_.func_230315_m_());
+                 BlockPos blockposition = new BlockPos(MathHelper.func_151237_a(this.func_226277_ct_() * d4, d0, d2), this.func_226278_cu_(), MathHelper.func_151237_a(this.func_226281_cx_() * d4, d1, d3));
+                 // CraftBukkit start
+-                CraftPortalEvent event = callPortalEvent(this, p_241829_1_, blockposition, PlayerTeleportEvent.TeleportCause.NETHER_PORTAL, flag2 ? 16 : 128, 16);
++                CraftPortalEvent event = callPortalEvent(this, p_241829_1_, blockposition, PlayerTeleportEvent.TeleportCause.NETHER_PORTAL, p_241829_1_.paperConfig.portalSearchRadius, p_241829_1_.paperConfig.portalCreateRadius); // Paper start - configurable portal radius
+                 if (event == null) {
+                     return null;
+                 }
+diff --git a/src/main/java/net/minecraft/world/Teleporter.java b/src/main/java/net/minecraft/world/Teleporter.java
+index 2bae1a389f686721e4f287d51193b2d70ded2330..c8eefed945cf2b3e9485a22e250f7755950e0d10 100644
+--- a/src/main/java/net/minecraft/world/Teleporter.java
++++ b/src/main/java/net/minecraft/world/Teleporter.java
+@@ -32,7 +32,7 @@ public class Teleporter {
+ 
+     public Optional<TeleportationRepositioner.Result> func_242957_a(BlockPos p_242957_1_, boolean p_242957_2_) {
+         // CraftBukkit start
+-        return findPortal(p_242957_1_, p_242957_2_ ? 16 : 128); // Search Radius
++        return findPortal(p_242957_1_, p_242957_2_ ? field_85192_a.paperConfig.portalCreateRadius : field_85192_a.paperConfig.portalSearchRadius); // Paper - search Radius
+     }
+ 
+     public Optional<TeleportationRepositioner.Result> findPortal(BlockPos blockposition, int i) {

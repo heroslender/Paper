@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 21 Dec 2016 03:48:29 -0500
+Subject: [PATCH] Optimize ItemStack.isEmpty()
+
+Remove hashMap lookup every check, simplify code to remove ternary
+
+diff --git a/src/main/java/net/minecraft/item/ItemStack.java b/src/main/java/net/minecraft/item/ItemStack.java
+index ba941d05f29614c47015336da8ea2300c164bfda..6ded2d1f4921ca83a5c1152a689d039cef45b48f 100644
+--- a/src/main/java/net/minecraft/item/ItemStack.java
++++ b/src/main/java/net/minecraft/item/ItemStack.java
+@@ -207,7 +207,7 @@ public final class ItemStack {
+     }
+ 
+     public boolean func_190926_b() {
+-        return this == ItemStack.field_190927_a ? true : (this.func_77973_b() != null && this.func_77973_b() != Items.field_190931_a ? this.field_77994_a <= 0 : true);
++        return this == ItemStack.NULL_ITEM || this.field_151002_e == null || this.field_151002_e == Items.field_190931_a || this.field_77994_a <= 0; // Paper
+     }
+ 
+     public ItemStack func_77979_a(int p_77979_1_) {

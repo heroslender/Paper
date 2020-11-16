@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kashike <kashike@vq.lc>
+Date: Wed, 21 Dec 2016 11:47:25 -0600
+Subject: [PATCH] Add API methods to control if armour stands can move
+
+
+diff --git a/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java b/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
+index 0071a4d68c3a11340f1cd1bc2705620f8282342d..d0d7027b2539fc5bcc8d499a5c8fce2c02a92c8c 100644
+--- a/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ArmorStandEntity.java
+@@ -11,6 +11,7 @@ import net.minecraft.entity.EntitySize;
+ import net.minecraft.entity.EntityType;
+ import net.minecraft.entity.LivingEntity;
+ import net.minecraft.entity.MobEntity;
++import net.minecraft.entity.MoverType;
+ import net.minecraft.entity.Pose;
+ import net.minecraft.entity.effect.LightningBoltEntity;
+ import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
+@@ -77,6 +78,7 @@ public class ArmorStandEntity extends LivingEntity {
+     public Rotations field_175439_bk;
+     public Rotations field_175440_bl;
+     public Rotations field_175441_bm;
++    public boolean canMove = true; // Paper
+ 
+     public ArmorStandEntity(EntityType<? extends ArmorStandEntity> entitytypes, World world) {
+         super(entitytypes, world);
+@@ -853,4 +855,13 @@ public class ArmorStandEntity extends LivingEntity {
+     private EntitySize func_242330_s(boolean p_242330_1_) {
+         return p_242330_1_ ? ArmorStandEntity.field_242328_bp : (this.func_70631_g_() ? ArmorStandEntity.field_242329_bq : this.func_200600_R().func_220334_j());
+     }
++
++    // Paper start
++    @Override
++    public void func_213315_a(MoverType p_213315_1_, Vector3d p_213315_2_) {
++        if (this.canMove) {
++            super.func_213315_a(p_213315_1_, p_213315_2_);
++        }
++    }
++    // Paper end
+ }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftArmorStand.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftArmorStand.java
+index bd2b3119df6a9099a1adbfde62fe19e5822db332..cbc1e5c83c0556fefe318dd05cd8ff4262e14646 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftArmorStand.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftArmorStand.java
+@@ -228,4 +228,15 @@ public class CraftArmorStand extends CraftLivingEntity implements ArmorStand {
+     public boolean hasEquipmentLock(EquipmentSlot equipmentSlot, LockType lockType) {
+         return (getHandle().field_175442_bg & (1 << CraftEquipmentSlot.getNMS(equipmentSlot).func_188452_c() + lockType.ordinal() * 8)) != 0;
+     }
++    // Paper start
++    @Override
++    public boolean canMove() {
++        return getHandle().canMove;
++    }
++
++    @Override
++    public void setCanMove(boolean move) {
++        getHandle().canMove = move;
++    }
++    // Paper end
+ }

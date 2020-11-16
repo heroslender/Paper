@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kickash32 <kickash32@gmail.com>
+Date: Fri, 8 May 2020 00:49:18 -0400
+Subject: [PATCH] Fix PotionEffect ignores icon flag
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+index cd702c0e400a316f995151c1443044842dfa2879..e97bebbe502f05623714c46d5caaf05e9a0f1c59 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+@@ -408,7 +408,7 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+ 
+     @Override
+     public boolean addPotionEffect(PotionEffect effect, boolean force) {
+-        getHandle().addEffect(new EffectInstance(Effect.func_188412_a(effect.getType().getId()), effect.getDuration(), effect.getAmplifier(), effect.isAmbient(), effect.hasParticles()), EntityPotionEffectEvent.Cause.PLUGIN);
++        getHandle().addEffect(new EffectInstance(Effect.func_188412_a(effect.getType().getId()), effect.getDuration(), effect.getAmplifier(), effect.isAmbient(), effect.hasParticles(), effect.hasIcon()), EntityPotionEffectEvent.Cause.PLUGIN); // Paper - Don't ignore icon
+         return true;
+     }
+ 

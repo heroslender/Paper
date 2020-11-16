@@ -1,0 +1,31 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 30 Apr 2018 13:29:44 -0400
+Subject: [PATCH] Enderman.teleportRandomly()
+
+Ability to trigger the vanilla "teleport randomly" mechanic of an enderman.
+
+diff --git a/src/main/java/net/minecraft/entity/monster/EndermanEntity.java b/src/main/java/net/minecraft/entity/monster/EndermanEntity.java
+index 77ca6bd5c94a4ace7eea32ed2d3c619db293b154..a81ea6ba05f1689afdadcfb022afc39f3249f301 100644
+--- a/src/main/java/net/minecraft/entity/monster/EndermanEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/EndermanEntity.java
+@@ -278,6 +278,7 @@ public class EndermanEntity extends MonsterEntity implements IAngerable {
+         super.func_70619_bc();
+     }
+ 
++    public final boolean teleportRandomly() { return this.func_70820_n(); } // Paper - OBFHELPER
+     protected boolean func_70820_n() {
+         if (!this.field_70170_p.func_201670_d() && this.func_70089_S()) {
+             double d0 = this.func_226277_ct_() + (this.field_70146_Z.nextDouble() - 0.5D) * 64.0D;
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftEnderman.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftEnderman.java
+index c284d2068a2f62292848166359340df28f2debae..a44512cb6c7e569bb4d6df0d78467dac73785087 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftEnderman.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftEnderman.java
+@@ -16,6 +16,7 @@ public class CraftEnderman extends CraftMonster implements Enderman {
+         super(server, entity);
+     }
+ 
++    @Override public boolean teleportRandomly() { return getHandle().teleportRandomly(); } // Paper
+     @Override
+     public MaterialData getCarriedMaterial() {
+         BlockState blockData = getHandle().func_195405_dq();

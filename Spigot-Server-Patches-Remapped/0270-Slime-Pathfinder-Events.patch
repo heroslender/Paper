@@ -1,0 +1,230 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 24 Aug 2018 08:18:42 -0500
+Subject: [PATCH] Slime Pathfinder Events
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/SlimeEntity.java b/src/main/java/net/minecraft/entity/monster/SlimeEntity.java
+index b9bb0f4972ae50ce885c5ebdacd75bb772c17be7..866396f82a9731dddc3eee4b33e9276edaa500cb 100644
+--- a/src/main/java/net/minecraft/entity/monster/SlimeEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/SlimeEntity.java
+@@ -9,7 +9,6 @@ import net.minecraft.entity.Entity;
+ import net.minecraft.entity.EntitySize;
+ import net.minecraft.entity.EntityType;
+ import net.minecraft.entity.ILivingEntityData;
+-import net.minecraft.entity.LivingEntity;
+ import net.minecraft.entity.MobEntity;
+ import net.minecraft.entity.Pose;
+ import net.minecraft.entity.SpawnReason;
+@@ -44,6 +43,14 @@ import net.minecraft.world.IServerWorld;
+ import net.minecraft.world.IWorld;
+ import net.minecraft.world.World;
+ import net.minecraft.world.biome.Biomes;
++// Paper start
++import com.destroystokyo.paper.event.entity.SlimeChangeDirectionEvent;
++import com.destroystokyo.paper.event.entity.SlimeSwimEvent;
++import com.destroystokyo.paper.event.entity.SlimeTargetLivingEntityEvent;
++import com.destroystokyo.paper.event.entity.SlimeWanderEvent;
++import org.bukkit.entity.LivingEntity;
++import org.bukkit.entity.Slime;
++// Paper end
+ // CraftBukkit start
+ import java.util.ArrayList;
+ import java.util.List;
+@@ -104,6 +111,7 @@ public class SlimeEntity extends MobEntity implements IMob {
+     @Override
+     public void func_213281_b(CompoundNBT p_213281_1_) {
+         super.func_213281_b(p_213281_1_);
++        p_213281_1_.func_74757_a("Paper.canWander", this.canWander); // Paper
+         p_213281_1_.func_74768_a("Size", this.func_70809_q() - 1);
+         p_213281_1_.func_74757_a("wasOnGround", this.field_175452_bi);
+     }
+@@ -118,6 +126,11 @@ public class SlimeEntity extends MobEntity implements IMob {
+ 
+         this.func_70799_a(i + 1, false);
+         super.func_70037_a(p_70037_1_);
++        // Paper start - check exists before loading or this will be loaded as false
++        if (p_70037_1_.func_74764_b("Paper.canWander")) {
++            this.canWander = p_70037_1_.func_74767_n("Paper.canWander");
++        }
++        // Paper end
+         this.field_175452_bi = p_70037_1_.func_74767_n("wasOnGround");
+     }
+ 
+@@ -219,7 +232,7 @@ public class SlimeEntity extends MobEntity implements IMob {
+                 super.func_70106_y();
+                 return;
+             }
+-            List<LivingEntity> slimes = new ArrayList<>(j);
++            List<net.minecraft.entity.LivingEntity> slimes = new ArrayList<>(j);
+             // CraftBukkit end
+ 
+             for (int l = 0; l < k; ++l) {
+@@ -243,7 +256,7 @@ public class SlimeEntity extends MobEntity implements IMob {
+             if (CraftEventFactory.callEntityTransformEvent(this, slimes, EntityTransformEvent.TransformReason.SPLIT).isCancelled()) {
+                 return;
+             }
+-            for (LivingEntity living : slimes) {
++            for (net.minecraft.entity.LivingEntity living : slimes) {
+                 this.field_70170_p.addEntity(living, org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason.SLIME_SPLIT); // CraftBukkit - SpawnReason
+             }
+             // CraftBukkit end
+@@ -256,7 +269,7 @@ public class SlimeEntity extends MobEntity implements IMob {
+     public void func_70108_f(Entity p_70108_1_) {
+         super.func_70108_f(p_70108_1_);
+         if (p_70108_1_ instanceof IronGolemEntity && this.func_70800_m()) {
+-            this.func_175451_e((LivingEntity) p_70108_1_);
++            this.func_175451_e((net.minecraft.entity.LivingEntity) p_70108_1_);
+         }
+ 
+     }
+@@ -264,18 +277,18 @@ public class SlimeEntity extends MobEntity implements IMob {
+     @Override
+     public void func_70100_b_(PlayerEntity p_70100_1_) {
+         if (this.func_70800_m()) {
+-            this.func_175451_e((LivingEntity) p_70100_1_);
++            this.func_175451_e((net.minecraft.entity.LivingEntity) p_70100_1_);
+         }
+ 
+     }
+ 
+-    protected void func_175451_e(LivingEntity p_175451_1_) {
++    protected void func_175451_e(net.minecraft.entity.LivingEntity p_175451_1_) {
+         if (this.func_70089_S()) {
+             int i = this.func_70809_q();
+ 
+             if (this.func_70068_e((Entity) p_175451_1_) < 0.6D * (double) i * 0.6D * (double) i && this.func_70685_l(p_175451_1_) && p_175451_1_.func_70097_a(DamageSource.func_76358_a(this), this.func_225512_er_())) {
+                 this.func_184185_a(SoundEvents.field_187870_fk, 1.0F, (this.field_70146_Z.nextFloat() - this.field_70146_Z.nextFloat()) * 0.2F + 1.0F);
+-                this.func_174815_a((LivingEntity) this, (Entity) p_175451_1_);
++                this.func_174815_a((net.minecraft.entity.LivingEntity) this, (Entity) p_175451_1_);
+             }
+         }
+ 
+@@ -397,7 +410,7 @@ public class SlimeEntity extends MobEntity implements IMob {
+ 
+         @Override
+         public boolean func_75250_a() {
+-            return !this.field_179458_a.func_184218_aH();
++            return !this.field_179458_a.func_184218_aH() && this.field_179458_a.canWander && new SlimeWanderEvent((Slime) this.field_179458_a.getBukkitEntity()).callEvent(); // Paper
+         }
+ 
+         @Override
+@@ -418,7 +431,7 @@ public class SlimeEntity extends MobEntity implements IMob {
+ 
+         @Override
+         public boolean func_75250_a() {
+-            return (this.field_179457_a.func_70090_H() || this.field_179457_a.func_180799_ab()) && this.field_179457_a.func_70605_aq() instanceof SlimeEntity.MoveHelperController;
++            return (this.field_179457_a.func_70090_H() || this.field_179457_a.func_180799_ab()) && this.field_179457_a.func_70605_aq() instanceof SlimeEntity.MoveHelperController && this.field_179457_a.canWander && new SlimeSwimEvent((Slime) this.field_179457_a.getBukkitEntity()).callEvent(); // Paper
+         }
+ 
+         @Override
+@@ -444,14 +457,18 @@ public class SlimeEntity extends MobEntity implements IMob {
+ 
+         @Override
+         public boolean func_75250_a() {
+-            return this.field_179461_a.func_70638_az() == null && (this.field_179461_a.field_70122_E || this.field_179461_a.func_70090_H() || this.field_179461_a.func_180799_ab() || this.field_179461_a.func_70644_a(Effects.field_188424_y)) && this.field_179461_a.func_70605_aq() instanceof SlimeEntity.MoveHelperController;
++            return this.field_179461_a.func_70638_az() == null && (this.field_179461_a.field_70122_E || this.field_179461_a.func_70090_H() || this.field_179461_a.func_180799_ab() || this.field_179461_a.func_70644_a(Effects.field_188424_y)) && this.field_179461_a.func_70605_aq() instanceof SlimeEntity.MoveHelperController && this.field_179461_a.canWander; // Paper - add canWander
+         }
+ 
+         @Override
+         public void func_75246_d() {
+             if (--this.field_179460_c <= 0) {
+                 this.field_179460_c = 40 + this.field_179461_a.func_70681_au().nextInt(60);
+-                this.field_179459_b = (float) this.field_179461_a.func_70681_au().nextInt(360);
++                // Paper start
++                SlimeChangeDirectionEvent event = new SlimeChangeDirectionEvent((Slime) this.field_179461_a.getBukkitEntity(), (float) this.field_179461_a.func_70681_au().nextInt(360));
++                if (!this.field_179461_a.canWander || !event.callEvent()) return;
++                this.field_179459_b = event.getNewYaw();
++                // Paper end
+             }
+ 
+             ((SlimeEntity.MoveHelperController) this.field_179461_a.func_70605_aq()).func_179920_a(this.field_179459_b, false);
+@@ -470,9 +487,17 @@ public class SlimeEntity extends MobEntity implements IMob {
+ 
+         @Override
+         public boolean func_75250_a() {
+-            LivingEntity entityliving = this.field_179466_a.func_70638_az();
++            net.minecraft.entity.LivingEntity entityliving = this.field_179466_a.func_70638_az();
+ 
+-            return entityliving == null ? false : (!entityliving.func_70089_S() ? false : (entityliving instanceof PlayerEntity && ((PlayerEntity) entityliving).field_71075_bZ.field_75102_a ? false : this.field_179466_a.func_70605_aq() instanceof SlimeEntity.MoveHelperController));
++            // Paper start
++            if (entityliving == null || !entityliving.func_70089_S()) {
++                return false;
++            }
++            if (entityliving instanceof PlayerEntity && ((PlayerEntity) entityliving).field_71075_bZ.field_75102_a) {
++                return false;
++            }
++            return this.field_179466_a.func_70605_aq() instanceof SlimeEntity.MoveHelperController && this.field_179466_a.canWander && new SlimeTargetLivingEntityEvent((Slime) this.field_179466_a.getBukkitEntity(), (LivingEntity) entityliving.getBukkitEntity()).callEvent();
++            // Paper end
+         }
+ 
+         @Override
+@@ -483,9 +508,17 @@ public class SlimeEntity extends MobEntity implements IMob {
+ 
+         @Override
+         public boolean func_75253_b() {
+-            LivingEntity entityliving = this.field_179466_a.func_70638_az();
++            net.minecraft.entity.LivingEntity entityliving = this.field_179466_a.func_70638_az();
+ 
+-            return entityliving == null ? false : (!entityliving.func_70089_S() ? false : (entityliving instanceof PlayerEntity && ((PlayerEntity) entityliving).field_71075_bZ.field_75102_a ? false : --this.field_179465_b > 0));
++            // Paper start
++            if (entityliving == null || !entityliving.func_70089_S()) {
++                return false;
++            }
++            if (entityliving instanceof PlayerEntity && ((PlayerEntity) entityliving).field_71075_bZ.field_75102_a) {
++                return false;
++            }
++            return --this.field_179465_b > 0 && this.field_179466_a.canWander && new SlimeTargetLivingEntityEvent((Slime) this.field_179466_a.getBukkitEntity(), (LivingEntity) entityliving.getBukkitEntity()).callEvent();
++            // Paper end
+         }
+ 
+         @Override
+@@ -493,6 +526,13 @@ public class SlimeEntity extends MobEntity implements IMob {
+             this.field_179466_a.func_70625_a((Entity) this.field_179466_a.func_70638_az(), 10.0F, 10.0F);
+             ((SlimeEntity.MoveHelperController) this.field_179466_a.func_70605_aq()).func_179920_a(this.field_179466_a.field_70177_z, this.field_179466_a.func_70800_m());
+         }
++
++        // Paper start - clear timer and target when goal resets
++        public void func_75251_c() {
++            this.field_179465_b = 0;
++            this.field_179466_a.func_70624_b(null);
++        }
++        // Paper end
+     }
+ 
+     static class MoveHelperController extends MovementController {
+@@ -551,4 +591,15 @@ public class SlimeEntity extends MobEntity implements IMob {
+             }
+         }
+     }
++
++    // Paper start
++    private boolean canWander = true;
++    public boolean canWander() {
++        return canWander;
++    }
++
++    public void setWander(boolean canWander) {
++        this.canWander = canWander;
++    }
++    // Paper end
+ }
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftSlime.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftSlime.java
+index fa0d16135cb020ad71605044a8e5d46159d387ed..480e3baa290ab1631762a93bfcb6c644e4e64d7f 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftSlime.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftSlime.java
+@@ -35,4 +35,14 @@ public class CraftSlime extends CraftMob implements Slime {
+     public EntityType getType() {
+         return EntityType.SLIME;
+     }
++
++    // Paper start
++    public boolean canWander() {
++        return getHandle().canWander();
++    }
++
++    public void setWander(boolean canWander) {
++        getHandle().setWander(canWander);
++    }
++    // Paper end
+ }

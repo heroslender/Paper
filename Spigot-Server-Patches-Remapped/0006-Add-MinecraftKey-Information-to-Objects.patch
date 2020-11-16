@@ -1,0 +1,160 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 4 Jul 2018 01:40:13 -0400
+Subject: [PATCH] Add MinecraftKey Information to Objects
+
+Stores the reference to the objects respective MinecraftKey
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperCommand.java b/src/main/java/com/destroystokyo/paper/PaperCommand.java
+index 192455e28c3ab2081e1ea9dae0529de8445671f2..18dee96999ab09ce328e5c7b93285f3ca5dedf39 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperCommand.java
++++ b/src/main/java/com/destroystokyo/paper/PaperCommand.java
+@@ -184,7 +184,7 @@ public class PaperCommand extends Command {
+ 
+                 Collection<Entity> entities = world.field_217498_x.values();
+                 entities.forEach(e -> {
+-                    ResourceLocation key = new ResourceLocation(""); // TODO: update in next patch
++                    ResourceLocation key = e.getMinecraftKey();
+ 
+                     MutablePair<Integer, Map<ChunkPos, Integer>> info = list.computeIfAbsent(key, k -> MutablePair.of(0, Maps.newHashMap()));
+                     ChunkPos chunk = new ChunkPos(e.field_70176_ah, e.field_70164_aj);
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index 1d92aeba230997f4108908955a71f835a81c5553..50f7b4d7e5d8e8c0ccad0150dfb89159c32bc250 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -59,6 +59,7 @@ import net.minecraft.particles.BlockParticleData;
+ import net.minecraft.particles.ParticleTypes;
+ import net.minecraft.scoreboard.ScorePlayerTeam;
+ import net.minecraft.scoreboard.Team;
++import net.minecraft.server.KeyedObject;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.state.properties.BlockStateProperties;
+ import net.minecraft.tags.BlockTags;
+@@ -139,7 +140,7 @@ import org.bukkit.event.player.PlayerTeleportEvent;
+ import org.bukkit.plugin.PluginManager;
+ // CraftBukkit end
+ 
+-public abstract class Entity implements INameable, ICommandSource {
++public abstract class Entity implements INameable, ICommandSource, KeyedObject { // Paper
+ 
+     // CraftBukkit start
+     private static final int CURRENT_LEVEL = 2;
+@@ -1765,12 +1766,31 @@ public abstract class Entity implements INameable, ICommandSource {
+         return true;
+     }
+ 
++    // Paper start
++    private ResourceLocation entityKey;
++    private String entityKeyString;
++
++    @Override
++    public ResourceLocation getMinecraftKey() {
++        if (entityKey == null) {
++            this.entityKey = EntityType.func_200718_a(this.func_200600_R());
++            this.entityKeyString = this.entityKey != null ? this.entityKey.toString() : null;
++        }
++        return entityKey;
++    }
++
++    @Override
++    public String getMinecraftKeyString() {
++        getMinecraftKey(); // Try to load if it doesn't exists. see: https://github.com/PaperMC/Paper/issues/1280
++        return entityKeyString;
++    }
+     @Nullable
+     public final String func_70022_Q() {
+         EntityType<?> entitytypes = this.func_200600_R();
+         ResourceLocation minecraftkey = EntityType.func_200718_a(entitytypes);
+ 
+-        return entitytypes.func_200715_a() && minecraftkey != null ? minecraftkey.toString() : null;
++        return entitytypes != null && entitytypes.isPersistable() ? getMinecraftKeyString() : null;
++        // Paper end
+     }
+ 
+     protected abstract void func_70037_a(CompoundNBT p_70037_1_);
+diff --git a/src/main/java/net/minecraft/entity/EntityType.java b/src/main/java/net/minecraft/entity/EntityType.java
+index b2a05c572e940f9fdd33c3128156da9373da8592..06d6c24cdb0c541ddbd6932a084fc4444391d76c 100644
+--- a/src/main/java/net/minecraft/entity/EntityType.java
++++ b/src/main/java/net/minecraft/entity/EntityType.java
+@@ -385,6 +385,7 @@ public class EntityType<T extends Entity> {
+         }
+     }
+ 
++    public boolean isPersistable() { return func_200715_a(); } // Paper - OBFHELPER
+     public boolean func_200715_a() {
+         return this.field_200733_aL;
+     }
+diff --git a/src/main/java/net/minecraft/server/KeyedObject.java b/src/main/java/net/minecraft/server/KeyedObject.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..1396ea52377fa24bab8259c26242897a62f8af56
+--- /dev/null
++++ b/src/main/java/net/minecraft/server/KeyedObject.java
+@@ -0,0 +1,11 @@
++package net.minecraft.server;
++
++import net.minecraft.util.ResourceLocation;
++
++public interface KeyedObject {
++    ResourceLocation getMinecraftKey();
++    default String getMinecraftKeyString() {
++        ResourceLocation key = getMinecraftKey();
++        return key != null ? key.toString() : null;
++    }
++}
+diff --git a/src/main/java/net/minecraft/tileentity/TileEntity.java b/src/main/java/net/minecraft/tileentity/TileEntity.java
+index 01c66e8b85f0d917afb23f8365ff130871985a42..9bb58b592783bf2ae1b958a20509eb7ac97cf483 100644
+--- a/src/main/java/net/minecraft/tileentity/TileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/TileEntity.java
+@@ -6,6 +6,7 @@ import net.minecraft.crash.CrashReportCategory;
+ import net.minecraft.nbt.CompoundNBT;
+ import net.minecraft.nbt.INBT;
+ import net.minecraft.network.play.server.SUpdateTileEntityPacket;
++import net.minecraft.server.KeyedObject;
+ import net.minecraft.util.Mirror;
+ import net.minecraft.util.ResourceLocation;
+ import net.minecraft.util.Rotation;
+@@ -22,7 +23,7 @@ import org.bukkit.inventory.InventoryHolder;
+ // CraftBukkit end
+ import org.spigotmc.CustomTimingsHandler; // Spigot
+ 
+-public abstract class TileEntity {
++public abstract class TileEntity implements KeyedObject { // Paper
+ 
+     public CustomTimingsHandler tickTimer = org.bukkit.craftbukkit.SpigotTimings.getTileEntityTimings(this); // Spigot
+     // CraftBukkit start - data containers
+@@ -30,7 +31,7 @@ public abstract class TileEntity {
+     public CraftPersistentDataContainer persistentDataContainer;
+     // CraftBukkit end
+     private static final Logger field_145852_a = LogManager.getLogger();
+-    private final TileEntityType<?> field_200663_e;
++    private final TileEntityType<?> field_200663_e; public TileEntityType getTileEntityType() { return field_200663_e; } // Paper - OBFHELPER
+     @Nullable
+     protected World field_145850_b;
+     protected BlockPos field_174879_c;
+@@ -44,6 +45,26 @@ public abstract class TileEntity {
+         this.field_200663_e = tileentitytypes;
+     }
+ 
++    // Paper start
++    private String tileEntityKeyString = null;
++    private ResourceLocation tileEntityKey = null;
++
++    @Override
++    public ResourceLocation getMinecraftKey() {
++        if (tileEntityKey == null) {
++            tileEntityKey = TileEntityType.func_200969_a(this.getTileEntityType());
++            tileEntityKeyString = tileEntityKey != null ? tileEntityKey.toString() : null;
++        }
++        return tileEntityKey;
++    }
++
++    @Override
++    public String getMinecraftKeyString() {
++        getMinecraftKey(); // Try to load if it doesn't exists.
++        return tileEntityKeyString;
++    }
++    // Paper end
++
+     @Nullable
+     public World func_145831_w() {
+         return this.field_145850_b;

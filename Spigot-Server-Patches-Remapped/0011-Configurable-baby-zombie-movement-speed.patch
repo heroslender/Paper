@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zach Brown <zach.brown@destroystokyo.com>
+Date: Tue, 1 Mar 2016 13:09:16 -0600
+Subject: [PATCH] Configurable baby zombie movement speed
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index d97288b27668e0544b05ce110bfc6a0834cc263d..29f35535fab41aee6d253de9f9bd566d0fc28d65 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -74,4 +74,15 @@ public class PaperWorldConfig {
+         log("Max height for cactus growth " + cactusMaxHeight + ". Max height for reed growth " + reedMaxHeight);
+ 
+     }
++
++    public double babyZombieMovementModifier;
++    private void babyZombieMovementModifier() {
++        babyZombieMovementModifier = getDouble("baby-zombie-movement-modifier", 0.5D);
++        if (PaperConfig.version < 20) {
++            babyZombieMovementModifier = getDouble("baby-zombie-movement-speed", 0.5D);
++            set("baby-zombie-movement-modifier", babyZombieMovementModifier);
++        }
++
++        log("Baby zombies will move at the speed of " + babyZombieMovementModifier);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+index 1adb766d487252e133d7ff4ea5fc3a8d2e9dce41..3418154c18852e6de1d755ed147e2cb22291ca16 100644
+--- a/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/ZombieEntity.java
+@@ -82,7 +82,7 @@ import org.bukkit.event.entity.EntityTransformEvent;
+ public class ZombieEntity extends MonsterEntity {
+ 
+     private static final UUID field_110187_bq = UUID.fromString("B9766B59-9566-4402-BC1F-2EE2A276D836");
+-    private static final AttributeModifier field_110188_br = new AttributeModifier(ZombieEntity.field_110187_bq, "Baby speed boost", 0.5D, AttributeModifier.Operation.MULTIPLY_BASE);
++    private final AttributeModifier field_110188_br = new AttributeModifier(ZombieEntity.field_110187_bq, "Baby speed boost", 0.5D, AttributeModifier.Operation.MULTIPLY_BASE); private final AttributeModifier babyModifier = this.field_110188_br; // Paper - remove static - Make baby speed configurable
+     private static final DataParameter<Boolean> field_184737_bv = EntityDataManager.func_187226_a(ZombieEntity.class, DataSerializers.field_187198_h);
+     private static final DataParameter<Integer> field_184738_bw = EntityDataManager.func_187226_a(ZombieEntity.class, DataSerializers.field_187192_b);
+     public static final DataParameter<Boolean> field_204709_bA = EntityDataManager.func_187226_a(ZombieEntity.class, DataSerializers.field_187198_h);
+@@ -185,9 +185,9 @@ public class ZombieEntity extends MonsterEntity {
+         if (this.field_70170_p != null && !this.field_70170_p.field_72995_K) {
+             ModifiableAttributeInstance attributemodifiable = this.func_110148_a(Attributes.field_233821_d_);
+ 
+-            attributemodifiable.func_111124_b(ZombieEntity.field_110188_br);
++            attributemodifiable.func_111124_b(this.babyModifier); // Paper
+             if (p_82227_1_) {
+-                attributemodifiable.func_233767_b_(ZombieEntity.field_110188_br);
++                attributemodifiable.func_233767_b_(this.babyModifier); // Paper
+             }
+         }
+ 

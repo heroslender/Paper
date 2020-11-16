@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 19 Dec 2017 22:02:53 -0500
+Subject: [PATCH] PlayerPickupExperienceEvent
+
+Allows plugins to cancel a player picking up an experience orb
+
+diff --git a/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java b/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java
+index f5407cce40060cf21e085bf28150e88111447262..4907755f5697f9cbb791e0619b99269f21380fda 100644
+--- a/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java
++++ b/src/main/java/net/minecraft/entity/item/ExperienceOrbEntity.java
+@@ -8,6 +8,7 @@ import net.minecraft.entity.EntityType;
+ import net.minecraft.entity.LivingEntity;
+ import net.minecraft.entity.MoverType;
+ import net.minecraft.entity.player.PlayerEntity;
++import net.minecraft.entity.player.ServerPlayerEntity;
+ import net.minecraft.inventory.EquipmentSlotType;
+ import net.minecraft.item.ItemStack;
+ import net.minecraft.nbt.CompoundNBT;
+@@ -236,7 +237,7 @@ public class ExperienceOrbEntity extends Entity {
+     @Override
+     public void func_70100_b_(PlayerEntity p_70100_1_) {
+         if (!this.field_70170_p.field_72995_K) {
+-            if (this.field_70532_c == 0 && p_70100_1_.field_71090_bL == 0) {
++            if (this.field_70532_c == 0 && p_70100_1_.field_71090_bL == 0 && new com.destroystokyo.paper.event.player.PlayerPickupExperienceEvent(((ServerPlayerEntity) p_70100_1_).getBukkitEntity(), (org.bukkit.entity.ExperienceOrb) this.getBukkitEntity()).callEvent()) { // Paper
+                 p_70100_1_.field_71090_bL = 2;
+                 p_70100_1_.func_71001_a(this, 1);
+                 Entry<EquipmentSlotType, ItemStack> entry = EnchantmentHelper.func_234844_a_(Enchantments.field_185296_A, (LivingEntity) p_70100_1_, ItemStack::func_77951_h);

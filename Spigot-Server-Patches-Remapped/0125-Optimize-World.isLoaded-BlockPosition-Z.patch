@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Fri, 2 Dec 2016 00:11:43 -0500
+Subject: [PATCH] Optimize World.isLoaded(BlockPosition)Z
+
+Reduce method invocations for World.isLoaded(BlockPosition)Z
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 6dbd8761604a57658c773c39dfbdb2d68ea6d0be..2116cf4bd01a2081ff2b3b5f227820c7318e8c83 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -304,6 +304,10 @@ public abstract class World implements IWorld, AutoCloseable {
+         return chunk == null ? null : chunk.func_204610_c(blockposition);
+     }
+ 
++    public final boolean func_175667_e(BlockPos p_175667_1_) {
++        return getChunkIfLoaded(p_175667_1_.func_177958_n() >> 4, p_175667_1_.func_177952_p() >> 4) != null; // Paper
++    }
++
+     public final boolean isLoadedAndInBounds(BlockPos blockposition) { // Paper - final for inline
+         return func_175723_af().isInBounds(blockposition) && getChunkIfLoadedImmediately(blockposition.func_177958_n() >> 4, blockposition.func_177952_p() >> 4) != null;
+     }

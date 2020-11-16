@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Fri, 12 Jun 2020 22:25:11 -0700
+Subject: [PATCH] Fix enderdragon exp dupe
+
+Properly track death stage when unloading/loading in the
+dragon
+
+diff --git a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+index bd7c1b80923f784b24eeccf42bf0bfce4cd424cb..6e99cc52d2a127aa94d86499bbf62d71a34837bd 100644
+--- a/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
++++ b/src/main/java/net/minecraft/entity/boss/dragon/EnderDragonEntity.java
+@@ -881,6 +881,7 @@ public class EnderDragonEntity extends MobEntity implements IMob {
+     public void func_213281_b(CompoundNBT p_213281_1_) {
+         super.func_213281_b(p_213281_1_);
+         p_213281_1_.func_74768_a("DragonPhase", this.field_184677_bJ.func_188756_a().func_188652_i().func_188740_b());
++        p_213281_1_.func_74768_a("Paper.DeathTick", this.field_70995_bG); // Paper
+     }
+ 
+     @Override
+@@ -889,6 +890,7 @@ public class EnderDragonEntity extends MobEntity implements IMob {
+         if (p_70037_1_.func_74764_b("DragonPhase")) {
+             this.field_184677_bJ.func_188758_a(PhaseType.func_188738_a(p_70037_1_.func_74762_e("DragonPhase")));
+         }
++        this.field_70995_bG = p_70037_1_.func_74762_e("Paper.DeathTick"); // Paper
+ 
+     }
+ 

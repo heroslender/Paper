@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 26 Aug 2018 20:49:50 -0400
+Subject: [PATCH] Optimize RegistryMaterials
+
+Use larger initial sizes to increase bucket capacity on the BiMap
+
+BiMap.get was seen to be using a good bit of CPU time.
+
+diff --git a/src/main/java/net/minecraft/util/registry/SimpleRegistry.java b/src/main/java/net/minecraft/util/registry/SimpleRegistry.java
+index b4fccec967db9d250d1dff90a6dc66f68bb121e4..f4c117269301c7f230e27aa46bc0cedbce9eca3b 100644
+--- a/src/main/java/net/minecraft/util/registry/SimpleRegistry.java
++++ b/src/main/java/net/minecraft/util/registry/SimpleRegistry.java
+@@ -29,6 +29,7 @@ import javax.annotation.Nullable;
+ import net.minecraft.util.RegistryKey;
+ import net.minecraft.util.ResourceLocation;
+ import net.minecraft.util.Util;
++import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap; // Paper
+ import org.apache.commons.lang3.Validate;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+@@ -37,7 +38,7 @@ public class SimpleRegistry<T> extends MutableRegistry<T> {
+ 
+     protected static final Logger field_148743_a = LogManager.getLogger();
+     private final ObjectList<T> field_243533_bf = new ObjectArrayList(256);
+-    private final Object2IntMap<T> field_243534_bg = new Object2IntOpenCustomHashMap(Util.func_212443_g());
++    private final Reference2IntOpenHashMap<T> field_243534_bg = new Reference2IntOpenHashMap<T>(2048);// Paper - use bigger expected size to reduce collisions and direct intent for FastUtil to be identity map
+     private final BiMap<ResourceLocation, T> field_82596_a;
+     private final BiMap<RegistryKey<T>, T> field_239649_bb_;
+     private final Map<T, Lifecycle> field_243535_bj;
+@@ -48,9 +49,9 @@ public class SimpleRegistry<T> extends MutableRegistry<T> {
+     public SimpleRegistry(RegistryKey<? extends Registry<T>> resourcekey, Lifecycle lifecycle) {
+         super(resourcekey, lifecycle);
+         this.field_243534_bg.defaultReturnValue(-1);
+-        this.field_82596_a = HashBiMap.create();
+-        this.field_239649_bb_ = HashBiMap.create();
+-        this.field_243535_bj = Maps.newIdentityHashMap();
++        this.field_82596_a = HashBiMap.create(2048); // Paper - use bigger expected size to reduce collisions
++        this.field_239649_bb_ = HashBiMap.create(2048); // Paper - use bigger expected size to reduce collisions
++        this.field_243535_bj = new java.util.IdentityHashMap<>(2048); // Paper - use bigger expected size to reduce collisions
+         this.field_243536_bk = lifecycle;
+     }
+ 
+@@ -194,7 +195,7 @@ public class SimpleRegistry<T> extends MutableRegistry<T> {
+             this.field_186802_b = collection.toArray(new Object[collection.size()]);
+         }
+ 
+-        return Util.func_240989_a_(this.field_186802_b, p_186801_1_);
++        return (T) Util.func_240989_a_(this.field_186802_b, p_186801_1_);  // Paper - Decompile fix
+     }
+ 
+     public static <T> Codec<SimpleRegistry<T>> func_243539_a(RegistryKey<? extends Registry<T>> p_243539_0_, Lifecycle p_243539_1_, Codec<T> p_243539_2_) {
+@@ -214,7 +215,7 @@ public class SimpleRegistry<T> extends MutableRegistry<T> {
+             Iterator iterator = registrymaterials.iterator();
+ 
+             while (iterator.hasNext()) {
+-                T t0 = iterator.next();
++                T t0 = (T) iterator.next(); // Paper - Decompile fix
+ 
+                 builder.add(new SimpleRegistry.Entry<>((RegistryKey) registrymaterials.func_230519_c_(t0).get(), registrymaterials.func_148757_b(t0), t0));
+             }

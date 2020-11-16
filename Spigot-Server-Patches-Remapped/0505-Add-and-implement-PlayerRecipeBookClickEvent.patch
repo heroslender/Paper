@@ -1,0 +1,29 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: JRoy <joshroy126@gmail.com>
+Date: Fri, 5 Jun 2020 18:24:06 -0400
+Subject: [PATCH] Add and implement PlayerRecipeBookClickEvent
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index c44dd1809fd7d9608e2879496e173f8ef3ca94b1..872d18322efc5561158072224b34074e0a943619 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -2748,9 +2748,15 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+         PacketThreadUtil.func_218796_a(p_194308_1_, this, this.field_147369_b.func_71121_q());
+         this.field_147369_b.func_143004_u();
+         if (!this.field_147369_b.func_175149_v() && this.field_147369_b.field_71070_bA.field_75152_c == p_194308_1_.func_194318_a() && this.field_147369_b.field_71070_bA.func_75129_b(this.field_147369_b) && this.field_147369_b.field_71070_bA instanceof RecipeBookContainer) {
+-            this.field_147367_d.func_199529_aN().func_215367_a(p_194308_1_.func_199618_b()).ifPresent((irecipe) -> {
+-                ((RecipeBookContainer) this.field_147369_b.field_71070_bA).func_217056_a(p_194308_1_.func_194319_c(), irecipe, this.field_147369_b);
+-            });
++            // Paper start - fire event for clicking recipes in the recipe book
++            com.destroystokyo.paper.event.player.PlayerRecipeBookClickEvent event = new com.destroystokyo.paper.event.player.PlayerRecipeBookClickEvent(
++                field_147369_b.getBukkitEntity(), org.bukkit.craftbukkit.util.CraftNamespacedKey.fromMinecraft(p_194308_1_.func_199618_b()), p_194308_1_.func_194319_c());
++            if (event.callEvent()) {
++                this.field_147367_d.func_199529_aN().func_215367_a(org.bukkit.craftbukkit.util.CraftNamespacedKey.toMinecraft(event.getRecipe())).ifPresent((irecipe) -> {
++                    ((ContainerRecipeBook) this.player.activeContainer).a(event.isMakeAll(), irecipe, this.player);
++                });
++            }
++            // Paper end
+         }
+     }
+ 

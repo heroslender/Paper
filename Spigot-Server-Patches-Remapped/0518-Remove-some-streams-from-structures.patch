@@ -1,0 +1,141 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: JRoy <joshroy126@gmail.com>
+Date: Mon, 29 Jun 2020 17:03:06 -0400
+Subject: [PATCH] Remove some streams from structures
+
+This showed up a lot in the spark profiler, should have a low-medium performance improvement.
+
+diff --git a/src/main/java/net/minecraft/world/biome/Biome.java b/src/main/java/net/minecraft/world/biome/Biome.java
+index 866b710b2e9ea9f20876ad3e0e99d346c2b858fa..30c76ff6cc84835b97c46014635dfd1c20e2177a 100644
+--- a/src/main/java/net/minecraft/world/biome/Biome.java
++++ b/src/main/java/net/minecraft/world/biome/Biome.java
+@@ -42,6 +42,7 @@ import net.minecraft.world.gen.WorldGenRegion;
+ import net.minecraft.world.gen.feature.ConfiguredFeature;
+ import net.minecraft.world.gen.feature.structure.Structure;
+ import net.minecraft.world.gen.feature.structure.StructureManager;
++import net.minecraft.world.gen.feature.structure.StructureStart;
+ import net.minecraft.world.gen.surfacebuilders.ConfiguredSurfaceBuilder;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+@@ -238,9 +239,11 @@ public final class Biome {
+                     int l1 = j1 << 4;
+ 
+                     try {
+-                        p_242427_1_.func_235011_a_(SectionPos.func_218167_a(p_242427_6_), structuregenerator).forEach((structurestart) -> {
+-                            structurestart.func_230366_a_(p_242427_3_, p_242427_1_, p_242427_2_, p_242427_5_, new MutableBoundingBox(k1, l1, k1 + 15, l1 + 15), new ChunkPos(i1, j1));
+-                        });
++                        // Paper start - remove structure streams
++                        for (StructureStart<?> structureStart : p_242427_1_.getFeatureStarts(SectionPos.func_218167_a(p_242427_6_), structuregenerator)) {
++                            structureStart.func_230366_a_(p_242427_3_, p_242427_1_, p_242427_2_, p_242427_5_, new MutableBoundingBox(k1, l1, k1 + 15, l1 + 15), new ChunkPos(i1, j1));
++                        }
++                        // Paper end
+                     } catch (Exception exception) {
+                         CrashReport crashreport = CrashReport.func_85055_a(exception, "Feature placement");
+ 
+diff --git a/src/main/java/net/minecraft/world/gen/NoiseChunkGenerator.java b/src/main/java/net/minecraft/world/gen/NoiseChunkGenerator.java
+index 29e150736856cbc4e312057a837cfbcd5084d3d1..33a07c313bb1ee58411f43ba48348d030ec67b10 100644
+--- a/src/main/java/net/minecraft/world/gen/NoiseChunkGenerator.java
++++ b/src/main/java/net/minecraft/world/gen/NoiseChunkGenerator.java
+@@ -39,6 +39,7 @@ import net.minecraft.world.gen.feature.structure.AbstractVillagePiece;
+ import net.minecraft.world.gen.feature.structure.Structure;
+ import net.minecraft.world.gen.feature.structure.StructureManager;
+ import net.minecraft.world.gen.feature.structure.StructurePiece;
++import net.minecraft.world.gen.feature.structure.StructureStart;
+ import net.minecraft.world.gen.settings.NoiseSettings;
+ import net.minecraft.world.spawner.WorldEntitySpawner;
+ 
+@@ -450,7 +451,7 @@ public final class NoiseChunkGenerator extends ChunkGenerator {
+         while (iterator.hasNext()) {
+             Structure<?> structuregenerator = (Structure) iterator.next();
+ 
+-            p_230352_2_.func_235011_a_(SectionPos.func_218156_a(chunkcoordintpair, 0), structuregenerator).forEach((structurestart) -> {
++            for (StructureStart<?> structurestart : p_230352_2_.getFeatureStarts(SectionPos.func_218156_a(chunkcoordintpair, 0), structuregenerator)) { // Paper - remove structure streams
+                 Iterator iterator1 = structurestart.func_186161_c().iterator();
+ 
+                 while (iterator1.hasNext()) {
+@@ -482,7 +483,7 @@ public final class NoiseChunkGenerator extends ChunkGenerator {
+                     }
+                 }
+ 
+-            });
++            } // Paper - remove structure streams
+         }
+ 
+         double[][][] adouble = new double[2][this.field_222567_n + 1][this.field_222566_m + 1];
+diff --git a/src/main/java/net/minecraft/world/gen/feature/structure/StructureManager.java b/src/main/java/net/minecraft/world/gen/feature/structure/StructureManager.java
+index 47741ef001b9ec34b2ced57a52ca1c01f8f43504..a2d85bf5d55e2e8c566d8006bb2dbdde9e41f9d2 100644
+--- a/src/main/java/net/minecraft/world/gen/feature/structure/StructureManager.java
++++ b/src/main/java/net/minecraft/world/gen/feature/structure/StructureManager.java
+@@ -1,12 +1,12 @@
+ package net.minecraft.world.gen.feature.structure;
+ 
+ import com.mojang.datafixers.DataFixUtils;
++import it.unimi.dsi.fastutil.objects.ObjectArrayList; // Paper
+ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.ChunkPos;
+ import net.minecraft.util.math.SectionPos;
+-import net.minecraft.util.math.vector.Vector3i;
+ import net.minecraft.world.IStructureReader;
+ import net.minecraft.world.IWorld;
+ import net.minecraft.world.World;
+@@ -16,7 +16,7 @@ import net.minecraft.world.gen.settings.DimensionGeneratorSettings;
+ 
+ public class StructureManager {
+ 
+-    private final IWorld field_235003_a_;
++    private final IWorld field_235003_a_; public IWorld getLevel() { return field_235003_a_; } // Paper - OBFHELPER
+     private final DimensionGeneratorSettings field_235004_b_;
+ 
+     public StructureManager(IWorld generatoraccess, DimensionGeneratorSettings generatorsettings) {
+@@ -42,6 +42,20 @@ public class StructureManager {
+         });
+     }
+ 
++    // Paper start - remove structure streams
++    public java.util.List<StructureStart<?>> getFeatureStarts(SectionPos sectionPosition, Structure<?> structureGenerator) {
++        java.util.List<StructureStart<?>> list = new ObjectArrayList<>();
++        for (Long curLong: getLevel().func_217348_a(sectionPosition.func_218149_a(), sectionPosition.func_218148_c(), ChunkStatus.field_222607_c).func_230346_b_(structureGenerator)) {
++            SectionPos sectionPosition1 = SectionPos.func_218156_a(new ChunkPos(curLong), 0);
++            StructureStart<?> structurestart = func_235013_a_(sectionPosition1, structureGenerator, getLevel().func_217348_a(sectionPosition1.func_218149_a(), sectionPosition1.func_218148_c(), ChunkStatus.field_222606_b));
++            if (structurestart != null && structurestart.func_75069_d()) {
++                list.add(structurestart);
++            }
++        }
++        return list;
++    }
++    // Paper end
++
+     @Nullable
+     public StructureStart<?> func_235013_a_(SectionPos p_235013_1_, Structure<?> p_235013_2_, IStructureReader p_235013_3_) {
+         return p_235013_3_.func_230342_a_(p_235013_2_);
+@@ -60,13 +74,21 @@ public class StructureManager {
+     }
+ 
+     public StructureStart<?> func_235010_a_(BlockPos p_235010_1_, boolean p_235010_2_, Structure<?> p_235010_3_) {
+-        return (StructureStart) DataFixUtils.orElse(this.func_235011_a_(SectionPos.func_218167_a(p_235010_1_), p_235010_3_).filter((structurestart) -> {
+-            return structurestart.func_75071_a().func_175898_b((Vector3i) p_235010_1_);
+-        }).filter((structurestart) -> {
+-            return !p_235010_2_ || structurestart.func_186161_c().stream().anyMatch((structurepiece) -> {
+-                return structurepiece.func_74874_b().func_175898_b((Vector3i) p_235010_1_);
+-            });
+-        }).findFirst(), StructureStart.field_214630_a);
++        // Paper start - remove structure streams
++        for (StructureStart<?> structurestart : getFeatureStarts(SectionPos.func_218167_a(p_235010_1_), p_235010_3_)) {
++            if (structurestart.func_75071_a().func_175898_b(p_235010_1_)) {
++                if (!p_235010_2_) {
++                    return structurestart;
++                }
++                for (StructurePiece structurepiece : structurestart.func_186161_c()) {
++                    if (structurepiece.func_74874_b().func_175898_b(p_235010_1_)) {
++                        return structurestart;
++                    }
++                }
++            }
++        }
++        return StructureStart.field_214630_a;
++        // Paper end
+     }
+ 
+     // Spigot start

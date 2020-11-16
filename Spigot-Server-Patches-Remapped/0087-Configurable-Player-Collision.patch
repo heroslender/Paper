@@ -1,0 +1,131 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 13 Apr 2016 02:10:49 -0400
+Subject: [PATCH] Configurable Player Collision
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index 21f75d3bbaf16e4970b5d11a223ff7eeca66d148..750508267982046d0c08cffdd57c28459f7ce9c1 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -224,4 +224,9 @@ public class PaperConfig {
+     private static void regionFileCacheSize() {
+         regionFileCacheSize = Math.max(getInt("settings.region-file-cache-size", 256), 4);
+     }
++
++    public static boolean enablePlayerCollisions = true;
++    private static void enablePlayerCollisions() {
++        enablePlayerCollisions = getBoolean("settings.enable-player-collisions", true);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/network/play/server/STeamsPacket.java b/src/main/java/net/minecraft/network/play/server/STeamsPacket.java
+index f2550d6769e6b4a205ad6e4c9955e2fbc5e4324a..db465b5fc2fbaabd372d9a04a7407a27e25a721d 100644
+--- a/src/main/java/net/minecraft/network/play/server/STeamsPacket.java
++++ b/src/main/java/net/minecraft/network/play/server/STeamsPacket.java
+@@ -113,7 +113,7 @@ public class STeamsPacket implements IPacket<IClientPlayNetHandler> {
+             p_148840_1_.func_179256_a(this.field_149318_b);
+             p_148840_1_.writeByte(this.field_149315_g);
+             p_148840_1_.func_180714_a(this.field_179816_e);
+-            p_148840_1_.func_180714_a(this.field_186976_f);
++            p_148840_1_.func_180714_a(!com.destroystokyo.paper.PaperConfig.enablePlayerCollisions ? "never" : this.field_186976_f); // Paper
+             p_148840_1_.func_179249_a((Enum) this.field_179815_f);
+             p_148840_1_.func_179256_a(this.field_207509_c);
+             p_148840_1_.func_179256_a(this.field_207510_d);
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 0c27381cd8fc8eafd6333dfa7eaf39b81f1b642f..428278ece23a2c0392e879cec82adb96204d1365 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -92,6 +92,7 @@ import net.minecraft.resources.DataPackRegistries;
+ import net.minecraft.resources.IResourcePack;
+ import net.minecraft.resources.ResourcePackInfo;
+ import net.minecraft.resources.ResourcePackList;
++import net.minecraft.scoreboard.ScorePlayerTeam;
+ import net.minecraft.scoreboard.Scoreboard;
+ import net.minecraft.scoreboard.ScoreboardSaveData;
+ import net.minecraft.scoreboard.ServerScoreboard;
+@@ -540,6 +541,20 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+             this.server.getPluginManager().callEvent(new org.bukkit.event.world.WorldLoadEvent(worldserver.getWorld()));
+         }
+ 
++        // Paper start - Handle collideRule team for player collision toggle
++        final Scoreboard scoreboard = this.func_200251_aP();
++        final java.util.Collection<String> toRemove = scoreboard.func_96525_g().stream().filter(team -> team.func_96661_b().startsWith("collideRule_")).map(ScorePlayerTeam::func_96661_b).collect(java.util.stream.Collectors.toList());
++        for (String teamName : toRemove) {
++            scoreboard.func_96511_d(scoreboard.func_96508_e(teamName)); // Clean up after ourselves
++        }
++
++        if (!com.destroystokyo.paper.PaperConfig.enablePlayerCollisions) {
++            this.func_184103_al().collideRuleTeamName = org.apache.commons.lang3.StringUtils.left("collideRule_" + java.util.concurrent.ThreadLocalRandom.current().nextInt(), 16);
++            ScorePlayerTeam collideTeam = scoreboard.func_96527_f(this.func_184103_al().collideRuleTeamName);
++            collideTeam.func_98300_b(false); // Because we want to mimic them not being on a team at all
++        }
++        // Paper end
++
+         this.server.enablePlugins(org.bukkit.plugin.PluginLoadOrder.POSTWORLD);
+         this.server.getPluginManager().callEvent(new ServerLoadEvent(ServerLoadEvent.LoadType.STARTUP));
+         this.field_147144_o.acceptConnections();
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index 9242adbc64038ab16e0ef03103c72e3c720da9dd..987bc0ec7c0934b1e7da8ab99b2b874e16c77809 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -57,6 +57,7 @@ import net.minecraft.network.play.server.SWorldSpawnChangedPacket;
+ import net.minecraft.potion.EffectInstance;
+ import net.minecraft.scoreboard.ScoreObjective;
+ import net.minecraft.scoreboard.ScorePlayerTeam;
++import net.minecraft.scoreboard.Scoreboard;
+ import net.minecraft.scoreboard.ServerScoreboard;
+ import net.minecraft.scoreboard.Team;
+ import net.minecraft.server.MinecraftServer;
+@@ -145,6 +146,7 @@ public abstract class PlayerList {
+     // CraftBukkit start
+     private CraftServer cserver;
+     private final Map<String,ServerPlayerEntity> playersByName = new java.util.HashMap<>();
++    @Nullable String collideRuleTeamName; // Paper - Team name used for collideRule
+ 
+     public PlayerList(MinecraftServer minecraftserver, DynamicRegistries.Impl iregistrycustom_dimension, PlayerData worldnbtstorage, int i) {
+         this.cserver = minecraftserver.server = new CraftServer((DedicatedServer) minecraftserver, this);
+@@ -375,6 +377,13 @@ public abstract class PlayerList {
+         }
+ 
+         p_72355_2_.func_71116_b();
++        // Paper start - Add to collideRule team if needed
++        final Scoreboard scoreboard = this.func_72365_p().func_71218_a(World.field_234918_g_).func_96441_U();
++        final ScorePlayerTeam collideRuleTeam = scoreboard.func_96508_e(collideRuleTeamName);
++        if (this.collideRuleTeamName != null && collideRuleTeam != null && p_72355_2_.func_96124_cp() == null) {
++            scoreboard.func_197901_a(p_72355_2_.func_195047_I_(), collideRuleTeam);
++        }
++        // Paper end
+         // CraftBukkit - Moved from above, added world
+         PlayerList.field_148546_d.info("{}[{}] logged in with entity id {} at ([{}]{}, {}, {})", p_72355_2_.func_200200_C_().getString(), s1, p_72355_2_.func_145782_y(), worldserver1.field_241103_E_.func_76065_j(), p_72355_2_.func_226277_ct_(), p_72355_2_.func_226278_cu_(), p_72355_2_.func_226281_cx_());
+     }
+@@ -495,6 +504,16 @@ public abstract class PlayerList {
+         entityplayer.func_71127_g(); // SPIGOT-924
+         // CraftBukkit end
+ 
++        // Paper start - Remove from collideRule team if needed
++        if (this.collideRuleTeamName != null) {
++            final Scoreboard scoreBoard = this.field_72400_f.func_71218_a(World.field_234918_g_).func_96441_U();
++            final ScorePlayerTeam team = scoreBoard.func_96508_e(this.collideRuleTeamName);
++            if (entityplayer.func_96124_cp() == team && team != null) {
++                scoreBoard.func_96512_b(entityplayer.func_195047_I_(), team);
++            }
++        }
++        // Paper end
++
+         this.func_72391_b(entityplayer);
+         if (entityplayer.func_184218_aH()) {
+             Entity entity = entityplayer.func_184208_bv();
+@@ -1143,6 +1162,13 @@ public abstract class PlayerList {
+         }
+         // CraftBukkit end
+ 
++        // Paper start - Remove collideRule team if it exists
++        if (this.collideRuleTeamName != null) {
++            final Scoreboard scoreboard = this.func_72365_p().func_71218_a(World.field_234918_g_).func_96441_U();
++            final ScorePlayerTeam team = scoreboard.func_96508_e(this.collideRuleTeamName);
++            if (team != null) scoreboard.func_96511_d(team);
++        }
++        // Paper end
+     }
+ 
+     // CraftBukkit start

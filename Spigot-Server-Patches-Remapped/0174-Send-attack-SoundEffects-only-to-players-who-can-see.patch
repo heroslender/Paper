@@ -1,0 +1,80 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Brokkonaut <hannos17@gmx.de>
+Date: Tue, 31 Oct 2017 03:26:18 +0100
+Subject: [PATCH] Send attack SoundEffects only to players who can see the
+ attacker
+
+
+diff --git a/src/main/java/net/minecraft/entity/player/PlayerEntity.java b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+index 1f46800dcb5af5daf492da279e096f43edd210df..151c96c98cf229a8077a9e2b8ccb72bc5e5ccac7 100644
+--- a/src/main/java/net/minecraft/entity/player/PlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/PlayerEntity.java
+@@ -64,6 +64,7 @@ import net.minecraft.network.datasync.DataParameter;
+ import net.minecraft.network.datasync.DataSerializers;
+ import net.minecraft.network.datasync.EntityDataManager;
+ import net.minecraft.network.play.server.SEntityVelocityPacket;
++import net.minecraft.network.play.server.SPlaySoundEffectPacket;
+ import net.minecraft.particles.ParticleTypes;
+ import net.minecraft.potion.EffectInstance;
+ import net.minecraft.potion.EffectUtils;
+@@ -1123,7 +1124,7 @@ public abstract class PlayerEntity extends LivingEntity {
+                     int i = b0 + EnchantmentHelper.func_77501_a((LivingEntity) this);
+ 
+                     if (this.func_70051_ag() && flag) {
+-                        this.field_70170_p.func_184148_a((PlayerEntity) null, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187721_dT, this.func_184176_by(), 1.0F, 1.0F);
++                        sendSoundEffect(this, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187721_dT, this.func_184176_by(), 1.0F, 1.0F); // Paper - send while respecting visibility
+                         ++i;
+                         flag1 = true;
+                     }
+@@ -1198,7 +1199,7 @@ public abstract class PlayerEntity extends LivingEntity {
+                                 }
+                             }
+ 
+-                            this.field_70170_p.func_184148_a((PlayerEntity) null, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187730_dW, this.func_184176_by(), 1.0F, 1.0F);
++                            sendSoundEffect(this, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187730_dW, this.func_184176_by(), 1.0F, 1.0F); // Paper - send while respecting visibility
+                             this.func_184810_cG();
+                         }
+ 
+@@ -1226,15 +1227,15 @@ public abstract class PlayerEntity extends LivingEntity {
+                         }
+ 
+                         if (flag2) {
+-                            this.field_70170_p.func_184148_a((PlayerEntity) null, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187718_dS, this.func_184176_by(), 1.0F, 1.0F);
++                            sendSoundEffect(this, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187718_dS, this.func_184176_by(), 1.0F, 1.0F); // Paper - send while respecting visibility
+                             this.func_71009_b(p_71059_1_);
+                         }
+ 
+                         if (!flag2 && !flag3) {
+                             if (flag) {
+-                                this.field_70170_p.func_184148_a((PlayerEntity) null, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187727_dV, this.func_184176_by(), 1.0F, 1.0F);
++                                sendSoundEffect(this, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187727_dV, this.func_184176_by(), 1.0F, 1.0F); // Paper - send while respecting visibility
+                             } else {
+-                                this.field_70170_p.func_184148_a((PlayerEntity) null, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187733_dX, this.func_184176_by(), 1.0F, 1.0F);
++                                sendSoundEffect(this, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187733_dX, this.func_184176_by(), 1.0F, 1.0F); // Paper - send while respecting visibility
+                             }
+                         }
+ 
+@@ -1286,7 +1287,7 @@ public abstract class PlayerEntity extends LivingEntity {
+ 
+                         this.func_71020_j(field_70170_p.spigotConfig.combatExhaustion); // Spigot - Change to use configurable value
+                     } else {
+-                        this.field_70170_p.func_184148_a((PlayerEntity) null, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187724_dU, this.func_184176_by(), 1.0F, 1.0F);
++                        sendSoundEffect(this, this.func_226277_ct_(), this.func_226278_cu_(), this.func_226281_cx_(), SoundEvents.field_187724_dU, this.func_184176_by(), 1.0F, 1.0F); // Paper - send while respecting visibility
+                         if (flag4) {
+                             p_71059_1_.func_70066_B();
+                         }
+@@ -1738,6 +1739,14 @@ public abstract class PlayerEntity extends LivingEntity {
+     public int func_71050_bK() {
+         return this.field_71068_ca >= 30 ? 112 + (this.field_71068_ca - 30) * 9 : (this.field_71068_ca >= 15 ? 37 + (this.field_71068_ca - 15) * 5 : 7 + this.field_71068_ca * 2);
+     }
++    // Paper start - send SoundEffect to everyone who can see fromEntity
++    private static void sendSoundEffect(PlayerEntity fromEntity, double x, double y, double z, SoundEvent soundEffect, SoundCategory soundCategory, float volume, float pitch) {
++        fromEntity.field_70170_p.func_184148_a(fromEntity, x, y, z, soundEffect, soundCategory, volume, pitch); // This will not send the effect to the entity himself
++        if (fromEntity instanceof ServerPlayerEntity) {
++            ((ServerPlayerEntity) fromEntity).field_71135_a.func_147359_a(new SPlaySoundEffectPacket(soundEffect, soundCategory, x, y, z, volume, pitch));
++        }
++    }
++    // Paper end
+ 
+     public void func_71020_j(float p_71020_1_) {
+         if (!this.field_71075_bZ.field_75102_a) {

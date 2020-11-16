@@ -1,0 +1,33 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Sudzzy <originmc@outlook.com>
+Date: Wed, 2 Mar 2016 14:57:24 -0600
+Subject: [PATCH] Disable ice and snow
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 0770de735f3cf4eb46c4ffd5b76eb393ad94a166..870b50b1b981943eaba874fe26d89e111405969a 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -167,4 +167,9 @@ public class PaperWorldConfig {
+     private void disableThunder() {
+         disableThunder = getBoolean("disable-thunder", false);
+     }
++
++    public boolean disableIceAndSnow;
++    private void disableIceAndSnow(){
++        disableIceAndSnow = getBoolean("disable-ice-and-snow", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 3f4df11c1d1e12d5e2dc06ab5a5e4a658ca978bd..6209c106290c610a26c810239efbfc9ced7ee8bf 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -603,7 +603,7 @@ public class ServerWorld extends World implements ISeedReader {
+         }
+ 
+         gameprofilerfiller.func_219895_b("iceandsnow");
+-        if (this.field_73012_v.nextInt(16) == 0) {
++        if (!this.paperConfig.disableIceAndSnow && this.field_73012_v.nextInt(16) == 0) { // Paper - Disable ice and snow
+             blockposition = this.func_205770_a(Heightmap.Type.MOTION_BLOCKING, this.func_217383_a(j, 0, k, 15));
+             BlockPos blockposition1 = blockposition.func_177977_b();
+             Biome biomebase = this.func_226691_t_(blockposition);

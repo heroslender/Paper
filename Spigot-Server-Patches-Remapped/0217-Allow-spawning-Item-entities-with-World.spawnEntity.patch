@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Mon, 4 Jun 2018 20:39:20 -0400
+Subject: [PATCH] Allow spawning Item entities with World.spawnEntity
+
+This API has more capabilities than .dropItem with the Consumer function
+
+Item can be set inside of the Consumer pre spawn function.
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index 953b489da57797d911ea422e3209489838548e55..eb44a70448c192e803c478813f70877d242ae031 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -1479,6 +1479,10 @@ public class CraftWorld implements World {
+         if (Boat.class.isAssignableFrom(clazz)) {
+             entity = new BoatEntity(world, x, y, z);
+             entity.func_70012_b(x, y, z, yaw, pitch);
++            // Paper start
++        } else if (org.bukkit.entity.Item.class.isAssignableFrom(clazz)) {
++            entity = new ItemEntity(world, x, y, z, new net.minecraft.item.ItemStack(net.minecraft.item.Item.func_150898_a(net.minecraft.block.Blocks.field_150346_d)));
++            // Paper end
+         } else if (FallingBlock.class.isAssignableFrom(clazz)) {
+             entity = new FallingBlockEntity(world, x, y, z, world.func_180495_p(new BlockPos(x, y, z)));
+         } else if (Projectile.class.isAssignableFrom(clazz)) {

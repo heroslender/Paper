@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kashike <kashike@vq.lc>
+Date: Thu, 3 Mar 2016 02:18:39 -0600
+Subject: [PATCH] Be a bit more informative in maxHealth exception
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+index f6821834995d45b52ea570a236215d195a4b770c..eac5eec8fc0893335e7f05e5abc005393d2b9869 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftLivingEntity.java
+@@ -109,7 +109,10 @@ public class CraftLivingEntity extends CraftEntity implements LivingEntity {
+     public void setHealth(double health) {
+         health = (float) health;
+         if ((health < 0) || (health > getMaxHealth())) {
+-            throw new IllegalArgumentException("Health must be between 0 and " + getMaxHealth() + "(" + health + ")");
++            // Paper - Be more informative
++            throw new IllegalArgumentException("Health must be between 0 and " + getMaxHealth() + ", but was " + health
++                    + ". (attribute base value: " + this.getHandle().func_110148_a(Attributes.field_233818_a_).func_111125_b()
++                    + (this instanceof CraftPlayer ? ", player: " + this.getName() + ')' : ')'));
+         }
+ 
+         getHandle().func_70606_j((float) health);

@@ -1,0 +1,82 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Andrew Steinborn <git@steinborn.me>
+Date: Sun, 5 Jul 2020 22:38:18 -0400
+Subject: [PATCH] Optimize NetworkManager Exception Handling
+
+
+diff --git a/src/main/java/net/minecraft/network/NettyVarint21FrameDecoder.java b/src/main/java/net/minecraft/network/NettyVarint21FrameDecoder.java
+index 4429f6e18cfae581d2e49aa3135afde917c81d7c..50ba78e2b3b44540d5317157724a7a76c087dc50 100644
+--- a/src/main/java/net/minecraft/network/NettyVarint21FrameDecoder.java
++++ b/src/main/java/net/minecraft/network/NettyVarint21FrameDecoder.java
+@@ -9,11 +9,21 @@ import java.util.List;
+ 
+ public class NettyVarint21FrameDecoder extends ByteToMessageDecoder {
+ 
++    private final byte[] lenBuf = new byte[3]; // Paper
+     public NettyVarint21FrameDecoder() {}
+ 
+     protected void decode(ChannelHandlerContext channelhandlercontext, ByteBuf bytebuf, List<Object> list) throws Exception {
++        // Paper start - if channel is not active just discard the packet
++        if (!channelhandlercontext.channel().isActive()) {
++            bytebuf.skipBytes(bytebuf.readableBytes());
++            return;
++        }
++        // Paper end
+         bytebuf.markReaderIndex();
+-        byte[] abyte = new byte[3];
++        // Paper start - reuse temporary length buffer
++        byte[] abyte = lenBuf;
++        java.util.Arrays.fill(abyte, (byte) 0);
++        // Paper end
+ 
+         for (int i = 0; i < abyte.length; ++i) {
+             if (!bytebuf.isReadable()) {
+diff --git a/src/main/java/net/minecraft/network/PacketThreadUtil.java b/src/main/java/net/minecraft/network/PacketThreadUtil.java
+index e8e0651d5f93a55652d39398818d51d45a72bcf0..618176363abcc6b7f645ff13bbb27894012e680f 100644
+--- a/src/main/java/net/minecraft/network/PacketThreadUtil.java
++++ b/src/main/java/net/minecraft/network/PacketThreadUtil.java
+@@ -5,8 +5,10 @@ import org.apache.logging.log4j.Logger;
+ import co.aikar.timings.MinecraftTimings; // Paper
+ import co.aikar.timings.Timing; // Paper
+ import net.minecraft.network.play.ServerPlayNetHandler;
++import net.minecraft.network.play.server.SDisconnectPacket;
+ import net.minecraft.server.MinecraftServer;
+ import net.minecraft.util.concurrent.ThreadTaskExecutor;
++import net.minecraft.util.text.StringTextComponent;
+ import net.minecraft.world.server.ServerWorld;
+ 
+ public class PacketThreadUtil {
+@@ -26,6 +28,21 @@ public class PacketThreadUtil {
+                     try (Timing ignored = timing.startTiming()) { // Paper - timings
+                     p_218797_0_.func_148833_a(p_218797_1_);
+                     } // Paper - timings
++                    // Paper start
++                    catch (Exception e) {
++                        NetworkManager networkmanager = p_218797_1_.func_147298_b();
++                        if (networkmanager.getPlayer() != null) {
++                            field_225384_a.error("Error whilst processing packet {} for {}[{}]", p_218797_0_, networkmanager.getPlayer().func_195047_I_(), networkmanager.func_74430_c(), e);
++                        } else {
++                            field_225384_a.error("Error whilst processing packet {} for connection from {}", p_218797_0_, networkmanager.func_74430_c(), e);
++                        }
++                        StringTextComponent error = new StringTextComponent("Packet processing error");
++                        networkmanager.func_201058_a(new SDisconnectPacket(error), (future) -> {
++                            networkmanager.func_150718_a(error);
++                        });
++                        networkmanager.func_150721_g();
++                    }
++                    // Paper end
+                 } else {
+                     PacketThreadUtil.field_225384_a.debug("Ignoring packet due to disconnection: " + p_218797_0_);
+                 }
+diff --git a/src/main/java/net/minecraft/network/ProtocolType.java b/src/main/java/net/minecraft/network/ProtocolType.java
+index a92bcd84eb39138e393df6d9d758ef9c0749b729..21ddd7dc9735295f6caf7be541fc7297ec9f29d3 100644
+--- a/src/main/java/net/minecraft/network/ProtocolType.java
++++ b/src/main/java/net/minecraft/network/ProtocolType.java
+@@ -284,6 +284,7 @@ public enum ProtocolType {
+ 
+         @Nullable
+         public IPacket<?> func_229718_a_(int p_229718_1_) {
++            if (p_229718_1_ < 0 || p_229718_1_ >= this.field_229716_b_.size()) return null; // Paper
+             Supplier<? extends IPacket<T>> supplier = (Supplier) this.field_229716_b_.get(p_229718_1_);
+ 
+             return supplier != null ? (IPacket) supplier.get() : null;

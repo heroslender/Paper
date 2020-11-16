@@ -1,0 +1,24 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 16 May 2018 20:35:16 -0400
+Subject: [PATCH] WitchConsumePotionEvent
+
+Fires when a witch consumes the potion in their hand
+
+diff --git a/src/main/java/net/minecraft/entity/monster/WitchEntity.java b/src/main/java/net/minecraft/entity/monster/WitchEntity.java
+index de066546d4769e6e5b458f1bb941023138aac31b..a985e2a22f94adc8acccf3018ff45c12b6e1d3d8 100644
+--- a/src/main/java/net/minecraft/entity/monster/WitchEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/WitchEntity.java
+@@ -124,7 +124,11 @@ public class WitchEntity extends AbstractRaiderEntity implements IRangedAttackMo
+ 
+                     this.func_184201_a(EquipmentSlotType.MAINHAND, ItemStack.field_190927_a);
+                     if (itemstack.func_77973_b() == Items.field_151068_bn) {
+-                        List<EffectInstance> list = PotionUtils.func_185189_a(itemstack);
++                        // Paper start
++                        com.destroystokyo.paper.event.entity.WitchConsumePotionEvent event = new com.destroystokyo.paper.event.entity.WitchConsumePotionEvent((org.bukkit.entity.Witch) this.getBukkitEntity(), org.bukkit.craftbukkit.inventory.CraftItemStack.asCraftMirror(itemstack));
++
++                        List<EffectInstance> list = event.callEvent() ? PotionUtils.func_185189_a(org.bukkit.craftbukkit.inventory.CraftItemStack.asNMSCopy(event.getPotion())) : null;
++                        // Paper end
+ 
+                         if (list != null) {
+                             Iterator iterator = list.iterator();

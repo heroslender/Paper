@@ -1,0 +1,19 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kickash32 <kickash32@gmail.com>
+Date: Tue, 30 Jul 2019 03:17:16 +0500
+Subject: [PATCH] offset item frame ticking
+
+
+diff --git a/src/main/java/net/minecraft/entity/item/HangingEntity.java b/src/main/java/net/minecraft/entity/item/HangingEntity.java
+index 270bc7935ae4e59720f3054360bb9d2b093a0e12..b1f86e5b40bf4335708719d2ca106e75c3a88158 100644
+--- a/src/main/java/net/minecraft/entity/item/HangingEntity.java
++++ b/src/main/java/net/minecraft/entity/item/HangingEntity.java
+@@ -36,7 +36,7 @@ public abstract class HangingEntity extends Entity {
+     protected static final Predicate<Entity> field_184524_c = (entity) -> {
+         return entity instanceof HangingEntity;
+     };
+-    private int field_70520_f;
++    private int field_70520_f; { this.field_70520_f = this.func_145782_y() % this.field_70170_p.spigotConfig.hangingTickFrequency; } // Paper
+     public BlockPos field_174861_a;
+     protected Direction field_174860_b;
+ 

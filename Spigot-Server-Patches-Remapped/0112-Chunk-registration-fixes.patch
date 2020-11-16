@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 21 Sep 2016 22:54:28 -0400
+Subject: [PATCH] Chunk registration fixes
+
+World checks and the Chunk Add logic are inconsistent on how Y > 256, < 0, is treated
+
+Keep them consistent
+
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index caf0d3c43a5f248c881b4fb85375127165476970..62d30829447fe98d3c355d0533c357643f062b36 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -839,7 +839,7 @@ public class ServerWorld extends World implements ISeedReader {
+         if (p_217464_1_.func_233578_ci_()) {
+             this.func_217381_Z().func_76320_a("chunkCheck");
+             int i = MathHelper.func_76128_c(p_217464_1_.func_226277_ct_() / 16.0D);
+-            int j = MathHelper.func_76128_c(p_217464_1_.func_226278_cu_() / 16.0D);
++            int j =  Math.min(15, Math.max(0, MathHelper.func_76128_c(p_217464_1_.func_226278_cu_() / 16.0D))); // Paper - stay consistent with chunk add/remove behavior
+             int k = MathHelper.func_76128_c(p_217464_1_.func_226281_cx_() / 16.0D);
+ 
+             if (!p_217464_1_.field_70175_ag || p_217464_1_.field_70176_ah != i || p_217464_1_.field_70162_ai != j || p_217464_1_.field_70164_aj != k) {

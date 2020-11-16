@@ -1,0 +1,96 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Wed, 3 Jun 2020 11:37:13 -0700
+Subject: [PATCH] Optimise getType calls
+
+Remove the map lookup for converting from Block->Bukkit Material
+
+diff --git a/src/main/java/net/minecraft/block/BlockState.java b/src/main/java/net/minecraft/block/BlockState.java
+index e46756f243313e52150eeba3a7e93af5bc19e34d..ca8ca32a8c4a51b7f136ce66ffbe103d02bc6e3e 100644
+--- a/src/main/java/net/minecraft/block/BlockState.java
++++ b/src/main/java/net/minecraft/block/BlockState.java
+@@ -10,6 +10,19 @@ public class BlockState extends AbstractBlock.AbstractBlockState {
+ 
+     public static final Codec<BlockState> field_235877_b_ = func_235897_a_((Codec) Registry.field_212618_g, Block::func_176223_P).stable();
+ 
++
++    // Paper start - optimise getType calls
++    org.bukkit.Material cachedMaterial;
++
++    public final org.bukkit.Material getBukkitMaterial() {
++        if (this.cachedMaterial == null) {
++            this.cachedMaterial = org.bukkit.craftbukkit.util.CraftMagicNumbers.getMaterial(this.func_177230_c());
++        }
++
++        return this.cachedMaterial;
++    }
++    // Paper end - optimise getType calls
++
+     public BlockState(Block block, ImmutableMap<Property<?>, Comparable<?>> immutablemap, MapCodec<BlockState> mapcodec) {
+         super(block, immutablemap, mapcodec);
+     }
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftChunkSnapshot.java b/src/main/java/org/bukkit/craftbukkit/CraftChunkSnapshot.java
+index 02a5338b8972c3d3eaa5ca758978e7b02f3b46c4..d566e3fa7abd189a2a63f4d1608d266a3f2ccb14 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftChunkSnapshot.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftChunkSnapshot.java
+@@ -78,7 +78,7 @@ public class CraftChunkSnapshot implements ChunkSnapshot {
+     public Material getBlockType(int x, int y, int z) {
+         CraftChunk.validateChunkCoordinates(x, y, z);
+ 
+-        return CraftMagicNumbers.getMaterial(blockids[y >> 4].func_186016_a(x, y & 0xF, z).func_177230_c());
++        return blockids[y >> 4].func_186016_a(x, y & 0xF, z).getBukkitMaterial(); // Paper - optimise getType calls
+     }
+ 
+     @Override
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+index 7fae88b9defd76ebacc8462aa97e94cdc600d7a0..6f7b53b5f272bccd2f53496bdaa6a7cc99d5848d 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftBlock.java
+@@ -210,7 +210,7 @@ public class CraftBlock implements Block {
+ 
+     @Override
+     public Material getType() {
+-        return CraftMagicNumbers.getMaterial(world.func_180495_p(position).func_177230_c());
++        return world.func_180495_p(position).getBukkitMaterial(); // Paper - optimise getType calls
+     }
+ 
+     @Override
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftBlockState.java b/src/main/java/org/bukkit/craftbukkit/block/CraftBlockState.java
+index 66e2278ec59904ea802a0c54e09b79fc886929b1..187eff04ef8a64d5da8949069082596f2cb57625 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftBlockState.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftBlockState.java
+@@ -134,7 +134,7 @@ public class CraftBlockState implements BlockState {
+ 
+     @Override
+     public Material getType() {
+-        return CraftMagicNumbers.getMaterial(data.func_177230_c());
++        return data.getBukkitMaterial(); // Paper - optimise getType calls
+     }
+ 
+     public void setFlag(int flag) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/data/CraftBlockData.java b/src/main/java/org/bukkit/craftbukkit/block/data/CraftBlockData.java
+index 9b42eda1570fec3b5d117bd9ae8e65ac86e2385d..7f6037edc5e7b76e28102d6c3bef230870071a65 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/data/CraftBlockData.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/data/CraftBlockData.java
+@@ -44,7 +44,7 @@ public class CraftBlockData implements BlockData {
+ 
+     @Override
+     public Material getMaterial() {
+-        return CraftMagicNumbers.getMaterial(state.func_177230_c());
++        return state.getBukkitMaterial(); // Paper - optimise getType calls
+     }
+ 
+     public BlockState getState() {
+diff --git a/src/main/java/org/bukkit/craftbukkit/generator/CraftChunkData.java b/src/main/java/org/bukkit/craftbukkit/generator/CraftChunkData.java
+index 3bcc79a2c5d6f0eb11d95c1080aef8d2acce6519..6388e67c7d6a5bff94220cca08b11ed7f893d4b6 100644
+--- a/src/main/java/org/bukkit/craftbukkit/generator/CraftChunkData.java
++++ b/src/main/java/org/bukkit/craftbukkit/generator/CraftChunkData.java
+@@ -73,7 +73,7 @@ public final class CraftChunkData implements ChunkGenerator.ChunkData {
+ 
+     @Override
+     public Material getType(int x, int y, int z) {
+-        return CraftMagicNumbers.getMaterial(getTypeId(x, y, z).func_177230_c());
++        return getTypeId(x, y, z).getBukkitMaterial(); // Paper - optimise getType calls
+     }
+ 
+     @Override

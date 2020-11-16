@@ -1,0 +1,55 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Tue, 1 Jan 2019 02:22:01 -0800
+Subject: [PATCH] Add Heightmap API
+
+
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index 7666957e3c81aa49229f506351ed5c8bbb3e5862..61932d5db6f66a314e79cc5e4108776294a9897c 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -668,8 +668,8 @@ public abstract class World implements IWorld, AutoCloseable {
+         }
+     }
+ 
+-    @Override
+-    public int func_201676_a(Heightmap.Type p_201676_1_, int p_201676_2_, int p_201676_3_) {
++    public final int getHighestBlockY(final Heightmap.Type heightmap, final int x, final int z) { return this.func_201676_a(heightmap, x, z); } // Paper - OBFHELPER
++    @Override public int func_201676_a(Heightmap.Type p_201676_1_, int p_201676_2_, int p_201676_3_) { // Paper - OBFHELPER
+         int k;
+ 
+         if (p_201676_2_ >= -30000000 && p_201676_3_ >= -30000000 && p_201676_2_ < 30000000 && p_201676_3_ < 30000000) {
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index d08f33887272a713e13e022051e392cfc15930ff..d26902108c135b0ee4d59b2dc6800a73c546f86f 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -336,6 +336,29 @@ public class CraftWorld implements World {
+         return getHighestBlockYAt(x, z, org.bukkit.HeightMap.MOTION_BLOCKING);
+     }
+ 
++    // Paper start - Implement heightmap api
++    @Override
++    public int getHighestBlockYAt(final int x, final int z, final com.destroystokyo.paper.HeightmapType heightmap) throws UnsupportedOperationException {
++        this.getChunkAt(x >> 4, z >> 4); // heightmap will ret 0 on unloaded areas
++
++        switch (heightmap) {
++            case LIGHT_BLOCKING:
++                throw new UnsupportedOperationException(); // TODO
++                //return this.world.getHighestBlockY(HeightMap.Type.LIGHT_BLOCKING, x, z);
++            case ANY:
++                return this.world.getHighestBlockY(net.minecraft.world.gen.Heightmap.Type.WORLD_SURFACE, x, z);
++            case SOLID:
++                return this.world.getHighestBlockY(net.minecraft.world.gen.Heightmap.Type.OCEAN_FLOOR, x, z);
++            case SOLID_OR_LIQUID:
++                return this.world.getHighestBlockY(net.minecraft.world.gen.Heightmap.Type.MOTION_BLOCKING, x, z);
++            case SOLID_OR_LIQUID_NO_LEAVES:
++                return this.world.getHighestBlockY(net.minecraft.world.gen.Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
++            default:
++                throw new UnsupportedOperationException();
++        }
++    }
++    // Paper end
++
+     @Override
+     public Location getSpawnLocation() {
+         BlockPos spawn = world.getSpawn();

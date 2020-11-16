@@ -1,0 +1,291 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 9 Sep 2018 13:30:00 -0400
+Subject: [PATCH] Mob Pathfinding API
+
+Implements Pathfinding API for mobs
+
+diff --git a/src/main/java/com/destroystokyo/paper/entity/PaperPathfinder.java b/src/main/java/com/destroystokyo/paper/entity/PaperPathfinder.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..2b434c9658c1dd6b3e731155155d69263e566419
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/entity/PaperPathfinder.java
+@@ -0,0 +1,142 @@
++package com.destroystokyo.paper.entity;
++
++import org.apache.commons.lang.Validate;
++import org.bukkit.Location;
++import org.bukkit.craftbukkit.entity.CraftLivingEntity;
++import org.bukkit.entity.LivingEntity;
++import org.bukkit.entity.Mob;
++
++import javax.annotation.Nonnull;
++import javax.annotation.Nullable;
++import net.minecraft.entity.MobEntity;
++import net.minecraft.pathfinding.Path;
++import net.minecraft.pathfinding.PathPoint;
++import PathResult;
++import java.util.ArrayList;
++import java.util.List;
++
++public class PaperPathfinder implements com.destroystokyo.paper.entity.Pathfinder {
++
++    private final MobEntity entity;
++
++    public PaperPathfinder(MobEntity entity) {
++        this.entity = entity;
++    }
++
++    @Override
++    public Mob getEntity() {
++        return entity.getBukkitMob();
++    }
++
++    @Override
++    public void stopPathfinding() {
++        entity.func_70661_as().stopPathfinding();
++    }
++
++    @Override
++    public boolean hasPath() {
++        return entity.func_70661_as().getPathEntity() != null;
++    }
++
++    @Nullable
++    @Override
++    public PathResult getCurrentPath() {
++        Path path = entity.func_70661_as().getPathEntity();
++        return path != null ? new PaperPathResult(path) : null;
++    }
++
++    @Nullable
++    @Override
++    public PathResult findPath(Location loc) {
++        Validate.notNull(loc, "Location can not be null");
++        Path path = entity.func_70661_as().calculateDestination(loc.getX(), loc.getY(), loc.getZ());
++        return path != null ? new PaperPathResult(path) : null;
++    }
++
++    @Nullable
++    @Override
++    public PathResult findPath(LivingEntity target) {
++        Validate.notNull(target, "Target can not be null");
++        Path path = entity.func_70661_as().calculateDestination(((CraftLivingEntity) target).getHandle());
++        return path != null ? new PaperPathResult(path) : null;
++    }
++
++    @Override
++    public boolean moveTo(@Nonnull PathResult path, double speed) {
++        Validate.notNull(path, "PathResult can not be null");
++        Path pathEntity = ((PaperPathResult) path).path;
++        return entity.func_70661_as().setDestination(pathEntity, speed);
++    }
++
++    @Override
++    public boolean canOpenDoors() {
++        return entity.func_70661_as().getPathfinder().getPathfinder().shouldOpenDoors();
++    }
++
++    @Override
++    public void setCanOpenDoors(boolean canOpenDoors) {
++        entity.func_70661_as().getPathfinder().getPathfinder().setShouldOpenDoors(canOpenDoors);
++    }
++
++    @Override
++    public boolean canPassDoors() {
++        return entity.func_70661_as().getPathfinder().getPathfinder().shouldPassDoors();
++    }
++
++    @Override
++    public void setCanPassDoors(boolean canPassDoors) {
++        entity.func_70661_as().getPathfinder().getPathfinder().setShouldPassDoors(canPassDoors);
++    }
++
++    @Override
++    public boolean canFloat() {
++        return entity.func_70661_as().getPathfinder().getPathfinder().shouldFloat();
++    }
++
++    @Override
++    public void setCanFloat(boolean canFloat) {
++        entity.func_70661_as().getPathfinder().getPathfinder().setShouldFloat(canFloat);
++    }
++
++    public class PaperPathResult implements com.destroystokyo.paper.entity.PaperPathfinder.PathResult {
++
++        private final Path path;
++        PaperPathResult(Path path) {
++            this.path = path;
++        }
++
++        @Nullable
++        @Override
++        public Location getFinalPoint() {
++            PathPoint point = path.getFinalPoint();
++            return point != null ? toLoc(point) : null;
++        }
++
++        @Override
++        public List<Location> getPoints() {
++            List<Location> points = new ArrayList<>();
++            for (PathPoint point : path.getPoints()) {
++                points.add(toLoc(point));
++            }
++            return points;
++        }
++
++        @Override
++        public int getNextPointIndex() {
++            return path.getNextIndex();
++        }
++
++        @Nullable
++        @Override
++        public Location getNextPoint() {
++            if (!path.hasNext()) {
++                return null;
++            }
++            return toLoc(path.getPoints().get(path.getNextIndex()));
++        }
++    }
++
++    private Location toLoc(PathPoint point) {
++        return new Location(entity.field_70170_p.getWorld(), point.getX(), point.getY(), point.getZ());
++    }
++}
+diff --git a/src/main/java/net/minecraft/pathfinding/NodeProcessor.java b/src/main/java/net/minecraft/pathfinding/NodeProcessor.java
+index 4dbb667d4a272a5e7642eb51d2b881a868c3b1b5..06373ad49abe5b47f4adcc33ad1eefbe0233fe47 100644
+--- a/src/main/java/net/minecraft/pathfinding/NodeProcessor.java
++++ b/src/main/java/net/minecraft/pathfinding/NodeProcessor.java
+@@ -16,9 +16,9 @@ public abstract class NodeProcessor {
+     protected int field_176168_c;
+     protected int field_176165_d;
+     protected int field_176166_e;
+-    protected boolean field_176180_f;
+-    protected boolean field_176181_g;
+-    protected boolean field_176184_i;
++    protected boolean field_176180_f; public boolean shouldPassDoors() { return field_176180_f; } public void setShouldPassDoors(boolean b) { field_176180_f = b; } // Paper - obfhelper
++    protected boolean field_176181_g; public boolean shouldOpenDoors() { return field_176181_g; } public void setShouldOpenDoors(boolean b) { field_176181_g = b; } // Paper - obfhelper
++    protected boolean field_176184_i; public boolean shouldFloat() { return field_176184_i; } public void setShouldFloat(boolean b) { field_176184_i = b; } // Paper - obfhelper
+ 
+     public NodeProcessor() {}
+ 
+diff --git a/src/main/java/net/minecraft/pathfinding/Path.java b/src/main/java/net/minecraft/pathfinding/Path.java
+index d8ecfd769f91c0f0092b1442c060a65db331f335..e75b06fd7f000d924177c0177c1fc2935e08c408 100644
+--- a/src/main/java/net/minecraft/pathfinding/Path.java
++++ b/src/main/java/net/minecraft/pathfinding/Path.java
+@@ -8,13 +8,14 @@ import net.minecraft.util.math.vector.Vector3d;
+ 
+ public class Path {
+ 
+-    private final List<PathPoint> field_75884_a;
++    private final List<PathPoint> field_75884_a; public List<PathPoint> getPoints() { return field_75884_a; } // Paper - OBFHELPER
+     private PathPoint[] field_186312_b = new PathPoint[0];
+     private PathPoint[] field_186313_c = new PathPoint[0];
+-    private int field_75882_b;
++    private int field_75882_b; public int getNextIndex() { return this.field_75882_b; } // Paper - OBFHELPER
+     private final BlockPos field_186314_d;
+     private final float field_224773_g;
+     private final boolean field_224774_h;
++    public boolean hasNext() { return getNextIndex() < getPoints().size(); } // Paper
+ 
+     public Path(List<PathPoint> list, BlockPos blockposition, boolean flag) {
+         this.field_75884_a = list;
+@@ -36,7 +37,7 @@ public class Path {
+     }
+ 
+     @Nullable
+-    public PathPoint func_75870_c() {
++    public PathPoint getFinalPoint() { return func_75870_c(); } @Nullable public PathPoint func_75870_c() { // Paper - OBFHELPER
+         return !this.field_75884_a.isEmpty() ? (PathPoint) this.field_75884_a.get(this.field_75884_a.size() - 1) : null;
+     }
+ 
+@@ -84,7 +85,7 @@ public class Path {
+         return this.func_75881_a(p_75878_1_, this.field_75882_b);
+     }
+ 
+-    public BlockPos func_242948_g() {
++    public BlockPos getNext() { return func_242948_g(); } public BlockPos func_242948_g() { // Paper - OBFHELPER
+         return ((PathPoint) this.field_75884_a.get(this.field_75882_b)).func_224759_a();
+     }
+ 
+diff --git a/src/main/java/net/minecraft/pathfinding/PathNavigator.java b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+index 08d9a18dda1793ba45207ab778793f5fa3a82e50..1d6fd2c4b4c06c41a6cb3b0949290bb109c238a6 100644
+--- a/src/main/java/net/minecraft/pathfinding/PathNavigator.java
++++ b/src/main/java/net/minecraft/pathfinding/PathNavigator.java
+@@ -95,7 +95,7 @@ public abstract class PathNavigator {
+     }
+ 
+     @Nullable
+-    public final Path func_225466_a(double p_225466_1_, double p_225466_2_, double p_225466_3_, int p_225466_4_) {
++    public final Path calculateDestination(double d0, double d1, double d2) { return func_225466_a(d0, d1, d2, 0); } public final Path func_225466_a(double p_225466_1_, double p_225466_2_, double p_225466_3_, int p_225466_4_) { // Paper - OBFHELPER
+         return this.func_179680_a(new BlockPos(p_225466_1_, p_225466_2_, p_225466_3_), p_225466_4_);
+     }
+ 
+@@ -120,7 +120,7 @@ public abstract class PathNavigator {
+     }
+ 
+     @Nullable
+-    public Path func_75494_a(Entity p_75494_1_, int p_75494_2_) {
++    public final Path calculateDestination(Entity entity) { return func_75494_a(entity, 0); }  public Path func_75494_a(Entity p_75494_1_, int p_75494_2_) {
+         return this.a(ImmutableSet.of(p_75494_1_.func_233580_cy_()), p_75494_1_, 16, true, p_75494_2_); // Paper
+     }
+ 
+@@ -185,6 +185,7 @@ public abstract class PathNavigator {
+         return pathentity != null && this.func_75484_a(pathentity, p_75497_2_);
+     }
+ 
++    public boolean setDestination(@Nullable Path pathentity, double speed) { return func_75484_a(pathentity, speed); } // Paper - OBFHELPER
+     public boolean func_75484_a(@Nullable Path p_75484_1_, double p_75484_2_) {
+         if (p_75484_1_ == null) {
+             this.field_75514_c = null;
+@@ -212,7 +213,7 @@ public abstract class PathNavigator {
+         }
+     }
+ 
+-    @Nullable
++    @Nullable public Path getPathEntity() { return func_75505_d(); } @Nullable // Paper - OBFHELPER
+     public Path func_75505_d() {
+         return this.field_75514_c;
+     }
+@@ -336,6 +337,7 @@ public abstract class PathNavigator {
+         return !this.func_75500_f();
+     }
+ 
++    public void stopPathfinding() { func_75499_g(); } // Paper - OBFHELPER
+     public void func_75499_g() {
+         this.field_75514_c = null;
+     }
+diff --git a/src/main/java/net/minecraft/pathfinding/PathPoint.java b/src/main/java/net/minecraft/pathfinding/PathPoint.java
+index fa52a848ae4cde75a72e497c372da7d1b16e6e23..856c19b49f0454b6c22a57d3e38cb2fffae4520f 100644
+--- a/src/main/java/net/minecraft/pathfinding/PathPoint.java
++++ b/src/main/java/net/minecraft/pathfinding/PathPoint.java
+@@ -5,9 +5,9 @@ import net.minecraft.util.math.MathHelper;
+ 
+ public class PathPoint {
+ 
+-    public final int field_75839_a;
+-    public final int field_75837_b;
+-    public final int field_75838_c;
++    public final int field_75839_a; public final int getX() { return field_75839_a; } // Paper - OBFHELPER
++    public final int field_75837_b; public final int getY() { return field_75837_b; } // Paper - OBFHELPER
++    public final int field_75838_c; public final int getZ() { return field_75838_c; } // Paper - OBFHELPER
+     private final int field_75840_j;
+     public int field_75835_d = -1;
+     public float field_75836_e;
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftMob.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftMob.java
+index 7ad06a949921225de12e44afb6414c72f05dadfa..a0261d39ce7fd4d3db8c7d6c1ef034f787b21880 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftMob.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftMob.java
+@@ -12,8 +12,11 @@ import org.bukkit.loot.LootTable;
+ public abstract class CraftMob extends CraftLivingEntity implements Mob {
+     public CraftMob(CraftServer server, MobEntity entity) {
+         super(server, entity);
++         paperPathfinder = new com.destroystokyo.paper.entity.PaperPathfinder(entity); // Paper
+     }
+ 
++    private final com.destroystokyo.paper.entity.PaperPathfinder paperPathfinder; // Paper
++    @Override public com.destroystokyo.paper.entity.Pathfinder getPathfinder() { return paperPathfinder; } // Paper
+     @Override
+     public void setTarget(LivingEntity target) {
+         MobEntity entity = getHandle();

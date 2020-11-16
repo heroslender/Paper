@@ -1,0 +1,37 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 3 Mar 2016 01:13:45 -0600
+Subject: [PATCH] Configurable Disabling Cat Chest Detection
+
+Offers a gameplay feature to stop cats from blocking chests
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 1d8d1a4e387f205f6c1c9b608f20e30763dec01a..68132778ebafbb65077b82df8fcd8cdda319ffab 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -182,4 +182,9 @@ public class PaperWorldConfig {
+     private void containerUpdateTickRate() {
+         containerUpdateTickRate = getInt("container-update-tick-rate", 1);
+     }
++
++    public boolean disableChestCatDetection;
++    private void disableChestCatDetection() {
++        disableChestCatDetection = getBoolean("game-mechanics.disable-chest-cat-detection", false);
++    }
+ }
+diff --git a/src/main/java/net/minecraft/block/ChestBlock.java b/src/main/java/net/minecraft/block/ChestBlock.java
+index adf0345150669393dc4570b29353729af11d42fb..d5395e70a089ad772aa43f61bdd7e3e773d5df19 100644
+--- a/src/main/java/net/minecraft/block/ChestBlock.java
++++ b/src/main/java/net/minecraft/block/ChestBlock.java
+@@ -313,6 +313,11 @@ public class ChestBlock extends AbstractChestBlock<ChestTileEntity> implements I
+     }
+ 
+     private static boolean func_220107_b(IWorld p_220107_0_, BlockPos p_220107_1_) {
++        // Paper start - Option to disable chest cat detection
++        if (((World) p_220107_0_).paperConfig.disableChestCatDetection) {
++            return false;
++        }
++        // Paper end
+         List<CatEntity> list = p_220107_0_.func_217357_a(CatEntity.class, new AxisAlignedBB((double) p_220107_1_.func_177958_n(), (double) (p_220107_1_.func_177956_o() + 1), (double) p_220107_1_.func_177952_p(), (double) (p_220107_1_.func_177958_n() + 1), (double) (p_220107_1_.func_177956_o() + 2), (double) (p_220107_1_.func_177952_p() + 1)));
+ 
+         if (!list.isEmpty()) {

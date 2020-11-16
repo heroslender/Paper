@@ -1,0 +1,76 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 23 May 2020 17:03:41 -0400
+Subject: [PATCH] Optimize sending packets to nearby locations (sounds/effects)
+
+Instead of using the entire world or player list, use the distance
+maps to only iterate players who are even seeing the chunk the packet
+is originating from.
+
+This will drastically cut down on packet sending cost for worlds with
+lots of players in them.
+
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index 34e119515a21d31528f278563a8db35fa2ba93f4..084d52e3a0373f4661867e35148b56401a988e72 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -1150,16 +1150,40 @@ public abstract class PlayerList {
+     }
+ 
+     public void func_148543_a(@Nullable PlayerEntity p_148543_1_, double p_148543_2_, double p_148543_3_, double p_148543_4_, double p_148543_5_, RegistryKey<World> p_148543_6_, IPacket<?> p_148543_7_) {
+-        for (int i = 0; i < this.field_72404_b.size(); ++i) {
+-            ServerPlayerEntity entityplayer = (ServerPlayerEntity) this.field_72404_b.get(i);
++        ServerWorld world = null;
++        if (p_148543_1_ != null && p_148543_1_.field_70170_p instanceof ServerWorld) {
++            world = (ServerWorld) p_148543_1_.field_70170_p;
++        }
+ 
+-            // CraftBukkit start - Test if player receiving packet can see the source of the packet
+-            if (p_148543_1_ != null && p_148543_1_ instanceof ServerPlayerEntity && !entityplayer.getBukkitEntity().canSee(((ServerPlayerEntity) p_148543_1_).getBukkitEntity())) {
+-               continue;
++        // Paper start
++        if (world == null) {
++            world = field_72400_f.func_71218_a(p_148543_6_);
++        }
++        ChunkManager chunkMap = world != null ? world.func_72863_F().field_217237_a : null;
++        Object[] backingSet;
++        if (chunkMap == null) {
++            // Really shouldn't happen...
++            backingSet = world != null ? world.field_217491_A.toArray() : field_72404_b.toArray();
++        } else {
++            com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<ServerPlayerEntity> nearbyPlayers = chunkMap.playerViewDistanceBroadcastMap.getObjectsInRange(MCUtil.fastFloor(p_148543_2_) >> 4, MCUtil.fastFloor(p_148543_4_) >> 4);
++            if (nearbyPlayers == null) {
++                return;
+             }
++            backingSet = nearbyPlayers.getBackingSet();
++        }
++
++        for (Object object : backingSet) {
++            if (!(object instanceof ServerPlayerEntity)) continue;
++            ServerPlayerEntity entityplayer = (ServerPlayerEntity) object;
++            // Paper end
++
++            // CraftBukkit start - Test if player receiving packet can see the source of the packet
++            //if (entityhuman != null && entityhuman instanceof EntityPlayer && !entityplayer.getBukkitEntity().canSee(((EntityPlayer) entityhuman).getBukkitEntity())) { // Paper
++               //continue; // Paper
++            //} // Paper
+             // CraftBukkit end
+ 
+-            if (entityplayer != p_148543_1_ && entityplayer.field_70170_p.func_234923_W_() == p_148543_6_) {
++            if (entityplayer != p_148543_1_ && entityplayer.field_70170_p.func_234923_W_() == p_148543_6_ && (!(p_148543_1_ instanceof ServerPlayerEntity) || entityplayer.getBukkitEntity().canSee(((ServerPlayerEntity) p_148543_1_).getBukkitEntity()))) { // Paper
+                 double d4 = p_148543_2_ - entityplayer.func_226277_ct_();
+                 double d5 = p_148543_3_ - entityplayer.func_226278_cu_();
+                 double d6 = p_148543_4_ - entityplayer.func_226281_cx_();
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+index cabfff193a4b2778a99e5a0dab2df4106855e46a..0224498575508a85a4de07ecca61ba814d0413c5 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+@@ -201,7 +201,7 @@ public class ChunkSerializer {
+             }
+ 
+             object = new Chunk(worldserver.func_201672_e(), chunkcoordintpair, biomestorage, chunkconverter, (ITickList) object1, (ITickList) object2, j, achunksection, // Paper start - fix massive nbt memory leak due to lambda. move lambda into a container method to not leak scope. Only clone needed NBT keys.
+-                createLoadEntitiesConsumer(new net.minecraft.world.chunk.storage.ChunkSerializer.SafeNBTCopy(nbttagcompound1, "TileEntities", "Entities", "ChunkBukkitValues")) // Paper - move CB Chunk PDC into here
++                createLoadEntitiesConsumer(new SafeNBTCopy(nbttagcompound1, "TileEntities", "Entities", "ChunkBukkitValues")) // Paper - move CB Chunk PDC into here
+             );// Paper end
+         } else {
+             ChunkPrimer protochunk = new ChunkPrimer(chunkcoordintpair, chunkconverter, achunksection, protochunkticklist, protochunkticklist1, worldserver); // Paper - Anti-Xray - Add parameter

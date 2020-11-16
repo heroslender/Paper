@@ -1,0 +1,62 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Fri, 27 Dec 2019 09:42:26 -0800
+Subject: [PATCH] Guard against serializing mismatching chunk coordinate
+
+Should help if something dumb happens
+
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/ChunkLoader.java b/src/main/java/net/minecraft/world/chunk/storage/ChunkLoader.java
+index 241dbdab436dc08a1acecd1ab7de30edf5e1876e..ae39ea64240697bf98526aa6dea84bf2d74963dc 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/ChunkLoader.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/ChunkLoader.java
+@@ -19,6 +19,7 @@ import net.minecraft.world.DimensionType;
+ import net.minecraft.world.IWorld;
+ import net.minecraft.world.chunk.ChunkStatus;
+ import net.minecraft.world.gen.feature.structure.LegacyStructureDataUtil;
++import net.minecraft.world.server.ChunkManager;
+ import net.minecraft.world.server.ServerChunkProvider;
+ import net.minecraft.world.server.ServerWorld;
+ import net.minecraft.world.storage.DimensionSavedDataManager;
+@@ -119,6 +120,13 @@ public class ChunkLoader implements AutoCloseable {
+ 
+     public void func_219100_a(ChunkPos p_219100_1_, CompoundNBT p_219100_2_) throws IOException { write(p_219100_1_, p_219100_2_); } // Paper OBFHELPER
+     public void write(ChunkPos chunkcoordintpair, CompoundNBT nbttagcompound) throws IOException { // Paper - OBFHELPER - (Switched around for safety)
++        // Paper start
++        if (!chunkcoordintpair.equals(ChunkSerializer.getChunkCoordinate(nbttagcompound))) {
++            String world = (this instanceof ChunkManager) ? ((ChunkManager)this).field_219255_i.getWorld().getName() : null;
++            throw new IllegalArgumentException("Chunk coordinate and serialized data do not have matching coordinates, trying to serialize coordinate " + chunkcoordintpair.toString()
++                + " but compound says coordinate is " + ChunkSerializer.getChunkCoordinate(nbttagcompound).toString() + (world == null ? " for an unknown world" : (" for world: " + world)));
++        }
++        // Paper end
+         this.regionFileCache.func_219100_a(chunkcoordintpair, nbttagcompound);
+         if (this.field_219167_a != null) {
+             synchronized (this.persistentDataLock) { // Paper - Async chunk loading
+diff --git a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+index f25daa85d28075398e49d10cf92a99705a645b8d..7bef2702deef59d6fff2128af8d85ce1f0055928 100644
+--- a/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
++++ b/src/main/java/net/minecraft/world/chunk/storage/ChunkSerializer.java
+@@ -68,6 +68,13 @@ public class ChunkSerializer {
+ 
+     private static final Logger field_222658_a = LogManager.getLogger();
+ 
++    // Paper start - guard against serializing mismatching coordinates
++    // TODO Note: This needs to be re-checked each update
++    public static ChunkPos getChunkCoordinate(CompoundNBT chunkData) {
++        CompoundNBT levelData = chunkData.func_74775_l("Level");
++        return new ChunkPos(levelData.func_74762_e("xPos"), levelData.func_74762_e("zPos"));
++    }
++    // Paper end
+     // Paper start
+     public static final class InProgressChunkHolder {
+ 
+@@ -93,8 +100,8 @@ public class ChunkSerializer {
+         // Paper end
+         ChunkGenerator chunkgenerator = worldserver.func_72863_F().func_201711_g();
+         BiomeProvider worldchunkmanager = chunkgenerator.func_202090_b();
+-        CompoundNBT nbttagcompound1 = nbttagcompound.func_74775_l("Level");
+-        ChunkPos chunkcoordintpair1 = new ChunkPos(nbttagcompound1.func_74762_e("xPos"), nbttagcompound1.func_74762_e("zPos"));
++        CompoundNBT nbttagcompound1 = nbttagcompound.func_74775_l("Level"); // Paper - diff on change, see ChunkRegionLoader#getChunkCoordinate
++        ChunkPos chunkcoordintpair1 = new ChunkPos(nbttagcompound1.func_74762_e("xPos"), nbttagcompound1.func_74762_e("zPos")); // Paper - diff on change, see ChunkRegionLoader#getChunkCoordinate
+ 
+         if (!Objects.equals(chunkcoordintpair, chunkcoordintpair1)) {
+             ChunkSerializer.field_222658_a.error("Chunk file at {} is in the wrong location; relocating. (Expected {}, got {})", chunkcoordintpair, chunkcoordintpair, chunkcoordintpair1);

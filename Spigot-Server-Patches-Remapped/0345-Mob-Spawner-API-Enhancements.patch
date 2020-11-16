@@ -1,0 +1,104 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <blake.galbreath@gmail.com>
+Date: Fri, 19 Apr 2019 12:41:13 -0500
+Subject: [PATCH] Mob Spawner API Enhancements
+
+
+diff --git a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+index c0fe89540def85c97f00bb5dec1979aad9209279..aaa0adeb461ee08a8888187967d7c125d0daea29 100644
+--- a/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
++++ b/src/main/java/net/minecraft/world/spawner/AbstractSpawner.java
+@@ -69,6 +69,7 @@ public abstract class AbstractSpawner {
+         this.field_98285_e.clear(); // CraftBukkit - SPIGOT-3496, MC-92282
+     }
+ 
++    public boolean isActivated() { return func_98279_f(); } // Paper - OBFHELPER
+     private boolean func_98279_f() {
+         BlockPos blockposition = this.func_177221_b();
+ 
+@@ -225,6 +226,7 @@ public abstract class AbstractSpawner {
+         }
+     }
+ 
++    public void resetTimer() { func_98273_j(); } // Paper - OBFHELPER
+     private void func_98273_j() {
+         if (this.field_98293_h <= this.field_98283_g) {
+             this.field_98286_b = this.field_98283_g;
+@@ -242,7 +244,13 @@ public abstract class AbstractSpawner {
+     }
+ 
+     public void func_98270_a(CompoundNBT p_98270_1_) {
++        // Paper start - use larger int if set
++        if (p_98270_1_.func_74764_b("Paper.Delay")) {
++            this.field_98286_b = p_98270_1_.func_74762_e("Paper.Delay");
++        } else {
+         this.field_98286_b = p_98270_1_.func_74765_d("Delay");
++        }
++        // Paper end
+         this.field_98285_e.clear();
+         if (p_98270_1_.func_150297_b("SpawnPotentials", 9)) {
+             ListNBT nbttaglist = p_98270_1_.func_150295_c("SpawnPotentials", 10);
+@@ -257,10 +265,15 @@ public abstract class AbstractSpawner {
+         } else if (!this.field_98285_e.isEmpty()) {
+             this.func_184993_a((WeightedSpawnerEntity) WeightedRandom.func_76271_a(this.func_98271_a().field_73012_v, this.field_98285_e));
+         }
+-
++        // Paper start - use ints if set
++        if (p_98270_1_.func_150297_b("Paper.MinSpawnDelay", 99)) {
++            this.field_98283_g = p_98270_1_.func_74762_e("Paper.MinSpawnDelay");
++            this.field_98293_h = p_98270_1_.func_74762_e("Paper.MaxSpawnDelay");
++            this.field_98294_i = p_98270_1_.func_74765_d("SpawnCount");
++        } else // Paper end
+         if (p_98270_1_.func_150297_b("MinSpawnDelay", 99)) {
+-            this.field_98283_g = p_98270_1_.func_74765_d("MinSpawnDelay");
+-            this.field_98293_h = p_98270_1_.func_74765_d("MaxSpawnDelay");
++            this.field_98283_g = p_98270_1_.func_74762_e("MinSpawnDelay");
++            this.field_98293_h = p_98270_1_.func_74762_e("MaxSpawnDelay");
+             this.field_98294_i = p_98270_1_.func_74765_d("SpawnCount");
+         }
+ 
+@@ -285,9 +298,20 @@ public abstract class AbstractSpawner {
+         if (minecraftkey == null) {
+             return p_189530_1_;
+         } else {
+-            p_189530_1_.func_74777_a("Delay", (short) this.field_98286_b);
+-            p_189530_1_.func_74777_a("MinSpawnDelay", (short) this.field_98283_g);
+-            p_189530_1_.func_74777_a("MaxSpawnDelay", (short) this.field_98293_h);
++            // Paper start
++            if (field_98286_b > Short.MAX_VALUE) {
++                p_189530_1_.func_74768_a("Paper.Delay", this.field_98286_b);
++            }
++            p_189530_1_.func_74777_a("Delay", (short) Math.min(Short.MAX_VALUE, this.field_98286_b));
++
++            if (field_98283_g > Short.MAX_VALUE || field_98293_h > Short.MAX_VALUE) {
++                p_189530_1_.func_74768_a("Paper.MinSpawnDelay", this.field_98283_g);
++                p_189530_1_.func_74768_a("Paper.MaxSpawnDelay", this.field_98293_h);
++            }
++
++            p_189530_1_.func_74777_a("MinSpawnDelay", (short) Math.min(Short.MAX_VALUE, this.field_98283_g));
++            p_189530_1_.func_74777_a("MaxSpawnDelay", (short) Math.min(Short.MAX_VALUE, this.field_98293_h));
++            // Paper end
+             p_189530_1_.func_74777_a("SpawnCount", (short) this.field_98294_i);
+             p_189530_1_.func_74777_a("MaxNearbyEntities", (short) this.field_98292_k);
+             p_189530_1_.func_74777_a("RequiredPlayerRange", (short) this.field_98289_l);
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftCreatureSpawner.java b/src/main/java/org/bukkit/craftbukkit/block/CraftCreatureSpawner.java
+index 1eeb54868de97300862618e8979a7a69f39f54a4..0640781573c882ccc6f5fa6c6dafd8af83192656 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftCreatureSpawner.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftCreatureSpawner.java
+@@ -120,4 +120,16 @@ public class CraftCreatureSpawner extends CraftBlockEntityState<MobSpawnerTileEn
+     public void setSpawnRange(int spawnRange) {
+         this.getSnapshot().func_145881_a().field_98290_m = spawnRange;
+     }
++
++    // Paper start
++    @Override
++    public boolean isActivated() {
++        return this.getSnapshot().func_145881_a().isActivated();
++    }
++
++    @Override
++    public void resetTimer() {
++        this.getSnapshot().func_145881_a().resetTimer();
++    }
++    // Paper end
+ }

@@ -1,0 +1,22 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Michael Himing <mhiming@gmail.com>
+Date: Mon, 9 Sep 2019 13:21:17 +1000
+Subject: [PATCH] Fix nether portal creation
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/util/BlockStateListPopulator.java b/src/main/java/org/bukkit/craftbukkit/util/BlockStateListPopulator.java
+index 563d93275fbae09668ae57307aba0829ffd84137..084a5487854c3389013a67394d53512e881d4c45 100644
+--- a/src/main/java/org/bukkit/craftbukkit/util/BlockStateListPopulator.java
++++ b/src/main/java/org/bukkit/craftbukkit/util/BlockStateListPopulator.java
+@@ -37,6 +37,11 @@ public class BlockStateListPopulator extends DummyGeneratorAccess {
+ 
+     @Override
+     public boolean func_180501_a(BlockPos p_180501_1_, net.minecraft.block.BlockState p_180501_2_, int p_180501_3_) {
++        // Paper start
++        // When a LinkedHashMap entry is overwritten, it keeps its old position. Removing the entry here before adding
++        // a new one ensures that the nether portal blocks are placed last and are not destroyed by physics.
++        list.remove(p_180501_1_);
++        // Paper end
+         CraftBlockState state = CraftBlockState.getBlockState(world, p_180501_1_, p_180501_3_);
+         state.setData(p_180501_2_);
+         list.put(p_180501_1_, state);

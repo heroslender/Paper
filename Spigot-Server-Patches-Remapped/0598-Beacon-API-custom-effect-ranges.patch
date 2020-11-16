@@ -1,0 +1,90 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Jake Potrebic <jake.m.potrebic@gmail.com>
+Date: Wed, 24 Jun 2020 12:39:08 -0600
+Subject: [PATCH] Beacon API - custom effect ranges
+
+
+diff --git a/src/main/java/net/minecraft/tileentity/BeaconTileEntity.java b/src/main/java/net/minecraft/tileentity/BeaconTileEntity.java
+index a194be03c1aa31b82caf774cf33daf036fd5e82e..6a9b80d10f44466e0beb9e9da421224e22d2b3a9 100644
+--- a/src/main/java/net/minecraft/tileentity/BeaconTileEntity.java
++++ b/src/main/java/net/minecraft/tileentity/BeaconTileEntity.java
+@@ -74,6 +74,26 @@ public class BeaconTileEntity extends TileEntity implements INamedContainerProvi
+         return (hasSecondaryEffect()) ? CraftPotionUtil.toBukkit(new EffectInstance(this.field_146010_n, getLevel(), getAmplification(), true, true)) : null;
+     }
+     // CraftBukkit end
++    // Paper start - add field/methods for custom range
++    private final String PAPER_RANGE_TAG = "Paper.Range";
++    private double effectRange = -1;
++
++    public double getEffectRange() {
++        if (this.effectRange < 0) {
++            return this.field_146012_l * 10 + 10;
++        } else {
++            return effectRange;
++        }
++    }
++
++    public void setEffectRange(double range) {
++        this.effectRange = range;
++    }
++
++    public void resetEffectRange() {
++        this.effectRange = -1;
++    }
++    // Paper end
+ 
+     public BeaconTileEntity() {
+         super(TileEntityType.field_200984_o);
+@@ -264,7 +284,8 @@ public class BeaconTileEntity extends TileEntity implements INamedContainerProvi
+ 
+     public List getHumansInRange() {
+         {
+-            double d0 = (double) (this.field_146012_l * 10 + 10);
++            // Paper - custom beacon ranges
++            double d0 = this.getEffectRange();
+ 
+             AxisAlignedBB axisalignedbb = (new AxisAlignedBB(this.field_174879_c)).func_186662_g(d0).func_72321_a(0.0D, (double) this.field_145850_b.func_217301_I(), 0.0D);
+             List<PlayerEntity> list = this.field_145850_b.func_217357_a(PlayerEntity.class, axisalignedbb);
+@@ -365,6 +386,9 @@ public class BeaconTileEntity extends TileEntity implements INamedContainerProvi
+         this.field_146010_n = Effect.func_188412_a(p_230337_2_.func_74762_e("Secondary"));
+         this.field_146012_l = p_230337_2_.func_74762_e("Levels"); // SPIGOT-5053, use where available
+         // CraftBukkit end
++        // Paper
++        this.effectRange = p_230337_2_.func_150297_b(PAPER_RANGE_TAG, 6) ? p_230337_2_.func_74769_h(PAPER_RANGE_TAG) : -1;
++
+         if (p_230337_2_.func_150297_b("CustomName", 8)) {
+             this.field_146008_p = ITextComponent.Serializer.func_240643_a_(p_230337_2_.func_74779_i("CustomName"));
+         }
+@@ -381,6 +405,8 @@ public class BeaconTileEntity extends TileEntity implements INamedContainerProvi
+         if (this.field_146008_p != null) {
+             p_189515_1_.func_74778_a("CustomName", ITextComponent.Serializer.func_150696_a(this.field_146008_p));
+         }
++        // Paper
++        p_189515_1_.func_74780_a(PAPER_RANGE_TAG, this.effectRange);
+ 
+         this.field_213936_m.func_180157_a(p_189515_1_);
+         return p_189515_1_;
+diff --git a/src/main/java/org/bukkit/craftbukkit/block/CraftBeacon.java b/src/main/java/org/bukkit/craftbukkit/block/CraftBeacon.java
+index 4476927643a97395f39d2d4dcd8b5773aeb75ac9..d58b0bd9e7926dabbc6b560ec28f3dc919033ee3 100644
+--- a/src/main/java/org/bukkit/craftbukkit/block/CraftBeacon.java
++++ b/src/main/java/org/bukkit/craftbukkit/block/CraftBeacon.java
+@@ -95,4 +95,19 @@ public class CraftBeacon extends CraftBlockEntityState<BeaconTileEntity> impleme
+     public void setLock(String key) {
+         this.getSnapshot().field_213936_m = (key == null) ? LockCode.field_180162_a : new LockCode(key);
+     }
++
++    @Override
++    public double getEffectRange() {
++        return this.getSnapshot().getEffectRange();
++    }
++
++    @Override
++    public void setEffectRange(double range) {
++        this.getSnapshot().setEffectRange(range);
++    }
++
++    @Override
++    public void resetEffectRange() {
++        this.getSnapshot().resetEffectRange();
++    }
+ }

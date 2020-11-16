@@ -1,0 +1,1463 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 4 Jun 2020 22:43:29 -0400
+Subject: [PATCH] Optimize Light Engine
+
+Massive update to light to improve performance and chunk loading/generation.
+
+1) Massive bit packing/unpacking optimizations and inlining.
+  A lot of performance has to do with constant packing and unpacking of bits.
+  We now inline a most bit operations, and re-use base x/y/z bits in many places.
+  This helps with cpu level processing to just do all the math at once instead
+  of having to jump in and out of function calls.
+
+  This much logic also is likely over the JVM Inline limit for JIT too.
+2) Applied a few of JellySquid's Phosphor mod optimizations such as
+  - ensuring we don't notify neighbor chunks when neighbor chunk doesn't need to be notified
+  - reduce hasLight checks in initializing light, and prob some more, they are tagged JellySquid where phosphor influence was used.
+3) Optimize hot path accesses to getting updating chunk to have less branching
+4) Optimize getBlock accesses to have less branching, and less unpacking
+5) Have a separate urgent bucket for chunk light tasks. These tasks will always cut in line over non blocking light tasks.
+6) Retain chunk priority while light tasks are enqueued. So if a task comes in at high priority but the queue is full
+   of tasks already at a lower priority, before the task was simply added to the end. Now it can cut in line to the front.
+   this applies for both urgent and non urgent tasks.
+7) Buffer non urgent tasks even if queueUpdate is called multiple times to improve efficiency.
+8) Fix NPE risk that crashes server in getting nibble data
+
+diff --git a/src/main/java/net/minecraft/util/SectionDistanceGraph.java b/src/main/java/net/minecraft/util/SectionDistanceGraph.java
+index 33ececaa2e1c64f897bded9f44ebf20655b07904..9eeb142551914a03fc4b9e6619409e662ed1fad5 100644
+--- a/src/main/java/net/minecraft/util/SectionDistanceGraph.java
++++ b/src/main/java/net/minecraft/util/SectionDistanceGraph.java
+@@ -1,6 +1,5 @@
+ package net.minecraft.util;
+ 
+-import net.minecraft.util.math.SectionPos;
+ import net.minecraft.world.lighting.LevelBasedGraph;
+ 
+ public abstract class SectionDistanceGraph extends LevelBasedGraph {
+@@ -16,14 +15,20 @@ public abstract class SectionDistanceGraph extends LevelBasedGraph {
+ 
+     @Override
+     protected void func_215478_a(long p_215478_1_, int p_215478_2_, boolean p_215478_3_) {
++        // Paper start
++        int x = (int) (p_215478_1_ >> 42);
++        int y = (int) (p_215478_1_ << 44 >> 44);
++        int z = (int) (p_215478_1_ << 22 >> 42);
++        // Paper end
+         for (int k = -1; k <= 1; ++k) {
+             for (int l = -1; l <= 1; ++l) {
+                 for (int i1 = -1; i1 <= 1; ++i1) {
+-                    long j1 = SectionPos.func_218174_a(p_215478_1_, k, l, i1);
++                    if (k == 0 && l == 0 && i1 == 0) continue; // Paper
++                    long j1 = (((long) (x + k) & 4194303L) << 42) | (((long) (y + l) & 1048575L)) | (((long) (z + i1) & 4194303L) << 20); // Paper
+ 
+-                    if (j1 != p_215478_1_) {
++                    //if (j1 != i) { // Paper - checked above
+                         this.func_215475_b(p_215478_1_, j1, p_215478_2_, p_215478_3_);
+-                    }
++                    //} // Paper
+                 }
+             }
+         }
+@@ -34,10 +39,15 @@ public abstract class SectionDistanceGraph extends LevelBasedGraph {
+     protected int func_215477_a(long p_215477_1_, long p_215477_2_, int p_215477_3_) {
+         int l = p_215477_3_;
+ 
++        // Paper start
++        int x = (int) (p_215477_1_ >> 42);
++        int y = (int) (p_215477_1_ << 44 >> 44);
++        int z = (int) (p_215477_1_ << 22 >> 42);
++        // Paper end
+         for (int i1 = -1; i1 <= 1; ++i1) {
+             for (int j1 = -1; j1 <= 1; ++j1) {
+                 for (int k1 = -1; k1 <= 1; ++k1) {
+-                    long l1 = SectionPos.func_218174_a(p_215477_1_, i1, j1, k1);
++                    long l1 = (((long) (x + i1) & 4194303L) << 42) | (((long) (y + j1) & 1048575L)) | (((long) (z + k1) & 4194303L) << 20); // Paper
+ 
+                     if (l1 == p_215477_1_) {
+                         l1 = Long.MAX_VALUE;
+diff --git a/src/main/java/net/minecraft/util/concurrent/DelegatedTaskExecutor.java b/src/main/java/net/minecraft/util/concurrent/DelegatedTaskExecutor.java
+index f3b1d0f257b892bf707b7f7d037d9349d8a5b118..6c86551a39a22322b8f3bb992b9d43079d7002f1 100644
+--- a/src/main/java/net/minecraft/util/concurrent/DelegatedTaskExecutor.java
++++ b/src/main/java/net/minecraft/util/concurrent/DelegatedTaskExecutor.java
+@@ -110,7 +110,8 @@ public class DelegatedTaskExecutor<T> implements ITaskExecutor<T>, AutoCloseable
+ 
+     }
+ 
+-    @Override
++
++    public final void queue(T t0) { func_212871_a_(t0); } @Override // Paper - OBFHELPER
+     public void func_212871_a_(T p_212871_1_) {
+         this.field_213152_a.func_212828_a_(p_212871_1_);
+         this.func_213143_f();
+diff --git a/src/main/java/net/minecraft/world/chunk/NibbleArray.java b/src/main/java/net/minecraft/world/chunk/NibbleArray.java
+index b5eaf2aab056397727a8ac6749d999f0e6763e2c..c42233d672418cc9ff3cd518b691e6e15c9ce955 100644
+--- a/src/main/java/net/minecraft/world/chunk/NibbleArray.java
++++ b/src/main/java/net/minecraft/world/chunk/NibbleArray.java
+@@ -10,6 +10,13 @@ import net.minecraft.util.Util;
+ public class NibbleArray {
+ 
+     // Paper start
++    static final NibbleArray EMPTY_NIBBLE_ARRAY = new NibbleArray() {
++        @Override
++        public byte[] func_177481_a() {
++            throw new IllegalStateException();
++        }
++    };
++    long lightCacheKey = Long.MIN_VALUE;
+     public static byte[] EMPTY_NIBBLE = new byte[2048];
+     private static final int nibbleBucketSizeMultiplier = Integer.getInteger("Paper.nibbleBucketSize", 3072);
+     private static final int maxPoolSize = Integer.getInteger("Paper.maxNibblePoolSize", (int) Math.min(6, Math.max(1, Runtime.getRuntime().maxMemory() / 1024 / 1024 / 1024)) * (nibbleBucketSizeMultiplier * 8));
+diff --git a/src/main/java/net/minecraft/world/lighting/BlockLightEngine.java b/src/main/java/net/minecraft/world/lighting/BlockLightEngine.java
+index ad77f907f75960a11e6cfde576c68c1aafbedbff..c3db54b17af9f5af099f938318ba6d32217b048d 100644
+--- a/src/main/java/net/minecraft/world/lighting/BlockLightEngine.java
++++ b/src/main/java/net/minecraft/world/lighting/BlockLightEngine.java
+@@ -23,9 +23,11 @@ public final class BlockLightEngine extends LightEngine<BlockLightStorage.Storag
+     }
+ 
+     private int func_215635_d(long p_215635_1_) {
+-        int j = BlockPos.func_218290_b(p_215635_1_);
+-        int k = BlockPos.func_218274_c(p_215635_1_);
+-        int l = BlockPos.func_218282_d(p_215635_1_);
++        // Paper start - inline math
++        int j = (int) (p_215635_1_ >> 38);
++        int k = (int) ((p_215635_1_ << 52) >> 52);
++        int l = (int) ((p_215635_1_ << 26) >> 38);
++        // Paper end
+         IBlockReader iblockaccess = this.field_215625_a.func_217202_b(j >> 4, l >> 4);
+ 
+         return iblockaccess != null ? iblockaccess.func_217298_h(this.field_215637_e.func_181079_c(j, k, l)) : 0;
+@@ -40,25 +42,33 @@ public final class BlockLightEngine extends LightEngine<BlockLightStorage.Storag
+         } else if (p_215480_3_ >= 15) {
+             return p_215480_3_;
+         } else {
+-            int l = Integer.signum(BlockPos.func_218290_b(p_215480_2_) - BlockPos.func_218290_b(p_215480_1_));
+-            int i1 = Integer.signum(BlockPos.func_218274_c(p_215480_2_) - BlockPos.func_218274_c(p_215480_1_));
+-            int j1 = Integer.signum(BlockPos.func_218282_d(p_215480_2_) - BlockPos.func_218282_d(p_215480_1_));
++            // Paper start - reuse math - credit to JellySquid for idea
++            int jx = (int) (p_215480_2_ >> 38);
++            int jy = (int) ((p_215480_2_ << 52) >> 52);
++            int jz = (int) ((p_215480_2_ << 26) >> 38);
++            int ix = (int) (p_215480_1_ >> 38);
++            int iy = (int) ((p_215480_1_ << 52) >> 52);
++            int iz = (int) ((p_215480_1_ << 26) >> 38);
++            int l = Integer.signum(jx - ix);
++            int i1 = Integer.signum(jy - iy);
++            int j1 = Integer.signum(jz - iz);
++            // Paper end
+             Direction enumdirection = Direction.func_218383_a(l, i1, j1);
+ 
+             if (enumdirection == null) {
+                 return 15;
+             } else {
+                 //MutableInt mutableint = new MutableInt(); // Paper - share mutableint, single threaded
+-                BlockState iblockdata = this.func_227468_a_(p_215480_2_, mutableint);
+-
+-                if (mutableint.getValue() >= 15) {
++                BlockState iblockdata = this.getBlockOptimized(jx, jy, jz, mutableint); // Paper
++                int blockedLight = mutableint.getValue(); // Paper
++                if (blockedLight >= 15) { // Paper
+                     return 15;
+                 } else {
+-                    BlockState iblockdata1 = this.func_227468_a_(p_215480_1_, (MutableInt) null);
++                    BlockState iblockdata1 = this.getBlockOptimized(ix, iy, iz); // Paper
+                     VoxelShape voxelshape = this.func_223405_a(iblockdata1, p_215480_1_, enumdirection);
+                     VoxelShape voxelshape1 = this.func_223405_a(iblockdata, p_215480_2_, enumdirection.func_176734_d());
+ 
+-                    return VoxelShapes.func_223416_b(voxelshape, voxelshape1) ? 15 : p_215480_3_ + Math.max(1, mutableint.getValue());
++                    return VoxelShapes.func_223416_b(voxelshape, voxelshape1) ? 15 : p_215480_3_ + Math.max(1, blockedLight); // Paper
+                 }
+             }
+         }
+@@ -66,14 +76,19 @@ public final class BlockLightEngine extends LightEngine<BlockLightStorage.Storag
+ 
+     @Override
+     protected void func_215478_a(long p_215478_1_, int p_215478_2_, boolean p_215478_3_) {
+-        long k = SectionPos.func_218162_e(p_215478_1_);
++        // Paper start - reuse unpacking, credit to JellySquid (Didn't do full optimization though)
++        int x = (int) (p_215478_1_ >> 38);
++        int y = (int) ((p_215478_1_ << 52) >> 52);
++        int z = (int) ((p_215478_1_ << 26) >> 38);
++        long k = SectionPos.blockPosAsSectionLong(x, y, z);
++        // Paper end
+         Direction[] aenumdirection = BlockLightEngine.field_215636_d;
+         int l = aenumdirection.length;
+ 
+         for (int i1 = 0; i1 < l; ++i1) {
+             Direction enumdirection = aenumdirection[i1];
+-            long j1 = BlockPos.func_218289_a(p_215478_1_, enumdirection);
+-            long k1 = SectionPos.func_218162_e(j1);
++            long j1 = BlockPos.getAdjacent(x, y, z, enumdirection); // Paper
++            long k1 = SectionPos.getAdjacentFromBlockPos(x, y, z, enumdirection); // Paper
+ 
+             if (k == k1 || ((BlockLightStorage) this.field_215627_c).func_215518_g(k1)) {
+                 this.func_215475_b(p_215478_1_, j1, p_215478_2_, p_215478_3_);
+@@ -98,27 +113,37 @@ public final class BlockLightEngine extends LightEngine<BlockLightStorage.Storag
+             }
+         }
+ 
+-        long j1 = SectionPos.func_218162_e(p_215477_1_);
+-        NibbleArray nibblearray = ((BlockLightStorage) this.field_215627_c).func_215520_a(j1, true);
++        // Paper start
++        int baseX = (int) (p_215477_1_ >> 38);
++        int baseY = (int) ((p_215477_1_ << 52) >> 52);
++        int baseZ = (int) ((p_215477_1_ << 26) >> 38);
++        long j1 = SectionPos.blockPosAsSectionLong(baseX, baseY, baseZ);
++        NibbleArray nibblearray = this.field_215627_c.updating.getUpdatingOptimized(j1);
++        // Paper end
+         Direction[] aenumdirection = BlockLightEngine.field_215636_d;
+         int k1 = aenumdirection.length;
+ 
+         for (int l1 = 0; l1 < k1; ++l1) {
+             Direction enumdirection = aenumdirection[l1];
+-            long i2 = BlockPos.func_218289_a(p_215477_1_, enumdirection);
++            // Paper start
++            int newX = baseX + enumdirection.func_82601_c();
++            int newY = baseY + enumdirection.func_96559_d();
++            int newZ = baseZ + enumdirection.func_82599_e();
++            long i2 = BlockPos.asLong(newX, newY, newZ);
+ 
+             if (i2 != p_215477_2_) {
+-                long j2 = SectionPos.func_218162_e(i2);
++                long j2 = SectionPos.blockPosAsSectionLong(newX, newY, newZ);
++                // Paper end
+                 NibbleArray nibblearray1;
+ 
+                 if (j1 == j2) {
+                     nibblearray1 = nibblearray;
+                 } else {
+-                    nibblearray1 = ((BlockLightStorage) this.field_215627_c).func_215520_a(j2, true);
++                    nibblearray1 = ((BlockLightStorage) this.field_215627_c).updating.getUpdatingOptimized(j2); // Paper
+                 }
+ 
+                 if (nibblearray1 != null) {
+-                    int k2 = this.func_215480_b(i2, p_215477_1_, this.func_215622_a(nibblearray1, i2));
++                    int k2 = this.func_215480_b(i2, p_215477_1_, this.getNibbleLightInverse(nibblearray1, newX, newY, newZ)); // Paper
+ 
+                     if (l > k2) {
+                         l = k2;
+diff --git a/src/main/java/net/minecraft/world/lighting/BlockLightStorage.java b/src/main/java/net/minecraft/world/lighting/BlockLightStorage.java
+index dbde6fc7f3eff2ac11b26fddc46cd9a0af337ed4..b0a223db3378b46490afb3b47057c0994647742a 100644
+--- a/src/main/java/net/minecraft/world/lighting/BlockLightStorage.java
++++ b/src/main/java/net/minecraft/world/lighting/BlockLightStorage.java
+@@ -1,8 +1,6 @@
+ package net.minecraft.world.lighting;
+ 
+ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+-import net.minecraft.util.math.BlockPos;
+-import net.minecraft.util.math.SectionPos;
+ import net.minecraft.world.LightType;
+ import net.minecraft.world.chunk.IChunkLightProvider;
+ import net.minecraft.world.chunk.NibbleArray;
+@@ -15,10 +13,14 @@ public class BlockLightStorage extends SectionLightStorage<BlockLightStorage.Sto
+ 
+     @Override
+     protected int func_215525_d(long p_215525_1_) {
+-        long j = SectionPos.func_218162_e(p_215525_1_);
+-        NibbleArray nibblearray = this.func_215520_a(j, false);
+-
+-        return nibblearray == null ? 0 : nibblearray.func_76582_a(SectionPos.func_218171_b(BlockPos.func_218290_b(p_215525_1_)), SectionPos.func_218171_b(BlockPos.func_218274_c(p_215525_1_)), SectionPos.func_218171_b(BlockPos.func_218282_d(p_215525_1_)));
++        // Paper start
++        int baseX = (int) (p_215525_1_ >> 38);
++        int baseY = (int) ((p_215525_1_ << 52) >> 52);
++        int baseZ = (int) ((p_215525_1_ << 26) >> 38);
++        long j = (((long) (baseX >> 4) & 4194303L) << 42) | (((long) (baseY >> 4) & 1048575L)) | (((long) (baseZ >> 4) & 4194303L) << 20);
++        NibbleArray nibblearray = this.e_visible.lookup.apply(j);
++        return nibblearray == null ? 0 : nibblearray.func_76582_a(baseX & 15, baseY & 15, baseZ & 15);
++        // Paper end
+     }
+ 
+     public static final class StorageMap extends LightDataMap<BlockLightStorage.StorageMap> {
+diff --git a/src/main/java/net/minecraft/world/lighting/LightDataMap.java b/src/main/java/net/minecraft/world/lighting/LightDataMap.java
+index b8f6ca466020b8d9975404c093af014f6a552bd5..9e4f774f2908b72e95dfd4821677d81558cffbf5 100644
+--- a/src/main/java/net/minecraft/world/lighting/LightDataMap.java
++++ b/src/main/java/net/minecraft/world/lighting/LightDataMap.java
+@@ -7,13 +7,18 @@ import net.minecraft.world.chunk.NibbleArray;
+ 
+ public abstract class LightDataMap<M extends LightDataMap<M>> {
+ 
+-    private final long[] field_215646_b = new long[2];
+-    private final NibbleArray[] field_215647_c = new NibbleArray[2];
++    // private final long[] b = new long[2]; // Paper - unused
++    private final NibbleArray[] field_215647_c = new NibbleArray[]{NibbleArray.EMPTY_NIBBLE_ARRAY, NibbleArray.EMPTY_NIBBLE_ARRAY}; private final NibbleArray[] cache = field_215647_c; // Paper - OBFHELPER
+     private boolean field_215648_d;
+     protected final com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<NibbleArray> data; // Paper - avoid copying light data
+     protected final boolean isVisible; // Paper - avoid copying light data
+-    java.util.function.Function<Long, NibbleArray> lookup; // Paper - faster branchless lookup
+ 
++    // Paper start - faster lookups with less branching, use interface to avoid boxing instead of Function
++    public final NibbleArrayAccess lookup;
++    public interface NibbleArrayAccess {
++        NibbleArray apply(long id);
++    }
++    // Paper end
+     // Paper start - avoid copying light data
+     protected LightDataMap(com.destroystokyo.paper.util.map.QueuedChangesMapLong2Object<NibbleArray> data, boolean isVisible) {
+         if (isVisible) {
+@@ -21,12 +26,14 @@ public abstract class LightDataMap<M extends LightDataMap<M>> {
+         }
+         this.data = data;
+         this.isVisible = isVisible;
++        // Paper end - avoid copying light data
++        // Paper start - faster lookups with less branching
+         if (isVisible) {
+             lookup = data::getVisibleAsync;
+         } else {
+-            lookup = data::getUpdating;
++            lookup = data.getUpdatingMap()::get; // jump straight the sub map
+         }
+-        // Paper end - avoid copying light data
++        // Paper end
+         this.func_215643_c();
+         this.field_215648_d = true;
+     }
+@@ -36,7 +43,9 @@ public abstract class LightDataMap<M extends LightDataMap<M>> {
+     public void func_215641_a(long p_215641_1_) {
+         if (this.isVisible) { throw new IllegalStateException("writing to visible data"); } // Paper - avoid copying light data
+         NibbleArray updating = this.data.getUpdating(p_215641_1_); // Paper - pool nibbles
+-        this.data.queueUpdate(p_215641_1_, new NibbleArray().markPoolSafe(updating.getCloneIfSet())); // Paper - avoid copying light data - pool safe clone
++        NibbleArray nibblearray = new NibbleArray().markPoolSafe(updating.getCloneIfSet()); // Paper
++        nibblearray.lightCacheKey = p_215641_1_; // Paper
++        this.data.queueUpdate(p_215641_1_, nibblearray); // Paper - avoid copying light data - pool safe clone
+         if (updating.cleaner != null) MCUtil.scheduleTask(2, updating.cleaner, "Light Engine Release"); // Paper - delay clean incase anything holding ref was still using it
+         this.func_215643_c();
+     }
+@@ -45,34 +54,34 @@ public abstract class LightDataMap<M extends LightDataMap<M>> {
+         return lookup.apply(p_215642_1_) != null; // Paper - avoid copying light data
+     }
+ 
+-    @Nullable
+-    public final NibbleArray func_215638_c(long p_215638_1_) { // Paper - final
+-        if (this.field_215648_d) {
+-            for (int j = 0; j < 2; ++j) {
+-                if (p_215638_1_ == this.field_215646_b[j]) {
+-                    return this.field_215647_c[j];
+-                }
+-            }
+-        }
+-
+-        NibbleArray nibblearray = lookup.apply(p_215638_1_); // Paper - avoid copying light data
++    // Paper start - less branching as we know we are using cache and updating
++    public final NibbleArray getUpdatingOptimized(final long i) { // Paper - final
++        final NibbleArray[] cache = this.cache;
++        if (cache[0].lightCacheKey == i) return cache[0];
++        if (cache[1].lightCacheKey == i) return cache[1];
+ 
++        final NibbleArray nibblearray = this.lookup.apply(i); // Paper - avoid copying light data
+         if (nibblearray == null) {
+             return null;
+         } else {
+-            if (this.field_215648_d) {
+-                for (int k = 1; k > 0; --k) {
+-                    this.field_215646_b[k] = this.field_215646_b[k - 1];
+-                    this.field_215647_c[k] = this.field_215647_c[k - 1];
+-                }
+-
+-                this.field_215646_b[0] = p_215638_1_;
+-                this.field_215647_c[0] = nibblearray;
+-            }
+-
++            cache[1] = cache[0];
++            cache[0] = nibblearray;
+             return nibblearray;
+         }
+     }
++    // Paper end
++
++    @Nullable
++    public final NibbleArray func_215638_c(final long p_215638_1_) { // Paper - final
++        // Paper start - optimize visible case or missed updating cases
++        if (this.field_215648_d) {
++            // short circuit to optimized
++            return getUpdatingOptimized(p_215638_1_);
++        }
++
++        return this.lookup.apply(p_215638_1_);
++        // Paper end
++    }
+ 
+     @Nullable
+     public NibbleArray func_223130_d(long p_223130_1_) {
+@@ -82,13 +91,14 @@ public abstract class LightDataMap<M extends LightDataMap<M>> {
+ 
+     public void func_215640_a(long p_215640_1_, NibbleArray p_215640_2_) {
+         if (this.isVisible) { throw new IllegalStateException("writing to visible data"); } // Paper - avoid copying light data
++        p_215640_2_.lightCacheKey = p_215640_1_; // Paper
+         this.data.queueUpdate(p_215640_1_, p_215640_2_); // Paper - avoid copying light data
+     }
+ 
+     public void func_215643_c() {
+         for (int i = 0; i < 2; ++i) {
+-            this.field_215646_b[i] = Long.MAX_VALUE;
+-            this.field_215647_c[i] = null;
++            // this.b[i] = Long.MAX_VALUE; // Paper - Unused
++            this.field_215647_c[i] = NibbleArray.EMPTY_NIBBLE_ARRAY; // Paper
+         }
+     }
+ 
+diff --git a/src/main/java/net/minecraft/world/lighting/LightEngine.java b/src/main/java/net/minecraft/world/lighting/LightEngine.java
+index c02823b8da60d56beacd90a11ebd9816ec3a9e74..da021257d3a2babf26f7617ae9a97b3f499e6464 100644
+--- a/src/main/java/net/minecraft/world/lighting/LightEngine.java
++++ b/src/main/java/net/minecraft/world/lighting/LightEngine.java
+@@ -12,6 +12,7 @@ import net.minecraft.util.math.shapes.VoxelShape;
+ import net.minecraft.util.math.shapes.VoxelShapes;
+ import net.minecraft.world.IBlockReader;
+ import net.minecraft.world.LightType;
++import net.minecraft.world.chunk.IChunk;
+ import net.minecraft.world.chunk.IChunkLightProvider;
+ import net.minecraft.world.chunk.NibbleArray;
+ import org.apache.commons.lang3.mutable.MutableInt;
+@@ -23,10 +24,37 @@ public abstract class LightEngine<M extends LightDataMap<M>, S extends SectionLi
+     protected final LightType field_215626_b;
+     protected final S field_215627_c;
+     private boolean field_215629_e;
+-    protected final BlockPos.Mutable field_215630_f = new BlockPos.Mutable();
++    protected final BlockPos.Mutable field_215630_f = new BlockPos.Mutable(); protected final BlockPos.Mutable pos = field_215630_f; // Paper
+     private final long[] field_215631_g = new long[2];
+-    private final IBlockReader[] field_215632_h = new IBlockReader[2];
++    private final IChunk[] field_215632_h = new IChunk[2]; // Paper
+ 
++    // Paper start - see fully commented out method below (look for Bedrock)
++    // optimized method with less branching for when scenarios arent needed.
++    // avoid using mutable version if can
++    protected final BlockState getBlockOptimized(int x, int y, int z, MutableInt mutableint) {
++        IChunk iblockaccess = this.a(x >> 4, z >> 4);
++
++        if (iblockaccess == null) {
++            mutableint.setValue(16);
++            return Blocks.field_150357_h.func_176223_P();
++        } else {
++            this.pos.setValues(x, y, z);
++            BlockState iblockdata = iblockaccess.getType(x, y, z);
++            mutableint.setValue(iblockdata.func_200016_a(this.field_215625_a.func_212864_k_(), this.pos));
++            return iblockdata.func_200132_m() && iblockdata.func_215691_g() ? iblockdata : Blocks.field_150350_a.func_176223_P();
++        }
++    }
++    protected final BlockState getBlockOptimized(int x, int y, int z) {
++        IChunk iblockaccess = this.a(x >> 4, z >> 4);
++
++        if (iblockaccess == null) {
++            return Blocks.field_150357_h.func_176223_P();
++        } else {
++            BlockState iblockdata = iblockaccess.getType(x, y, z);
++            return iblockdata.func_200132_m() && iblockdata.func_215691_g() ? iblockdata : Blocks.field_150350_a.func_176223_P();
++        }
++    }
++    // Paper end
+     public LightEngine(IChunkLightProvider ilightaccess, LightType enumskyblock, S s0) {
+         super(16, 256, 8192);
+         this.field_215625_a = ilightaccess;
+@@ -45,8 +73,8 @@ public abstract class LightEngine<M extends LightDataMap<M>, S extends SectionLi
+     }
+ 
+     @Nullable
+-    private IBlockReader func_215615_a(int p_215615_1_, int p_215615_2_) {
+-        long k = ChunkPos.func_77272_a(p_215615_1_, p_215615_2_);
++    private IChunk a(int i, int j) { // Paper
++        long k = ChunkPos.func_77272_a(i, j);
+ 
+         for (int l = 0; l < 2; ++l) {
+             if (k == this.field_215631_g[l]) {
+@@ -54,7 +82,7 @@ public abstract class LightEngine<M extends LightDataMap<M>, S extends SectionLi
+             }
+         }
+ 
+-        IBlockReader iblockaccess = this.field_215625_a.func_217202_b(p_215615_1_, p_215615_2_);
++        IChunk iblockaccess = (IChunk) this.field_215625_a.func_217202_b(i, j); // Paper
+ 
+         for (int i1 = 1; i1 > 0; --i1) {
+             this.field_215631_g[i1] = this.field_215631_g[i1 - 1];
+@@ -71,37 +99,39 @@ public abstract class LightEngine<M extends LightDataMap<M>, S extends SectionLi
+         Arrays.fill(this.field_215632_h, (Object) null);
+     }
+ 
+-    protected BlockState func_227468_a_(long p_227468_1_, @Nullable MutableInt p_227468_2_) {
+-        if (p_227468_1_ == Long.MAX_VALUE) {
+-            if (p_227468_2_ != null) {
+-                p_227468_2_.setValue(0);
+-            }
+-
+-            return Blocks.field_150350_a.func_176223_P();
+-        } else {
+-            int j = SectionPos.func_218159_a(BlockPos.func_218290_b(p_227468_1_));
+-            int k = SectionPos.func_218159_a(BlockPos.func_218282_d(p_227468_1_));
+-            IBlockReader iblockaccess = this.func_215615_a(j, k);
+-
+-            if (iblockaccess == null) {
+-                if (p_227468_2_ != null) {
+-                    p_227468_2_.setValue(16);
+-                }
+-
+-                return Blocks.field_150357_h.func_176223_P();
+-            } else {
+-                this.field_215630_f.func_218294_g(p_227468_1_);
+-                BlockState iblockdata = iblockaccess.func_180495_p(this.field_215630_f);
+-                boolean flag = iblockdata.func_200132_m() && iblockdata.func_215691_g();
+-
+-                if (p_227468_2_ != null) {
+-                    p_227468_2_.setValue(iblockdata.func_200016_a(this.field_215625_a.func_212864_k_(), (BlockPos) this.field_215630_f));
+-                }
+-
+-                return flag ? iblockdata : Blocks.field_150350_a.func_176223_P();
+-            }
+-        }
+-    }
++    // Paper start - comment out, see getBlockOptimized
++//    protected IBlockData a(long i, @Nullable MutableInt mutableint) {
++//        if (i == Long.MAX_VALUE) {
++//            if (mutableint != null) {
++//                mutableint.setValue(0);
++//            }
++//
++//            return Blocks.AIR.getBlockData();
++//        } else {
++//            int j = SectionPosition.a(BlockPosition.b(i));
++//            int k = SectionPosition.a(BlockPosition.d(i));
++//            IBlockAccess iblockaccess = this.a(j, k);
++//
++//            if (iblockaccess == null) {
++//                if (mutableint != null) {
++//                    mutableint.setValue(16);
++//                }
++//
++//                return Blocks.BEDROCK.getBlockData();
++//            } else {
++//                this.d.g(i);
++//                IBlockData iblockdata = iblockaccess.getType(this.d);
++//                boolean flag = iblockdata.l() && iblockdata.e();
++//
++//                if (mutableint != null) {
++//                    mutableint.setValue(iblockdata.b(this.a.getWorld(), (BlockPosition) this.d));
++//                }
++//
++//                return flag ? iblockdata : Blocks.AIR.getBlockData();
++//            }
++//        }
++//    }
++    // Paper end
+ 
+     protected VoxelShape func_223405_a(BlockState p_223405_1_, long p_223405_2_, Direction p_223405_3_) {
+         return p_223405_1_.func_200132_m() ? p_223405_1_.func_215702_a(this.field_215625_a.func_212864_k_(), this.field_215630_f.func_218294_g(p_223405_2_), p_223405_3_) : VoxelShapes.func_197880_a();
+@@ -136,8 +166,9 @@ public abstract class LightEngine<M extends LightDataMap<M>, S extends SectionLi
+         return p_215471_1_ == Long.MAX_VALUE ? 0 : 15 - this.field_215627_c.func_215521_h(p_215471_1_);
+     }
+ 
++    protected int getNibbleLightInverse(NibbleArray nibblearray, int x, int y, int z) { return 15 - nibblearray.func_76582_a(x & 15, y & 15, z & 15); } // Paper - x/y/z version of below
+     protected int func_215622_a(NibbleArray p_215622_1_, long p_215622_2_) {
+-        return 15 - p_215622_1_.func_76582_a(SectionPos.func_218171_b(BlockPos.func_218290_b(p_215622_2_)), SectionPos.func_218171_b(BlockPos.func_218274_c(p_215622_2_)), SectionPos.func_218171_b(BlockPos.func_218282_d(p_215622_2_)));
++        return 15 - p_215622_1_.func_76582_a((int) (p_215622_2_ >> 38) & 15, (int) ((p_215622_2_ << 52) >> 52) & 15, (int) ((p_215622_2_ << 26) >> 38) & 15); // Paper
+     }
+ 
+     @Override
+diff --git a/src/main/java/net/minecraft/world/lighting/SectionLightStorage.java b/src/main/java/net/minecraft/world/lighting/SectionLightStorage.java
+index b3dc3f23890f2fc0ba010f042f5d6732366f96cf..8a17ac3e44630313398a82f0df53ba8d21b20bb6 100644
+--- a/src/main/java/net/minecraft/world/lighting/SectionLightStorage.java
++++ b/src/main/java/net/minecraft/world/lighting/SectionLightStorage.java
+@@ -27,9 +27,9 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+     protected final LongSet field_215536_c = new LongOpenHashSet();
+     protected final LongSet field_215537_d = new LongOpenHashSet();
+     protected volatile M e_visible; protected final Object visibleUpdateLock = new Object(); // Paper - diff on change, should be "visible" - force compile fail on usage change
+-    protected final M field_215539_f; // Paper - diff on change, should be "updating"
++    protected final M field_215539_f; protected final M updating; // Paper - diff on change, should be "updating"
+     protected final LongSet field_215540_g = new LongOpenHashSet();
+-    protected final LongSet field_215541_h = new LongOpenHashSet();
++    protected final LongSet field_215541_h = new LongOpenHashSet(); LongSet dirty = field_215541_h; // Paper - OBFHELPER
+     protected final Long2ObjectMap<NibbleArray> field_215542_i = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap());
+     private final LongSet field_241536_n_ = new LongOpenHashSet();
+     private final LongSet field_223114_n = new LongOpenHashSet();
+@@ -37,33 +37,33 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+     protected volatile boolean field_215543_j;
+ 
+     protected SectionLightStorage(LightType enumskyblock, IChunkLightProvider ilightaccess, M m0) {
+-        super(3, 16, 256);
++        super(3, 256, 256); // Paper - bump expected size of level sets to improve collisions and reduce rehashing (seen a lot of it)
+         this.field_215545_l = enumskyblock;
+         this.field_215546_m = ilightaccess;
+-        this.field_215539_f = m0;
++        this.field_215539_f = m0; updating = m0; // Paper
+         this.e_visible = m0.func_212858_b_(); // Paper - avoid copying light data
+         this.e_visible.func_215644_d(); // Paper - avoid copying light data
+     }
+ 
+-    protected boolean func_215518_g(long p_215518_1_) {
+-        return this.func_215520_a(p_215518_1_, true) != null;
++    protected final boolean func_215518_g(long p_215518_1_) { // Paper - final to help inlining
++        return this.updating.getUpdatingOptimized(p_215518_1_) != null; // Paper - inline to avoid branching
+     }
+ 
+     @Nullable
+     protected NibbleArray func_215520_a(long p_215520_1_, boolean p_215520_2_) {
+         // Paper start - avoid copying light data
+         if (p_215520_2_) {
+-            return this.func_215531_a(this.field_215539_f, p_215520_1_);
++            return this.updating.getUpdatingOptimized(p_215520_1_);
+         } else {
+             synchronized (this.visibleUpdateLock) {
+-                return this.func_215531_a(this.e_visible, p_215520_1_);
++                return this.e_visible.lookup.apply(p_215520_1_);
+             }
+         }
+         // Paper end - avoid copying light data
+     }
+ 
+     @Nullable
+-    protected NibbleArray func_215531_a(M p_215531_1_, long p_215531_2_) {
++    protected final NibbleArray func_215531_a(M p_215531_1_, long p_215531_2_) { // Paper
+         return p_215531_1_.func_215638_c(p_215531_2_);
+     }
+ 
+@@ -77,27 +77,57 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+     protected abstract int func_215525_d(long p_215525_1_);
+ 
+     protected int func_215521_h(long p_215521_1_) {
+-        long j = SectionPos.func_218162_e(p_215521_1_);
+-        NibbleArray nibblearray = this.func_215520_a(j, true);
++        // Paper start - reuse and inline math, use Optimized Updating path
++        final int x = (int) (p_215521_1_ >> 38);
++        final int y = (int) ((p_215521_1_ << 52) >> 52);
++        final int z = (int) ((p_215521_1_ << 26) >> 38);
++        long j = SectionPos.blockPosAsSectionLong(x, y, z);
++        NibbleArray nibblearray = this.updating.getUpdatingOptimized(j);
++        //  BUG: Sometimes returns null and crashes, try to recover, but to prevent crash just return no light.
++        if (nibblearray == null) {
++            nibblearray = this.e_visible.lookup.apply(j);
++        }
++        if (nibblearray == null) {
++            System.err.println("Null nibble, preventing crash " + BlockPos.func_218283_e(p_215521_1_));
++            return 0;
++        }
+ 
+-        return nibblearray.func_76582_a(SectionPos.func_218171_b(BlockPos.func_218290_b(p_215521_1_)), SectionPos.func_218171_b(BlockPos.func_218274_c(p_215521_1_)), SectionPos.func_218171_b(BlockPos.func_218282_d(p_215521_1_)));
++        return nibblearray.func_76582_a(x & 15, y & 15, z & 15); // Paper - inline operations
++        // Paper end
+     }
+ 
+     protected void func_215517_b(long p_215517_1_, int p_215517_2_) {
+-        long k = SectionPos.func_218162_e(p_215517_1_);
++        // Paper start - cache part of the math done in loop below
++        int x = (int) (p_215517_1_ >> 38);
++        int y = (int) ((p_215517_1_ << 52) >> 52);
++        int z = (int) ((p_215517_1_ << 26) >> 38);
++        long k = SectionPos.blockPosAsSectionLong(x, y, z);
++        // Paper end
+ 
+         if (this.field_215540_g.add(k)) {
+             this.field_215539_f.func_215641_a(k);
+         }
+ 
+         NibbleArray nibblearray = this.func_215520_a(k, true);
+-
+-        nibblearray.func_76581_a(SectionPos.func_218171_b(BlockPos.func_218290_b(p_215517_1_)), SectionPos.func_218171_b(BlockPos.func_218274_c(p_215517_1_)), SectionPos.func_218171_b(BlockPos.func_218282_d(p_215517_1_)), p_215517_2_);
+-
+-        for (int l = -1; l <= 1; ++l) {
+-            for (int i1 = -1; i1 <= 1; ++i1) {
+-                for (int j1 = -1; j1 <= 1; ++j1) {
+-                    this.field_215541_h.add(SectionPos.func_218162_e(BlockPos.func_218291_a(p_215517_1_, i1, j1, l)));
++        nibblearray.func_76581_a(x & 15, y & 15, z & 15, p_215517_2_); // Paper - use already calculated x/y/z
++
++        // Paper start - credit to JellySquid for a major optimization here:
++        /*
++         * An extremely important optimization is made here in regards to adding items to the pending notification set. The
++         * original implementation attempts to add the coordinate of every chunk which contains a neighboring block position
++         * even though a huge number of loop iterations will simply map to block positions within the same updating chunk.
++         *
++         * Our implementation here avoids this by pre-calculating the min/max chunk coordinates so we can iterate over only
++         * the relevant chunk positions once. This reduces what would always be 27 iterations to just 1-8 iterations.
++         *
++         * @reason Use faster implementation
++         * @author JellySquid
++         */
++        for (int z2 = (z - 1) >> 4; z2 <= (z + 1) >> 4; ++z2) {
++            for (int x2 = (x - 1) >> 4; x2 <= (x + 1) >> 4; ++x2) {
++                for (int y2 = (y - 1) >> 4; y2 <= (y + 1) >> 4; ++y2) {
++                    this.dirty.add(SectionPos.asLong(x2, y2, z2));
++                    // Paper end
+                 }
+             }
+         }
+@@ -129,17 +159,23 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+         }
+ 
+         if (k >= 2 && p_215476_2_ != 2) {
+-            if (this.field_215547_n.contains(p_215476_1_)) {
+-                this.field_215547_n.remove(p_215476_1_);
+-            } else {
++            if (!this.field_215547_n.remove(p_215476_1_)) { // Paper - remove useless contains - credit to JellySquid
++                //this.p.remove(i); // Paper
++            //} else { // Paper
+                 this.field_215539_f.func_215640_a(p_215476_1_, this.func_215530_i(p_215476_1_));
+                 this.field_215540_g.add(p_215476_1_);
+                 this.func_215524_j(p_215476_1_);
+ 
+-                for (int l = -1; l <= 1; ++l) {
+-                    for (int i1 = -1; i1 <= 1; ++i1) {
+-                        for (int j1 = -1; j1 <= 1; ++j1) {
+-                            this.field_215541_h.add(SectionPos.func_218162_e(BlockPos.func_218291_a(p_215476_1_, i1, j1, l)));
++                // Paper start - reuse x/y/z and only notify valid chunks - Credit to JellySquid (See above method for notes)
++                int x = (int) (p_215476_1_ >> 38);
++                int y = (int) ((p_215476_1_ << 52) >> 52);
++                int z = (int) ((p_215476_1_ << 26) >> 38);
++
++                for (int z2 = (z - 1) >> 4; z2 <= (z + 1) >> 4; ++z2) {
++                    for (int x2 = (x - 1) >> 4; x2 <= (x + 1) >> 4; ++x2) {
++                        for (int y2 = (y - 1) >> 4; y2 <= (y + 1) >> 4; ++y2) {
++                            this.dirty.add(SectionPos.asLong(x2, y2, z2));
++                            // Paper end
+                         }
+                     }
+                 }
+@@ -165,9 +201,9 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+                 return SectionPos.func_218162_e(j) == p_215528_2_;
+             });
+         } else {
+-            int j = SectionPos.func_218142_c(SectionPos.func_218173_b(p_215528_2_));
+-            int k = SectionPos.func_218142_c(SectionPos.func_218144_c(p_215528_2_));
+-            int l = SectionPos.func_218142_c(SectionPos.func_218153_d(p_215528_2_));
++            int j = (int) (p_215528_2_ >> 42) << 4; // Paper - inline
++            int k = (int) (p_215528_2_ << 44 >> 44) << 4; // Paper - inline
++            int l = (int) (p_215528_2_ << 22 >> 42) << 4; // Paper - inline
+ 
+             for (int i1 = 0; i1 < 16; ++i1) {
+                 for (int j1 = 0; j1 < 16; ++j1) {
+@@ -194,7 +230,7 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+             NibbleArray nibblearray;
+ 
+             while (longiterator.hasNext()) {
+-                i = (Long) longiterator.next();
++                i = longiterator.nextLong(); // Paper
+                 this.func_215528_a(p_215522_1_, i);
+                 NibbleArray nibblearray1 = (NibbleArray) this.field_215542_i.remove(i);
+ 
+@@ -212,7 +248,7 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+             longiterator = this.field_215547_n.iterator();
+ 
+             while (longiterator.hasNext()) {
+-                i = (Long) longiterator.next();
++                i = longiterator.nextLong(); // Paper
+                 this.func_215523_k(i);
+             }
+ 
+@@ -223,12 +259,13 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+             Entry entry;
+             long j;
+ 
++            NibbleArray test = null; // Paper
+             while (objectiterator.hasNext()) {
+                 entry = (Entry) objectiterator.next();
+                 j = entry.getLongKey();
+-                if (this.func_215518_g(j)) {
++                if ((test = this.updating.getUpdatingOptimized(j)) != null) { // Paper - dont look up nibble twice
+                     nibblearray = (NibbleArray) entry.getValue();
+-                    if (this.field_215539_f.func_215638_c(j) != nibblearray) {
++                    if (test != nibblearray) { // Paper
+                         this.func_215528_a(p_215522_1_, j);
+                         this.field_215539_f.func_215640_a(j, nibblearray);
+                         this.field_215540_g.add(j);
+@@ -241,14 +278,14 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+                 longiterator = this.field_215542_i.keySet().iterator();
+ 
+                 while (longiterator.hasNext()) {
+-                    i = (Long) longiterator.next();
++                    i = longiterator.nextLong(); // Paper
+                     this.func_241538_b_(p_215522_1_, i);
+                 }
+             } else {
+                 longiterator = this.field_241536_n_.iterator();
+ 
+                 while (longiterator.hasNext()) {
+-                    i = (Long) longiterator.next();
++                    i = longiterator.nextLong(); // Paper
+                     this.func_241538_b_(p_215522_1_, i);
+                 }
+             }
+@@ -269,15 +306,20 @@ public abstract class SectionLightStorage<M extends LightDataMap<M>> extends Sec
+ 
+     private void func_241538_b_(LightEngine<M, ?> p_241538_1_, long p_241538_2_) {
+         if (this.func_215518_g(p_241538_2_)) {
+-            int j = SectionPos.func_218142_c(SectionPos.func_218173_b(p_241538_2_));
+-            int k = SectionPos.func_218142_c(SectionPos.func_218144_c(p_241538_2_));
+-            int l = SectionPos.func_218142_c(SectionPos.func_218153_d(p_241538_2_));
++            // Paper start
++            int secX = (int) (p_241538_2_ >> 42);
++            int secY = (int) (p_241538_2_ << 44 >> 44);
++            int secZ = (int) (p_241538_2_ << 22 >> 42);
++            int j = secX << 4; // baseX
++            int k = secY << 4; // baseY
++            int l = secZ << 4; // baseZ
++            // Paper end
+             Direction[] aenumdirection = SectionLightStorage.field_215544_k;
+             int i1 = aenumdirection.length;
+ 
+             for (int j1 = 0; j1 < i1; ++j1) {
+                 Direction enumdirection = aenumdirection[j1];
+-                long k1 = SectionPos.func_218172_a(p_241538_2_, enumdirection);
++                long k1 = SectionPos.getAdjacentFromSectionPos(secX, secY, secZ, enumdirection); // Paper - avoid extra unpacking
+ 
+                 if (!this.field_215542_i.containsKey(k1) && this.func_215518_g(k1)) {
+                     for (int l1 = 0; l1 < 16; ++l1) {
+diff --git a/src/main/java/net/minecraft/world/lighting/SkyLightEngine.java b/src/main/java/net/minecraft/world/lighting/SkyLightEngine.java
+index 2811663e41812ae0593e9be2856b4855232ebf3c..4d4001c7142168072f2c202708911d90630683ef 100644
+--- a/src/main/java/net/minecraft/world/lighting/SkyLightEngine.java
++++ b/src/main/java/net/minecraft/world/lighting/SkyLightEngine.java
+@@ -1,6 +1,7 @@
+ package net.minecraft.world.lighting;
+ 
+ import net.minecraft.block.BlockState;
++import net.minecraft.block.Blocks;
+ import net.minecraft.util.Direction;
+ import net.minecraft.util.math.BlockPos;
+ import net.minecraft.util.math.SectionPos;
+@@ -38,21 +39,25 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+                 return p_215480_3_;
+             } else {
+                 //MutableInt mutableint = new MutableInt(); // Paper - share mutableint, single threaded
+-                BlockState iblockdata = this.func_227468_a_(p_215480_2_, mutableint);
+-
+-                if (mutableint.getValue() >= 15) {
++                // Paper start - use x/y/z and optimized block lookup
++                int jx = (int) (p_215480_2_ >> 38);
++                int jy = (int) ((p_215480_2_ << 52) >> 52);
++                int jz = (int) ((p_215480_2_ << 26) >> 38);
++                BlockState iblockdata = this.getBlockOptimized(jx, jy, jz, mutableint);
++                int blockedLight = mutableint.getValue();
++                if (blockedLight >= 15) {
++                    // Paper end
+                     return 15;
+                 } else {
+-                    int l = BlockPos.func_218290_b(p_215480_1_);
+-                    int i1 = BlockPos.func_218274_c(p_215480_1_);
+-                    int j1 = BlockPos.func_218282_d(p_215480_1_);
+-                    int k1 = BlockPos.func_218290_b(p_215480_2_);
+-                    int l1 = BlockPos.func_218274_c(p_215480_2_);
+-                    int i2 = BlockPos.func_218282_d(p_215480_2_);
+-                    boolean flag = l == k1 && j1 == i2;
+-                    int j2 = Integer.signum(k1 - l);
+-                    int k2 = Integer.signum(l1 - i1);
+-                    int l2 = Integer.signum(i2 - j1);
++                    // Paper start - inline math
++                    int ix = (int) (p_215480_1_ >> 38);
++                    int iy = (int) ((p_215480_1_ << 52) >> 52);
++                    int iz = (int) ((p_215480_1_ << 26) >> 38);
++                    boolean flag = ix == jx && iz == jz;
++                    int j2 = Integer.signum(jx - ix);
++                    int k2 = Integer.signum(jy - iy);
++                    int l2 = Integer.signum(jz - iz);
++                    // Paper end
+                     Direction enumdirection;
+ 
+                     if (p_215480_1_ == Long.MAX_VALUE) {
+@@ -61,7 +66,7 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+                         enumdirection = Direction.func_218383_a(j2, k2, l2);
+                     }
+ 
+-                    BlockState iblockdata1 = this.func_227468_a_(p_215480_1_, (MutableInt) null);
++                    BlockState iblockdata1 = p_215480_1_ == Long.MAX_VALUE ? Blocks.field_150350_a.func_176223_P() : this.getBlockOptimized(ix, iy, iz); // Paper
+                     VoxelShape voxelshape;
+ 
+                     if (enumdirection != null) {
+@@ -91,9 +96,9 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+                         }
+                     }
+ 
+-                    boolean flag1 = p_215480_1_ == Long.MAX_VALUE || flag && i1 > l1;
++                    boolean flag1 = p_215480_1_ == Long.MAX_VALUE || flag && iy > jy; // Paper rename vars to iy > jy
+ 
+-                    return flag1 && p_215480_3_ == 0 && mutableint.getValue() == 0 ? 0 : p_215480_3_ + Math.max(1, mutableint.getValue());
++                    return flag1 && p_215480_3_ == 0 && blockedLight == 0 ? 0 : p_215480_3_ + Math.max(1, blockedLight); // Paper
+                 }
+             }
+         }
+@@ -101,10 +106,14 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+ 
+     @Override
+     protected void func_215478_a(long p_215478_1_, int p_215478_2_, boolean p_215478_3_) {
+-        long k = SectionPos.func_218162_e(p_215478_1_);
+-        int l = BlockPos.func_218274_c(p_215478_1_);
+-        int i1 = SectionPos.func_218171_b(l);
+-        int j1 = SectionPos.func_218159_a(l);
++        // Paper start
++        int baseX = (int) (p_215478_1_ >> 38);
++        int baseY = (int) ((p_215478_1_ << 52) >> 52);
++        int baseZ = (int) ((p_215478_1_ << 26) >> 38);
++        long k = SectionPos.blockPosAsSectionLong(baseX, baseY, baseZ);
++        int i1 = baseY & 15;
++        int j1 = baseY >> 4;
++        // Paper end
+         int k1;
+ 
+         if (i1 != 0) {
+@@ -119,15 +128,16 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+             k1 = l1;
+         }
+ 
+-        long i2 = BlockPos.func_218291_a(p_215478_1_, 0, -1 - k1 * 16, 0);
+-        long j2 = SectionPos.func_218162_e(i2);
++        int newBaseY = baseY + (-1 - k1 * 16); // Paper
++        long i2 = BlockPos.asLong(baseX, newBaseY, baseZ); // Paper
++        long j2 = SectionPos.blockPosAsSectionLong(baseX, newBaseY, baseZ); // Paper
+ 
+         if (k == j2 || ((SkyLightStorage) this.field_215627_c).func_215518_g(j2)) {
+             this.func_215475_b(p_215478_1_, i2, p_215478_2_, p_215478_3_);
+         }
+ 
+-        long k2 = BlockPos.func_218289_a(p_215478_1_, Direction.UP);
+-        long l2 = SectionPos.func_218162_e(k2);
++        long k2 = BlockPos.asLong(baseX, baseY + 1, baseZ); // Paper
++        long l2 = SectionPos.blockPosAsSectionLong(baseX, baseY + 1, baseZ); // Paper
+ 
+         if (k == l2 || ((SkyLightStorage) this.field_215627_c).func_215518_g(l2)) {
+             this.func_215475_b(p_215478_1_, k2, p_215478_2_, p_215478_3_);
+@@ -142,8 +152,8 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+             int k3 = 0;
+ 
+             while (true) {
+-                long l3 = BlockPos.func_218291_a(p_215478_1_, enumdirection.func_82601_c(), -k3, enumdirection.func_82599_e());
+-                long i4 = SectionPos.func_218162_e(l3);
++                long l3 = BlockPos.asLong(baseX + enumdirection.func_82601_c(), baseY - k3, baseZ + enumdirection.func_82599_e()); // Paper
++                long i4 = SectionPos.blockPosAsSectionLong(baseX + enumdirection.func_82601_c(), baseY - k3, baseZ + enumdirection.func_82599_e()); // Paper
+ 
+                 if (k == i4) {
+                     this.func_215475_b(p_215478_1_, l3, p_215478_2_, p_215478_3_);
+@@ -181,26 +191,36 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+             }
+         }
+ 
+-        long j1 = SectionPos.func_218162_e(p_215477_1_);
+-        NibbleArray nibblearray = ((SkyLightStorage) this.field_215627_c).func_215520_a(j1, true);
++        // Paper start
++        int baseX = (int) (p_215477_1_ >> 38);
++        int baseY = (int) ((p_215477_1_ << 52) >> 52);
++        int baseZ = (int) ((p_215477_1_ << 26) >> 38);
++        long j1 = SectionPos.blockPosAsSectionLong(baseX, baseY, baseZ);
++        NibbleArray nibblearray = this.field_215627_c.updating.getUpdatingOptimized(j1);
++        // Paper end
+         Direction[] aenumdirection = SkyLightEngine.field_215633_d;
+         int k1 = aenumdirection.length;
+ 
+         for (int l1 = 0; l1 < k1; ++l1) {
+             Direction enumdirection = aenumdirection[l1];
+-            long i2 = BlockPos.func_218289_a(p_215477_1_, enumdirection);
+-            long j2 = SectionPos.func_218162_e(i2);
++            // Paper start
++            int newX = baseX + enumdirection.func_82601_c();
++            int newY = baseY + enumdirection.func_96559_d();
++            int newZ = baseZ + enumdirection.func_82599_e();
++            long i2 = BlockPos.asLong(newX, newY, newZ);
++            long j2 = SectionPos.blockPosAsSectionLong(newX, newY, newZ);
++            // Paper end
+             NibbleArray nibblearray1;
+ 
+             if (j1 == j2) {
+                 nibblearray1 = nibblearray;
+             } else {
+-                nibblearray1 = ((SkyLightStorage) this.field_215627_c).func_215520_a(j2, true);
++                nibblearray1 = ((SkyLightStorage) this.field_215627_c).updating.getUpdatingOptimized(j2); // Paper
+             }
+ 
+             if (nibblearray1 != null) {
+                 if (i2 != p_215477_2_) {
+-                    int k2 = this.func_215480_b(i2, p_215477_1_, this.func_215622_a(nibblearray1, i2));
++                    int k2 = this.func_215480_b(i2, p_215477_1_, this.getNibbleLightInverse(nibblearray1, newX, newY, newZ)); // Paper
+ 
+                     if (l > k2) {
+                         l = k2;
+@@ -215,7 +235,7 @@ public final class SkyLightEngine extends LightEngine<SkyLightStorage.StorageMap
+                     j2 = SectionPos.func_218172_a(j2, Direction.UP);
+                 }
+ 
+-                NibbleArray nibblearray2 = ((SkyLightStorage) this.field_215627_c).func_215520_a(j2, true);
++                NibbleArray nibblearray2 = this.field_215627_c.updating.getUpdatingOptimized(j2); // Paper
+ 
+                 if (i2 != p_215477_2_) {
+                     int l2;
+diff --git a/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java b/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java
+index 9ec5874c0c311a196e29548858cf018728b27380..2090ff5fe49a07a155180641d81b23883bdb3613 100644
+--- a/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java
++++ b/src/main/java/net/minecraft/world/lighting/SkyLightStorage.java
+@@ -28,7 +28,12 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+ 
+     @Override
+     protected int func_215525_d(long p_215525_1_) {
+-        long j = SectionPos.func_218162_e(p_215525_1_);
++        // Paper start
++        int baseX = (int) (p_215525_1_ >> 38);
++        int baseY = (int) ((p_215525_1_ << 52) >> 52);
++        int baseZ = (int) ((p_215525_1_ << 26) >> 38);
++        long j = SectionPos.blockPosAsSectionLong(baseX, baseY, baseZ);
++        // Paper end
+         int k = SectionPos.func_218144_c(j);
+         synchronized (this.visibleUpdateLock) { // Paper - avoid copying light data
+         SkyLightStorage.StorageMap lightenginestoragesky_a = (SkyLightStorage.StorageMap) this.e_visible; // Paper - avoid copying light data - must be after lock acquire
+@@ -49,7 +54,7 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+                 }
+             }
+ 
+-            return nibblearray.func_76582_a(SectionPos.func_218171_b(BlockPos.func_218290_b(p_215525_1_)), SectionPos.func_218171_b(BlockPos.func_218274_c(p_215525_1_)), SectionPos.func_218171_b(BlockPos.func_218282_d(p_215525_1_)));
++            return nibblearray.func_76582_a(baseX & 15, (int) ((p_215525_1_ << 52) >> 52) & 15, (int) baseZ & 15); // Paper - y changed above
+         } else {
+             return 15;
+         }
+@@ -168,7 +173,7 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+             if (k != ((SkyLightStorage.StorageMap) this.field_215539_f).field_215652_b && SectionPos.func_218144_c(j) < k) {
+                 NibbleArray nibblearray1;
+ 
+-                while ((nibblearray1 = this.func_215520_a(j, true)) == null) {
++                while ((nibblearray1 = this.updating.getUpdatingOptimized(j)) == null) { // Paper
+                     j = SectionPos.func_218172_a(j, Direction.UP);
+                 }
+ 
+@@ -192,7 +197,10 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+                 longiterator = this.field_215556_m.iterator();
+ 
+                 while (longiterator.hasNext()) {
+-                    i = (Long) longiterator.next();
++                    i = longiterator.nextLong(); // Paper
++                    int baseX = (int) (i >> 42) << 4; // Paper
++                    int baseY = (int) (i << 44 >> 44) << 4; // Paper
++                    int baseZ = (int) (i << 22 >> 42) << 4; // Paper
+                     j = this.func_215471_c(i);
+                     if (j != 2 && !this.field_215557_n.contains(i) && this.field_215555_l.add(i)) {
+                         int l;
+@@ -203,10 +211,10 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+                                 ((SkyLightStorage.StorageMap) this.field_215539_f).func_215641_a(i);
+                             }
+ 
+-                            Arrays.fill(this.func_215520_a(i, true).asBytesPoolSafe(), (byte) -1); // Paper
+-                            k = SectionPos.func_218142_c(SectionPos.func_218173_b(i));
+-                            l = SectionPos.func_218142_c(SectionPos.func_218144_c(i));
+-                            int i1 = SectionPos.func_218142_c(SectionPos.func_218153_d(i));
++                            Arrays.fill(this.updating.getUpdatingOptimized(i).asBytesPoolSafe(), (byte) -1); // Paper - use optimized
++                            k = baseX; // Paper
++                            l = baseY; // Paper
++                            int i1 = baseZ; // Paper
+                             Direction[] aenumdirection = SkyLightStorage.field_215554_k;
+                             int j1 = aenumdirection.length;
+ 
+@@ -215,7 +223,7 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+                             for (int l1 = 0; l1 < j1; ++l1) {
+                                 Direction enumdirection = aenumdirection[l1];
+ 
+-                                k1 = SectionPos.func_218172_a(i, enumdirection);
++                                k1 = SectionPos.getAdjacentFromBlockPos(baseX, baseY, baseZ, enumdirection); // Paper
+                                 if ((this.field_215557_n.contains(k1) || !this.field_215555_l.contains(k1) && !this.field_215556_m.contains(k1)) && this.func_215518_g(k1)) {
+                                     for (int i2 = 0; i2 < 16; ++i2) {
+                                         for (int j2 = 0; j2 < 16; ++j2) {
+@@ -248,16 +256,16 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+ 
+                             for (int i3 = 0; i3 < 16; ++i3) {
+                                 for (j1 = 0; j1 < 16; ++j1) {
+-                                    long j3 = BlockPos.func_218276_a(SectionPos.func_218142_c(SectionPos.func_218173_b(i)) + i3, SectionPos.func_218142_c(SectionPos.func_218144_c(i)), SectionPos.func_218142_c(SectionPos.func_218153_d(i)) + j1);
++                                    long j3 = BlockPos.func_218276_a(baseX + i3, baseY, baseZ + j1); // Paper
+ 
+-                                    k1 = BlockPos.func_218276_a(SectionPos.func_218142_c(SectionPos.func_218173_b(i)) + i3, SectionPos.func_218142_c(SectionPos.func_218144_c(i)) - 1, SectionPos.func_218142_c(SectionPos.func_218153_d(i)) + j1);
++                                    k1 = BlockPos.func_218276_a(baseX + i3, baseY - 1, baseZ + j1); // Paper
+                                     p_215522_1_.func_215469_a(j3, k1, p_215522_1_.func_215480_b(j3, k1, 0), true);
+                                 }
+                             }
+                         } else {
+                             for (k = 0; k < 16; ++k) {
+                                 for (l = 0; l < 16; ++l) {
+-                                    long k3 = BlockPos.func_218276_a(SectionPos.func_218142_c(SectionPos.func_218173_b(i)) + k, SectionPos.func_218142_c(SectionPos.func_218144_c(i)) + 16 - 1, SectionPos.func_218142_c(SectionPos.func_218153_d(i)) + l);
++                                    long k3 = BlockPos.func_218276_a(baseX + k, baseY + 16 - 1, baseZ + l); // Paper
+ 
+                                     p_215522_1_.func_215469_a(Long.MAX_VALUE, k3, 0, true);
+                                 }
+@@ -272,11 +280,14 @@ public class SkyLightStorage extends SectionLightStorage<SkyLightStorage.Storage
+                 longiterator = this.field_215557_n.iterator();
+ 
+                 while (longiterator.hasNext()) {
+-                    i = (Long) longiterator.next();
++                    i = longiterator.nextLong(); // Paper
++                    int baseX = (int) (i >> 42) << 4; // Paper
++                    int baseY = (int) (i << 44 >> 44) << 4; // Paper
++                    int baseZ = (int) (i << 22 >> 42) << 4; // Paper
+                     if (this.field_215555_l.remove(i) && this.func_215518_g(i)) {
+                         for (j = 0; j < 16; ++j) {
+                             for (k = 0; k < 16; ++k) {
+-                                long l3 = BlockPos.func_218276_a(SectionPos.func_218142_c(SectionPos.func_218173_b(i)) + j, SectionPos.func_218142_c(SectionPos.func_218144_c(i)) + 16 - 1, SectionPos.func_218142_c(SectionPos.func_218153_d(i)) + k);
++                                long l3 = BlockPos.func_218276_a(baseX + j, baseY + 16 - 1, baseZ + k); // Paper
+ 
+                                 p_215522_1_.func_215469_a(Long.MAX_VALUE, l3, 15, false);
+                             }
+diff --git a/src/main/java/net/minecraft/world/server/ChunkHolder.java b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+index fe2d0fd57bbeb4f9fe1e699a5a2d6c7741a9c0ca..09f535751f5984bc38ccdad29ef9e2156d9b8cc2 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkHolder.java
++++ b/src/main/java/net/minecraft/world/server/ChunkHolder.java
+@@ -748,6 +748,7 @@ public class ChunkHolder {
+                 ioPriority = com.destroystokyo.paper.io.PrioritizedTaskQueue.HIGH_PRIORITY;
+             }
+             chunkMap.field_219255_i.asyncChunkTaskManager.raisePriority(field_219319_n.field_77276_a, field_219319_n.field_77275_b, ioPriority);
++            chunkMap.field_219255_i.func_72863_F().func_212863_j_().queue.changePriority(field_219319_n.func_201841_a(), getCurrentPriority(), priority);
+         }
+         if (getCurrentPriority() != priority) {
+             this.field_219327_v.func_219066_a(this.field_219319_n, this::getCurrentPriority, priority, this::setPriority); // use preferred priority
+diff --git a/src/main/java/net/minecraft/world/server/ChunkManager.java b/src/main/java/net/minecraft/world/server/ChunkManager.java
+index dee9d5b84727d0dbe392f1416a1d6da6355fb653..8e80bda3173c903ebc0b5164ef1bb35ffd8f40f5 100644
+--- a/src/main/java/net/minecraft/world/server/ChunkManager.java
++++ b/src/main/java/net/minecraft/world/server/ChunkManager.java
+@@ -105,6 +105,7 @@ import net.minecraft.world.gen.feature.structure.StructureStart;
+ import net.minecraft.world.gen.feature.template.TemplateManager;
+ import net.minecraft.world.storage.DimensionSavedDataManager;
+ import net.minecraft.world.storage.SaveFormat;
++import net.minecraft.world.storage.ServerWorldInfo;
+ import it.unimi.dsi.fastutil.objects.ObjectRBTreeSet; // Paper
+ import org.apache.commons.lang3.mutable.MutableBoolean;
+ import org.apache.logging.log4j.LogManager;
+@@ -334,6 +335,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+     }
+     // Paper end
+ 
++    private final java.util.concurrent.ExecutorService lightThread;
+     public ChunkManager(ServerWorld worldserver, SaveFormat.LevelSave convertable_conversionsession, DataFixer datafixer, TemplateManager definedstructuremanager, Executor executor, ThreadTaskExecutor<Runnable> iasynctaskhandler, IChunkLightProvider ilightaccess, ChunkGenerator chunkgenerator, IChunkStatusListener worldloadlistener, Supplier<DimensionSavedDataManager> supplier, int i, boolean flag) {
+         super(new File(convertable_conversionsession.func_237291_a_(worldserver.func_234923_W_()), "region"), datafixer, flag);
+         //this.visibleChunks = this.updatingChunks.clone(); // Paper - no more cloning
+@@ -365,7 +367,15 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         ITaskExecutor<Runnable> mailbox = ITaskExecutor.func_213140_a("main", iasynctaskhandler::a);
+ 
+         this.field_219266_t = worldloadlistener;
+-        DelegatedTaskExecutor<Runnable> lightthreaded; DelegatedTaskExecutor<Runnable> threadedmailbox1 = lightthreaded = DelegatedTaskExecutor.func_213144_a(executor, "light"); // Paper
++        // Paper start - use light thread
++        DelegatedTaskExecutor<Runnable> lightthreaded; DelegatedTaskExecutor<Runnable> threadedmailbox1 = lightthreaded = DelegatedTaskExecutor.func_213144_a(lightThread = java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
++            Thread thread = new Thread(r);
++            thread.setName(((ServerWorldInfo)field_219255_i.func_72912_H()).func_76065_j() + " - Light");
++            thread.setDaemon(true);
++            thread.setPriority(Thread.NORM_PRIORITY+1);
++            return thread;
++        }), "light");
++        // Paper end
+ 
+         this.field_219263_q = new ChunkTaskPriorityQueueSorter(ImmutableList.of(threadedmailbox, mailbox, threadedmailbox1), executor, Integer.MAX_VALUE);
+         this.field_219264_r = this.field_219263_q.func_219087_a(threadedmailbox, false);
+@@ -711,6 +721,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+         // Paper end
+     }
+ 
++    protected final IntSupplier getPrioritySupplier(long i) { return func_219191_c(i); } // Paper - OBFHELPER
+     protected IntSupplier func_219191_c(long p_219191_1_) {
+         return () -> {
+             ChunkHolder playerchunk = this.func_219219_b(p_219191_1_);
+@@ -838,6 +849,7 @@ public class ChunkManager extends ChunkLoader implements ChunkHolder.IPlayerProv
+     @Override
+     public void close() throws IOException {
+         try {
++            this.lightThread.shutdown(); // Paper
+             this.field_219263_q.close();
+             this.field_219255_i.asyncChunkTaskManager.close(true); // Paper - Required since we're closing regionfiles in the next line
+             this.field_219260_n.close();
+diff --git a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+index 9380d3e3e0335215766bd7fb79164460258c69f2..3b80591d235e0e6135dbb3f2759dccd4baa8d60b 100644
+--- a/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
++++ b/src/main/java/net/minecraft/world/server/ServerChunkProvider.java
+@@ -1074,7 +1074,7 @@ public class ServerChunkProvider extends AbstractChunkProvider {
+             if (ServerChunkProvider.this.func_217235_l()) {
+                 return true;
+             } else {
+-                ServerChunkProvider.this.field_217242_h.func_215588_z_();
++                //ChunkProviderServer.this.lightEngine.queueUpdate(); // Paper - not needed
+                 return super.func_213168_p() || execChunkTask; // Paper
+             }
+         } finally {
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 319fa6f361b8231617102b5808f2d180e67f5ba6..90112907ba550556d8118a2083b9b00ce3d3998d 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -821,6 +821,7 @@ public class ServerWorld extends World implements ISeedReader {
+             }
+             gameprofilerfiller.func_76319_b();
+             timings.chunkTicksBlocks.stopTiming(); // Paper
++            func_72863_F().func_212863_j_().func_215588_z_(); // Paper
+             // Paper end
+         }
+     }
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorldLightManager.java b/src/main/java/net/minecraft/world/server/ServerWorldLightManager.java
+index 50e4024924465675986186b3969b2d028287ba64..e27a2c9e4c1f60fd23a64b9b0586776da23141e0 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorldLightManager.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorldLightManager.java
+@@ -1,6 +1,7 @@
+ package net.minecraft.world.server;
+ 
+ import com.mojang.datafixers.util.Pair;
++import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap; // Paper
+ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+ import it.unimi.dsi.fastutil.objects.ObjectList;
+ import it.unimi.dsi.fastutil.objects.ObjectListIterator;
+@@ -16,6 +17,7 @@ import net.minecraft.util.math.ChunkPos;
+ import net.minecraft.util.math.SectionPos;
+ import net.minecraft.world.LightType;
+ import net.minecraft.world.chunk.ChunkSection;
++import net.minecraft.world.chunk.ChunkStatus;
+ import net.minecraft.world.chunk.ChunkTaskPriorityQueueSorter;
+ import net.minecraft.world.chunk.IChunk;
+ import net.minecraft.world.chunk.IChunkLightProvider;
+@@ -28,15 +30,149 @@ public class ServerWorldLightManager extends WorldLightManager implements AutoCl
+ 
+     private static final Logger field_215604_a = LogManager.getLogger();
+     private final DelegatedTaskExecutor<Runnable> field_215605_b;
+-    private final ObjectList<Pair<ServerWorldLightManager.Phase, Runnable>> field_215606_c = new ObjectArrayList();
+-    private final ChunkManager field_215607_d;
++    // Paper start
++    private static final int MAX_PRIORITIES = ChunkManager.field_219249_a + 2;
++
++    private boolean isChunkLightStatus(long pair) {
++        ChunkHolder playerChunk = playerChunkMap.func_219219_b(pair);
++        if (playerChunk == null) {
++            return false;
++        }
++        ChunkStatus status = ChunkHolder.func_219278_b(playerChunk.func_219299_i());
++        return status != null && status.isAtLeastStatus(ChunkStatus.field_222614_j);
++    }
++
++    static class ChunkLightQueue {
++        public boolean shouldFastUpdate;
++        java.util.ArrayDeque<Runnable> pre = new java.util.ArrayDeque<Runnable>();
++        java.util.ArrayDeque<Runnable> post = new java.util.ArrayDeque<Runnable>();
++
++        ChunkLightQueue(long chunk) {}
++    }
++
++    static class PendingLightTask {
++        long chunkId;
++        IntSupplier priority;
++        Runnable pre;
++        Runnable post;
++        boolean fastUpdate;
++
++        public PendingLightTask(long chunkId, IntSupplier priority, Runnable pre, Runnable post, boolean fastUpdate) {
++            this.chunkId = chunkId;
++            this.priority = priority;
++            this.pre = pre;
++            this.post = post;
++            this.fastUpdate = fastUpdate;
++        }
++    }
++
++
++    // Retain the chunks priority level for queued light tasks
++    class LightQueue {
++        private int size = 0;
++        private final Long2ObjectLinkedOpenHashMap<net.minecraft.world.server.ServerWorldLightManager.ChunkLightQueue>[] buckets = new Long2ObjectLinkedOpenHashMap[MAX_PRIORITIES];
++        private final java.util.concurrent.ConcurrentLinkedQueue<net.minecraft.world.server.ServerWorldLightManager.PendingLightTask> pendingTasks = new java.util.concurrent.ConcurrentLinkedQueue<>();
++        private final java.util.concurrent.ConcurrentLinkedQueue<Runnable> priorityChanges = new java.util.concurrent.ConcurrentLinkedQueue<>();
++
++        private LightQueue() {
++            for (int i = 0; i < buckets.length; i++) {
++                buckets[i] = new Long2ObjectLinkedOpenHashMap<>();
++            }
++        }
++
++        public void changePriority(long pair, int currentPriority, int priority) {
++            this.priorityChanges.add(() -> {
++                net.minecraft.world.server.ServerWorldLightManager.ChunkLightQueue remove = this.buckets[currentPriority].remove(pair);
++                if (remove != null) {
++                    net.minecraft.world.server.ServerWorldLightManager.ChunkLightQueue existing = this.buckets[Math.max(1, priority)].put(pair, remove);
++                    if (existing != null) {
++                        remove.pre.addAll(existing.pre);
++                        remove.post.addAll(existing.post);
++                    }
++                }
++            });
++        }
++
++        public final void addChunk(long chunkId, IntSupplier priority, Runnable pre, Runnable post) {
++            pendingTasks.add(new net.minecraft.world.server.ServerWorldLightManager.PendingLightTask(chunkId, priority, pre, post, true));
++            func_215588_z_();
++        }
++
++        public final void add(long chunkId, IntSupplier priority, ServerWorldLightManager.Phase type, Runnable run) {
++            pendingTasks.add(new net.minecraft.world.server.ServerWorldLightManager.PendingLightTask(chunkId, priority, type == Phase.PRE_UPDATE ? run : null, type == Phase.POST_UPDATE ? run : null, false));
++        }
++        public final void add(net.minecraft.world.server.ServerWorldLightManager.PendingLightTask update) {
++            int priority = update.priority.getAsInt();
++            net.minecraft.world.server.ServerWorldLightManager.ChunkLightQueue lightQueue = this.buckets[priority].computeIfAbsent(update.chunkId, net.minecraft.world.server.ServerWorldLightManager.ChunkLightQueue::new);
++
++            if (update.pre != null) {
++                this.size++;
++                lightQueue.pre.add(update.pre);
++            }
++            if (update.post != null) {
++                this.size++;
++                lightQueue.post.add(update.post);
++            }
++            if (update.fastUpdate) {
++                lightQueue.shouldFastUpdate = true;
++            }
++        }
++
++        public final boolean isEmpty() {
++            return this.size == 0 && this.pendingTasks.isEmpty();
++        }
++
++        public final int size() {
++            return this.size;
++        }
++
++        public boolean poll(java.util.List<Runnable> pre, java.util.List<Runnable> post) {
++            net.minecraft.world.server.ServerWorldLightManager.PendingLightTask pending;
++            while ((pending = pendingTasks.poll()) != null) {
++                add(pending);
++            }
++            Runnable run;
++            while ((run = priorityChanges.poll()) != null) {
++                run.run();
++            }
++            boolean hasWork = false;
++            Long2ObjectLinkedOpenHashMap<net.minecraft.world.server.ServerWorldLightManager.ChunkLightQueue>[] buckets = this.buckets;
++            int priority = 0;
++            while (priority < MAX_PRIORITIES && !isEmpty()) {
++                Long2ObjectLinkedOpenHashMap<net.minecraft.world.server.ServerWorldLightManager.ChunkLightQueue> bucket = buckets[priority];
++                if (bucket.isEmpty()) {
++                    priority++;
++                    if (hasWork) {
++                        return true;
++                    } else {
++                        continue;
++                    }
++                }
++                net.minecraft.world.server.ServerWorldLightManager.ChunkLightQueue queue = bucket.removeFirst();
++                this.size -= queue.pre.size() + queue.post.size();
++                pre.addAll(queue.pre);
++                post.addAll(queue.post);
++                queue.pre.clear();
++                queue.post.clear();
++                hasWork = true;
++                if (queue.shouldFastUpdate) {
++                    return true;
++                }
++            }
++            return hasWork;
++        }
++    }
++
++    final net.minecraft.world.server.ServerWorldLightManager.LightQueue queue = new net.minecraft.world.server.ServerWorldLightManager.LightQueue();
++    // Paper end
++    private final ChunkManager field_215607_d; private final ChunkManager playerChunkMap; // Paper
+     private final ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> field_215608_e;
+     private volatile int field_215609_f = 5;
+     private final AtomicBoolean field_215610_g = new AtomicBoolean();
+ 
+     public ServerWorldLightManager(IChunkLightProvider ilightaccess, ChunkManager playerchunkmap, boolean flag, DelegatedTaskExecutor<Runnable> threadedmailbox, ITaskExecutor<ChunkTaskPriorityQueueSorter.FunctionEntry<Runnable>> mailbox) {
+         super(ilightaccess, true, flag);
+-        this.field_215607_d = playerchunkmap;
++        this.field_215607_d = playerchunkmap; this.playerChunkMap = field_215607_d; // Paper
+         this.field_215608_e = mailbox;
+         this.field_215605_b = threadedmailbox;
+     }
+@@ -123,13 +259,9 @@ public class ServerWorldLightManager extends WorldLightManager implements AutoCl
+     }
+ 
+     private void func_215600_a(int p_215600_1_, int p_215600_2_, IntSupplier p_215600_3_, ServerWorldLightManager.Phase p_215600_4_, Runnable p_215600_5_) {
+-        this.field_215608_e.func_212871_a_(ChunkTaskPriorityQueueSorter.func_219069_a(() -> {
+-            this.field_215606_c.add(Pair.of(p_215600_4_, p_215600_5_));
+-            if (this.field_215606_c.size() >= this.field_215609_f) {
+-                this.func_215603_b();
+-            }
+-
+-        }, ChunkPos.func_77272_a(p_215600_1_, p_215600_2_), p_215600_3_));
++        // Paper start - replace method
++        this.queue.add(ChunkPos.func_77272_a(p_215600_1_, p_215600_2_), p_215600_3_, p_215600_4_, p_215600_5_);
++        // Paper end
+     }
+ 
+     @Override
+@@ -146,8 +278,19 @@ public class ServerWorldLightManager extends WorldLightManager implements AutoCl
+     public CompletableFuture<IChunk> func_215593_a(IChunk p_215593_1_, boolean p_215593_2_) {
+         ChunkPos chunkcoordintpair = p_215593_1_.func_76632_l();
+ 
+-        p_215593_1_.func_217305_b(false);
+-        this.func_215586_a(chunkcoordintpair.field_77276_a, chunkcoordintpair.field_77275_b, ServerWorldLightManager.Phase.PRE_UPDATE, Util.func_215075_a(() -> {
++        // Paper start
++        //ichunkaccess.b(false); // Don't need to disable this
++        long pair = chunkcoordintpair.func_201841_a();
++        CompletableFuture<IChunk> future = new CompletableFuture<>();
++        IntSupplier prioritySupplier = playerChunkMap.getPrioritySupplier(pair);
++        boolean[] skippedPre = {false};
++        this.queue.addChunk(pair, prioritySupplier, Util.func_215075_a(() -> {
++            if (!isChunkLightStatus(pair)) {
++                future.complete(p_215593_1_);
++                skippedPre[0] = true;
++                return;
++            }
++            // Paper end
+             ChunkSection[] achunksection = p_215593_1_.func_76587_i();
+ 
+             for (int i = 0; i < 16; ++i) {
+@@ -165,55 +308,48 @@ public class ServerWorldLightManager extends WorldLightManager implements AutoCl
+                 });
+             }
+ 
+-            this.field_215607_d.func_219209_c(chunkcoordintpair);
++            // this.d.c(chunkcoordintpair); // Paper - move into post task below
+         }, () -> {
+             return "lightChunk " + chunkcoordintpair + " " + p_215593_2_;
+-        }));
+-        return CompletableFuture.supplyAsync(() -> {
++            // Paper start  - merge the 2 together
++        }), () -> {
++            this.field_215607_d.func_219209_c(chunkcoordintpair); // Paper - release light tickets as post task to ensure they stay loaded until fully done
++            if (skippedPre[0]) return; // Paper - future's already complete
+             p_215593_1_.func_217305_b(true);
+             super.func_223115_b(chunkcoordintpair, false);
+-            return p_215593_1_;
+-        }, (runnable) -> {
+-            this.func_215586_a(chunkcoordintpair.field_77276_a, chunkcoordintpair.field_77275_b, ServerWorldLightManager.Phase.POST_UPDATE, runnable);
++            // Paper start
++            future.complete(p_215593_1_);
+         });
++        return future;
++        // Paper end
+     }
+ 
+     public void func_215588_z_() {
+-        if ((!this.field_215606_c.isEmpty() || super.func_215570_a()) && this.field_215610_g.compareAndSet(false, true)) {
++        if ((!this.queue.isEmpty() || super.func_215570_a()) && this.field_215610_g.compareAndSet(false, true)) { // Paper
+             this.field_215605_b.func_212871_a_((() -> { // Paper - decompile error
+                 this.func_215603_b();
+                 this.field_215610_g.set(false);
++                func_215588_z_(); // Paper - if we still have work to do, do it!
+             }));
+         }
+ 
+     }
+ 
++    // Paper start - replace impl
++    private final java.util.List<Runnable> pre = new java.util.ArrayList<>();
++    private final java.util.List<Runnable> post = new java.util.ArrayList<>();
+     private void func_215603_b() {
+-        int i = Math.min(this.field_215606_c.size(), this.field_215609_f);
+-        ObjectListIterator<Pair<ServerWorldLightManager.Phase, Runnable>> objectlistiterator = this.field_215606_c.iterator();
+-
+-        Pair pair;
+-        int j;
+-
+-        for (j = 0; objectlistiterator.hasNext() && j < i; ++j) {
+-            pair = (Pair) objectlistiterator.next();
+-            if (pair.getFirst() == ServerWorldLightManager.Phase.PRE_UPDATE) {
+-                ((Runnable) pair.getSecond()).run();
+-            }
++        if (queue.poll(pre, post)) {
++            pre.forEach(Runnable::run);
++            pre.clear();
++            super.func_215575_a(Integer.MAX_VALUE, true, true);
++            post.forEach(Runnable::run);
++            post.clear();
++        } else {
++            // might have level updates to go still
++            super.func_215575_a(Integer.MAX_VALUE, true, true);
+         }
+-
+-        objectlistiterator.back(j);
+-        super.func_215575_a(Integer.MAX_VALUE, true, true);
+-
+-        for (j = 0; objectlistiterator.hasNext() && j < i; ++j) {
+-            pair = (Pair) objectlistiterator.next();
+-            if (pair.getFirst() == ServerWorldLightManager.Phase.POST_UPDATE) {
+-                ((Runnable) pair.getSecond()).run();
+-            }
+-
+-            objectlistiterator.remove();
+-        }
+-
++        // Paper end
+     }
+ 
+     public void func_215598_a(int p_215598_1_) {

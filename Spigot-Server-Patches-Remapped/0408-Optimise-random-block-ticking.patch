@@ -1,0 +1,407 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Mon, 27 Jan 2020 21:28:00 -0800
+Subject: [PATCH] Optimise random block ticking
+
+Massive performance improvement for random block ticking.
+The performance increase comes from the fact that the vast
+majority of attempted block ticks (~95% in my testing) fail
+because the randomly selected block is not tickable.
+
+Now only tickable blocks are targeted, however this means that
+the maximum number of block ticks occurs per chunk. However,
+not all chunks are going to be targeted. The percent chance
+of a chunk being targeted is based on how many tickable blocks
+are in the chunk.
+This means that while block ticks are spread out less, the
+total number of blocks ticked per world tick remains the same.
+Therefore, the chance of a random tickable block being ticked
+remains the same.
+
+diff --git a/src/main/java/com/destroystokyo/paper/util/math/ThreadUnsafeRandom.java b/src/main/java/com/destroystokyo/paper/util/math/ThreadUnsafeRandom.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..3edc8e52e06a62ce9f8cc734fd7458b37cfaad91
+--- /dev/null
++++ b/src/main/java/com/destroystokyo/paper/util/math/ThreadUnsafeRandom.java
+@@ -0,0 +1,46 @@
++package com.destroystokyo.paper.util.math;
++
++import java.util.Random;
++
++public final class ThreadUnsafeRandom extends Random {
++
++    // See javadoc and internal comments for java.util.Random where these values come from, how they are used, and the author for them.
++    private static final long multiplier = 0x5DEECE66DL;
++    private static final long addend = 0xBL;
++    private static final long mask = (1L << 48) - 1;
++
++    private static long initialScramble(long seed) {
++        return (seed ^ multiplier) & mask;
++    }
++
++    private long seed;
++
++    @Override
++    public void setSeed(long seed) {
++        // note: called by Random constructor
++        this.seed = initialScramble(seed);
++    }
++
++    @Override
++    protected int next(int bits) {
++        // avoid the expensive CAS logic used by superclass
++        return (int) (((this.seed = this.seed * multiplier + addend) & mask) >>> (48 - bits));
++    }
++
++    // Taken from
++    // https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
++    // https://github.com/lemire/Code-used-on-Daniel-Lemire-s-blog/blob/master/2016/06/25/fastrange.c
++    // Original license is public domain
++    public static int fastRandomBounded(final long randomInteger, final long limit) {
++        // randomInteger must be [0, pow(2, 32))
++        // limit must be [0, pow(2, 32))
++        return (int)((randomInteger * limit) >>> 32);
++    }
++
++    @Override
++    public int nextInt(int bound) {
++        // yes this breaks random's spec
++        // however there's nothing that uses this class that relies on it
++        return fastRandomBounded(this.next(32) & 0xFFFFFFFFL, bound);
++    }
++}
+diff --git a/src/main/java/net/minecraft/entity/passive/TurtleEntity.java b/src/main/java/net/minecraft/entity/passive/TurtleEntity.java
+index dbebc9f28a51c38162585c327e8f9162f7d3467b..71f78be00be78a850eeb1109bff97b76f63a927e 100644
+--- a/src/main/java/net/minecraft/entity/passive/TurtleEntity.java
++++ b/src/main/java/net/minecraft/entity/passive/TurtleEntity.java
+@@ -90,7 +90,7 @@ public class TurtleEntity extends AnimalEntity {
+     }
+ 
+     public void func_203011_g(BlockPos p_203011_1_) {
+-        this.field_70180_af.func_187227_b(TurtleEntity.field_203030_by, p_203011_1_);
++        this.field_70180_af.func_187227_b(TurtleEntity.field_203030_by, p_203011_1_.func_185334_h()); // Paper - called with mutablepos...
+     }
+ 
+     public BlockPos func_203018_dA() { // Paper - public
+diff --git a/src/main/java/net/minecraft/util/BitArray.java b/src/main/java/net/minecraft/util/BitArray.java
+index ec298ec1a83ccd1a019eb11db8aaca2c0fe5c70a..e7e2339b5ac5c8092e15236a1423b846f9e18692 100644
+--- a/src/main/java/net/minecraft/util/BitArray.java
++++ b/src/main/java/net/minecraft/util/BitArray.java
+@@ -111,4 +111,32 @@ public class BitArray {
+         }
+ 
+     }
++
++    // Paper start
++    public final void forEach(net.minecraft.util.BitArray.DataBitConsumer consumer) {
++        int i = 0;
++        long[] along = this.field_188145_a;
++        int j = along.length;
++
++        for (int k = 0; k < j; ++k) {
++            long l = along[k];
++
++            for (int i1 = 0; i1 < this.field_232982_f_; ++i1) {
++                consumer.accept(i, (int) (l & this.field_188147_c));
++                l >>= this.field_188146_b;
++                ++i;
++                if (i >= this.field_188148_d) {
++                    return;
++                }
++            }
++        }
++    }
++
++    @FunctionalInterface
++    static interface DataBitConsumer {
++
++        void accept(int location, int data);
++
++    }
++    // Paper end
+ }
+diff --git a/src/main/java/net/minecraft/util/math/BlockPos.java b/src/main/java/net/minecraft/util/math/BlockPos.java
+index d5f37cb64e231a4bfe920ba5074b7849489bc22f..1160c741fa63c74ab6143b9d957617df3d9e65bf 100644
+--- a/src/main/java/net/minecraft/util/math/BlockPos.java
++++ b/src/main/java/net/minecraft/util/math/BlockPos.java
+@@ -469,6 +469,7 @@ public class BlockPos extends Vector3i {
+             return this.func_181079_c(MathHelper.func_76128_c(p_189532_1_), MathHelper.func_76128_c(p_189532_2_), MathHelper.func_76128_c(p_189532_3_));
+         }
+ 
++        public final BlockPos.Mutable setValues(final Vector3i baseblockposition) { return this.func_189533_g(baseblockposition); } // Paper - OBFHELPER
+         public BlockPos.Mutable func_189533_g(Vector3i p_189533_1_) {
+             return this.func_181079_c(p_189533_1_.func_177958_n(), p_189533_1_.func_177956_o(), p_189533_1_.func_177952_p());
+         }
+diff --git a/src/main/java/net/minecraft/util/palette/PalettedContainer.java b/src/main/java/net/minecraft/util/palette/PalettedContainer.java
+index 66a501d3bc6d55122ebf2829e070d41998c43114..be4eaf2cae71aae21b88d764eee8688144b5c57b 100644
+--- a/src/main/java/net/minecraft/util/palette/PalettedContainer.java
++++ b/src/main/java/net/minecraft/util/palette/PalettedContainer.java
+@@ -283,6 +283,14 @@ public class PalettedContainer<T> implements IResizeCallback<T> {
+         });
+     }
+ 
++    // Paper start
++    public void forEachLocation(PalettedContainer.ICountConsumer<T> datapaletteblock_a) {
++        this.getDataBits().forEach((int location, int data) -> {
++            datapaletteblock_a.accept(this.getDataPalette().getObject(data), location);
++        });
++    }
++    // Paper end
++
+     @FunctionalInterface
+     public interface ICountConsumer<T> {
+ 
+diff --git a/src/main/java/net/minecraft/world/World.java b/src/main/java/net/minecraft/world/World.java
+index ee359a1765a7687727012d94422a3f104369f265..05a38f0bdc65ffedcf0c9ac007c2127715b4d106 100644
+--- a/src/main/java/net/minecraft/world/World.java
++++ b/src/main/java/net/minecraft/world/World.java
+@@ -1471,10 +1471,18 @@ public abstract class World implements IWorld, AutoCloseable {
+     public abstract ITagCollectionSupplier func_205772_D();
+ 
+     public BlockPos func_217383_a(int p_217383_1_, int p_217383_2_, int p_217383_3_, int p_217383_4_) {
++        // Paper start - allow use of mutable pos
++        BlockPos.Mutable ret = new BlockPos.Mutable();
++        this.getRandomBlockPosition(p_217383_1_, p_217383_2_, p_217383_3_, p_217383_4_, ret);
++        return ret.func_185334_h();
++    }
++    public final BlockPos.Mutable getRandomBlockPosition(int i, int j, int k, int l, BlockPos.Mutable out) {
++        // Paper end
+         this.field_73005_l = this.field_73005_l * 3 + 1013904223;
+         int i1 = this.field_73005_l >> 2;
+ 
+-        return new BlockPos(p_217383_1_ + (i1 & 15), p_217383_2_ + (i1 >> 16 & p_217383_4_), p_217383_3_ + (i1 >> 8 & 15));
++        out.setValues(i + (i1 & 15), j + (i1 >> 16 & l), k + (i1 >> 8 & 15)); // Paper - change to setValues call
++        return out; // Paper
+     }
+ 
+     public boolean func_217402_u() {
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index 785a3c3026e7575e752b37f6af9fa181aa6d1061..990c3903a07b11ff1d9da35adce5fbdd937463d2 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -640,8 +640,8 @@ public class Chunk implements IChunk {
+         this.entities.remove(p_76608_1_); // Paper
+     }
+ 
+-    @Override
+-    public int func_201576_a(Heightmap.Type p_201576_1_, int p_201576_2_, int p_201576_3_) {
++    public final int getHighestBlockY(Heightmap.Type heightmap_type, int i, int j) { return this.func_201576_a(heightmap_type, i, j) + 1; } // Paper - sort of an obfhelper, but without -1
++    @Override public int func_201576_a(Heightmap.Type p_201576_1_, int p_201576_2_, int p_201576_3_) { // Paper
+         return ((Heightmap) this.field_76634_f.get(p_201576_1_)).func_202273_a(p_201576_2_ & 15, p_201576_3_ & 15) - 1;
+     }
+ 
+diff --git a/src/main/java/net/minecraft/world/chunk/ChunkSection.java b/src/main/java/net/minecraft/world/chunk/ChunkSection.java
+index 1cd2cce98a81dacfcff44cb16e31198c0c8c5801..c5515f932d047a03adb8ea77142e5507a32ae8d3 100644
+--- a/src/main/java/net/minecraft/world/chunk/ChunkSection.java
++++ b/src/main/java/net/minecraft/world/chunk/ChunkSection.java
+@@ -17,12 +17,14 @@ import net.minecraft.world.World;
+ public class ChunkSection {
+ 
+     public static final IPalette<BlockState> field_205512_a = new IdentityPalette<>(Block.field_176229_d, Blocks.field_150350_a.func_176223_P());
+-    private final int field_76684_a;
++    final int field_76684_a; // Paper - private -> package-private
+     short field_76682_b; // Paper - package-private
+-    private short field_76683_c;
++    short field_76683_c; // Paper - private -> package-private
+     private short field_206918_e;
+     final PalettedContainer<BlockState> field_177488_d; // Paper - package-private
+ 
++    final com.destroystokyo.paper.util.maplist.IBlockDataList tickingList = new com.destroystokyo.paper.util.maplist.IBlockDataList(); // Paper
++
+     // Paper start - Anti-Xray - Add parameters
+     @Deprecated public ChunkSection(int p_i49943_1_) { this(p_i49943_1_, null, null, true); } // Notice for updates: Please make sure this constructor isn't used anywhere
+     public ChunkSection(int i, IChunk chunk, World world, boolean initializeBlocks) {
+@@ -77,6 +79,9 @@ public class ChunkSection {
+             --this.field_76682_b;
+             if (iblockdata1.func_204519_t()) {
+                 --this.field_76683_c;
++                // Paper start
++                this.tickingList.remove(p_177484_1_, p_177484_2_, p_177484_3_);
++                // Paper end
+             }
+         }
+ 
+@@ -88,6 +93,9 @@ public class ChunkSection {
+             ++this.field_76682_b;
+             if (p_177484_4_.func_204519_t()) {
+                 ++this.field_76683_c;
++                // Paper start
++                this.tickingList.add(p_177484_1_, p_177484_2_, p_177484_3_, p_177484_4_);
++                // Paper end
+             }
+         }
+ 
+@@ -123,23 +131,29 @@ public class ChunkSection {
+     }
+ 
+     public void func_76672_e() {
++        // Paper start
++        this.tickingList.clear();
++        // Paper end
+         this.field_76682_b = 0;
+         this.field_76683_c = 0;
+         this.field_206918_e = 0;
+-        this.field_177488_d.func_225497_a((iblockdata, i) -> {
++        this.field_177488_d.forEachLocation((iblockdata, location) -> { // Paper
+             FluidState fluid = iblockdata.func_204520_s();
+ 
+             if (!iblockdata.func_196958_f()) {
+-                this.field_76682_b = (short) (this.field_76682_b + i);
++                this.field_76682_b = (short) (this.field_76682_b + 1);
+                 if (iblockdata.func_204519_t()) {
+-                    this.field_76683_c = (short) (this.field_76683_c + i);
++                    this.field_76683_c = (short) (this.field_76683_c + 1);
++                    // Paper start
++                    this.tickingList.add(location, iblockdata);
++                    // Paper end
+                 }
+             }
+ 
+             if (!fluid.func_206888_e()) {
+-                this.field_76682_b = (short) (this.field_76682_b + i);
++                this.field_76682_b = (short) (this.field_76682_b + 1);
+                 if (fluid.func_206890_h()) {
+-                    this.field_206918_e = (short) (this.field_206918_e + i);
++                    this.field_206918_e = (short) (this.field_206918_e + 1);
+                 }
+             }
+ 
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 7475a27db5b164d1625894d935753a7912c4762d..b95cb446615764a69969208fe5e26160e47424ee 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -668,7 +668,12 @@ public class ServerWorld extends World implements ISeedReader {
+         });
+     }
+ 
+-    public void func_217441_a(Chunk p_217441_1_, int p_217441_2_) {
++    // Paper start - optimise random block ticking
++    private final BlockPos.Mutable chunkTickMutablePosition = new BlockPos.Mutable();
++    private final com.destroystokyo.paper.util.math.ThreadUnsafeRandom randomTickRandom = new com.destroystokyo.paper.util.math.ThreadUnsafeRandom();
++    // Paper end
++
++    public void func_217441_a(Chunk p_217441_1_, int p_217441_2_) { final int randomTickSpeed = p_217441_2_; // Paper
+         ChunkPos chunkcoordintpair = p_217441_1_.func_76632_l();
+         boolean flag = this.func_72896_J();
+         int j = chunkcoordintpair.func_180334_c();
+@@ -676,10 +681,10 @@ public class ServerWorld extends World implements ISeedReader {
+         IProfiler gameprofilerfiller = this.func_217381_Z();
+ 
+         gameprofilerfiller.func_76320_a("thunder");
+-        BlockPos blockposition;
++        final BlockPos.Mutable blockposition = this.chunkTickMutablePosition; // Paper - use mutable to reduce allocation rate, final to force compile fail on change
+ 
+         if (!this.paperConfig.disableThunder && flag && this.func_72911_I() && this.field_73012_v.nextInt(100000) == 0) { // Paper - Disable thunder
+-            blockposition = this.func_175736_a(this.func_217383_a(j, 0, k, 15));
++            blockposition.setValues(this.func_175736_a(this.func_217383_a(j, 0, k, 15))); // Paper
+             if (this.func_175727_C(blockposition)) {
+                 DifficultyInstance difficultydamagescaler = this.func_175649_E(blockposition);
+                 boolean flag1 = this.func_82736_K().func_223586_b(GameRules.field_223601_d) && this.field_73012_v.nextDouble() < (double) difficultydamagescaler.func_180168_b() * paperConfig.skeleHorseSpawnChance; // Paper
+@@ -702,59 +707,77 @@ public class ServerWorld extends World implements ISeedReader {
+         }
+ 
+         gameprofilerfiller.func_219895_b("iceandsnow");
+-        if (!this.paperConfig.disableIceAndSnow && this.field_73012_v.nextInt(16) == 0) { // Paper - Disable ice and snow
+-            blockposition = this.func_205770_a(Heightmap.Type.MOTION_BLOCKING, this.func_217383_a(j, 0, k, 15));
+-            BlockPos blockposition1 = blockposition.func_177977_b();
++        if (!this.paperConfig.disableIceAndSnow && this.randomTickRandom.nextInt(16) == 0) { // Paper - Disable ice and snow // Paper - optimise random ticking
++            // Paper start - optimise chunk ticking
++            this.getRandomBlockPosition(j, 0, k, 15, blockposition);
++            int normalY = p_217441_1_.getHighestBlockY(Heightmap.Type.MOTION_BLOCKING, blockposition.func_177958_n() & 15, blockposition.func_177952_p() & 15);
++            int downY = normalY - 1;
++            blockposition.setY(normalY);
++            // Paper end
+             Biome biomebase = this.func_226691_t_(blockposition);
+ 
+-            if (biomebase.func_201848_a(this, blockposition1)) {
+-                org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockFormEvent(this, blockposition1, Blocks.field_150432_aD.func_176223_P(), null); // CraftBukkit
++            // Paper start - optimise chunk ticking
++            blockposition.setY(downY);
++            if (biomebase.func_201848_a(this, blockposition)) {
++                org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockFormEvent(this, blockposition, Blocks.field_150432_aD.func_176223_P(), null); // CraftBukkit
++                // Paper end
+             }
+ 
++            blockposition.setY(normalY); // Paper
+             if (flag && biomebase.func_201850_b(this, blockposition)) {
+                 org.bukkit.craftbukkit.event.CraftEventFactory.handleBlockFormEvent(this, blockposition, Blocks.field_150433_aE.func_176223_P(), null); // CraftBukkit
+             }
+ 
+-            if (flag && this.func_226691_t_(blockposition1).func_201851_b() == Biome.RainType.RAIN) {
+-                this.func_180495_p(blockposition1).func_177230_c().func_176224_k((World) this, blockposition1);
++            // Paper start - optimise chunk ticking
++            blockposition.setY(downY);
++            if (flag && this.func_226691_t_(blockposition).func_201851_b() == Biome.RainType.RAIN) {
++                p_217441_1_.func_180495_p(blockposition).func_177230_c().func_176224_k((World) this, blockposition);
++                // Paper end
+             }
+         }
+ 
+-        gameprofilerfiller.func_219895_b("tickBlocks");
+-        timings.chunkTicksBlocks.startTiming(); // Paper
++        // Paper start - optimise random block ticking
++        gameprofilerfiller.func_76319_b();
+         if (p_217441_2_ > 0) {
+-            ChunkSection[] achunksection = p_217441_1_.func_76587_i();
+-            int l = achunksection.length;
++            gameprofilerfiller.func_76320_a("randomTick");
++            timings.chunkTicksBlocks.startTiming(); // Paper
+ 
+-            for (int i1 = 0; i1 < l; ++i1) {
+-                ChunkSection chunksection = achunksection[i1];
++            ChunkSection[] sections = p_217441_1_.func_76587_i();
+ 
+-                if (chunksection != Chunk.field_186036_a && chunksection.func_206915_b()) {
+-                    int j1 = chunksection.func_222632_g();
++            for (int sectionIndex = 0; sectionIndex < 16; ++sectionIndex) {
++                ChunkSection section = sections[sectionIndex];
++                if (section == null || section.tickingList.size() == 0) {
++                    continue;
++                }
+ 
+-                    for (int k1 = 0; k1 < p_217441_2_; ++k1) {
+-                        BlockPos blockposition2 = this.func_217383_a(j, j1, k, 15);
++                int yPos = sectionIndex << 4;
+ 
+-                        gameprofilerfiller.func_76320_a("randomTick");
+-                        BlockState iblockdata = chunksection.func_177485_a(blockposition2.func_177958_n() - j, blockposition2.func_177956_o() - j1, blockposition2.func_177952_p() - k);
++                for (int a = 0; a < randomTickSpeed; ++a) {
++                    int tickingBlocks = section.tickingList.size();
++                    int index = this.randomTickRandom.nextInt(16 * 16 * 16);
++                    if (index >= tickingBlocks) {
++                        continue;
++                    }
+ 
+-                        if (iblockdata.func_204519_t()) {
+-                            iblockdata.func_227034_b_(this, blockposition2, this.field_73012_v);
+-                        }
++                    long raw = section.tickingList.getRaw(index);
++                    int location = com.destroystokyo.paper.util.maplist.IBlockDataList.getLocationFromRaw(raw);
++                    int randomX = location & 15;
++                    int randomY = ((location >>> (4 + 4)) & 255) | yPos;
++                    int randomZ = (location >>> 4) & 15;
+ 
+-                        FluidState fluid = iblockdata.func_204520_s();
++                    BlockPos blockposition2 = blockposition.setValues(j + randomX, randomY, k + randomZ);
++                    BlockState iblockdata = com.destroystokyo.paper.util.maplist.IBlockDataList.getBlockDataFromRaw(raw);
+ 
+-                        if (fluid.func_206890_h()) {
+-                            fluid.func_206891_b(this, blockposition2, this.field_73012_v);
+-                        }
++                    iblockdata.func_227034_b_(this, blockposition2, this.randomTickRandom);
+ 
+-                        gameprofilerfiller.func_76319_b();
+-                    }
++                    // We drop the fluid tick since LAVA is ALREADY TICKED by the above method.
++                    // TODO CHECK ON UPDATE
+                 }
+             }
++            gameprofilerfiller.func_76319_b();
++            timings.chunkTicksBlocks.stopTiming(); // Paper
++            // Paper end
+         }
+-        timings.chunkTicksBlocks.stopTiming(); // Paper
+-        gameprofilerfiller.func_76319_b();
+     }
+ 
+     protected BlockPos func_175736_a(BlockPos p_175736_1_) {

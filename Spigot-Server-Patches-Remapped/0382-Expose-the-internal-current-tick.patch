@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: William Blake Galbreath <blake.galbreath@gmail.com>
+Date: Sat, 20 Apr 2019 19:47:34 -0500
+Subject: [PATCH] Expose the internal current tick
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+index 2af4296843f4daa28a10064d28888a238bdffef3..1c1f6e68e5144adee0a0d3a449d36c7ae3471eef 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
+@@ -2292,5 +2292,10 @@ public final class CraftServer implements Server {
+         }
+         return new com.destroystokyo.paper.profile.CraftPlayerProfile(uuid, name);
+     }
++
++    @Override
++    public int getCurrentTick() {
++        return net.minecraft.server.MinecraftServer.currentTick;
++    }
+     // Paper end
+ }

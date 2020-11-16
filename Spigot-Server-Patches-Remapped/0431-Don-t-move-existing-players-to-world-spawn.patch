@@ -1,0 +1,54 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Thu, 9 Apr 2020 21:20:33 -0400
+Subject: [PATCH] Don't move existing players to world spawn
+
+This can cause a nasty server lag the spawn chunks are not kept loaded
+or they aren't finished loading yet, or if the world spawn radius is
+larger than the keep loaded range.
+
+By skipping this, we avoid potential for a large spike on server start.
+
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 79e6c90a903bd09816c4978ac3b083b9550776c2..929fe2609d4c42fe53543725a0c2bb8303a08e0e 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -249,7 +249,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+         this.field_147103_bO = minecraftserver.func_184103_al().getStatisticManager(this);
+         this.field_192042_bX = minecraftserver.func_184103_al().func_192054_h(this);
+         this.field_70138_W = 1.0F;
+-        this.func_205734_a(worldserver);
++        //this.c(worldserver); // Paper - don't move to spawn on login, only first join
+         this.field_244528_co = minecraftserver.func_244435_a(this);
+ 
+         this.cachedSingleHashSet = new com.destroystokyo.paper.util.misc.PooledLinkedHashSets.PooledObjectLinkedOpenHashSet<>(this); // Paper
+@@ -300,6 +300,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+     }
+     // CraftBukkit end
+ 
++    public final void moveToSpawn(ServerWorld worldserver) { func_205734_a(worldserver); } // Paper - OBFHELPER
+     private void func_205734_a(ServerWorld p_205734_1_) {
+         BlockPos blockposition = p_205734_1_.getSpawn();
+ 
+@@ -477,7 +478,7 @@ public class ServerPlayerEntity extends PlayerEntity implements IContainerListen
+                 position = Vector3d.func_237489_a_(((ServerWorld) p_70029_1_).getSpawn());
+             }
+             this.field_70170_p = p_70029_1_;
+-            this.func_70107_b(position.func_82615_a(), position.func_82617_b(), position.func_82616_c());
++            this.func_226288_n_(position.func_82615_a(), position.func_82617_b(), position.func_82616_c()); // Paper - don't register to chunks yet
+         }
+         this.field_71134_c.func_73080_a((ServerWorld) p_70029_1_);
+     }
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index 22afeb86978b8e127ab92b1279273b350317c461..54037c29a75d8cced9459bfdf7b964bcb6a00139 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -208,6 +208,8 @@ public abstract class PlayerList {
+             worldserver1 = worldserver;
+         }
+ 
++        if (nbttagcompound == null) p_72355_2_.moveToSpawn(worldserver1); // Paper - only move to spawn on first login, otherwise, stay where you are....
++
+         p_72355_2_.func_70029_a(worldserver1);
+         p_72355_2_.field_71134_c.func_73080_a((ServerWorld) p_72355_2_.field_70170_p);
+         String s1 = "local";

@@ -1,0 +1,120 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sat, 28 Jul 2018 12:18:27 -0400
+Subject: [PATCH] Ignore Dead Entities in entityList iteration
+
+A spigot change delays removal of entities from the entity list.
+This causes a change in behavior from Vanilla where getEntities type
+methods will return dead entities that they shouldn't otherwise be doing.
+
+This will ensure that dead entities are skipped from iteration since
+they shouldn't of been in the list in the first place.
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperCommand.java b/src/main/java/com/destroystokyo/paper/PaperCommand.java
+index 18dee96999ab09ce328e5c7b93285f3ca5dedf39..629943b25ffc72e08b7f72baa5cdccbecb239805 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperCommand.java
++++ b/src/main/java/com/destroystokyo/paper/PaperCommand.java
+@@ -185,6 +185,7 @@ public class PaperCommand extends Command {
+                 Collection<Entity> entities = world.field_217498_x.values();
+                 entities.forEach(e -> {
+                     ResourceLocation key = e.getMinecraftKey();
++                    if (e.shouldBeRemoved) return; // Paper
+ 
+                     MutablePair<Integer, Map<ChunkPos, Integer>> info = list.computeIfAbsent(key, k -> MutablePair.of(0, Maps.newHashMap()));
+                     ChunkPos chunk = new ChunkPos(e.field_70176_ah, e.field_70164_aj);
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index e6d40418d8034254c18763f2f80adc13cb02514f..bfec4d712b027a434713756437f56e2ceb7332ef 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -281,6 +281,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     protected int numCollisions = 0; // Paper
+     public void inactiveTick() { }
+     // Spigot end
++    public boolean shouldBeRemoved; // Paper
+ 
+     public float getBukkitYaw() {
+         return this.field_70177_z;
+diff --git a/src/main/java/net/minecraft/world/chunk/Chunk.java b/src/main/java/net/minecraft/world/chunk/Chunk.java
+index bd914c1299c0125a9a625e689f3fd79c89279efc..dae497b0da146fd763f14fcfce4a834ccea3928c 100644
+--- a/src/main/java/net/minecraft/world/chunk/Chunk.java
++++ b/src/main/java/net/minecraft/world/chunk/Chunk.java
+@@ -862,6 +862,7 @@ public class Chunk implements IChunk {
+ 
+             for (int i1 = 0; i1 < l; ++i1) {
+                 Entity entity1 = (Entity) list1.get(i1);
++                if (entity1.shouldBeRemoved) continue; // Paper
+ 
+                 if (entity1.func_174813_aQ().func_72326_a(p_177414_2_) && entity1 != p_177414_1_) {
+                     if (p_177414_4_ == null || p_177414_4_.test(entity1)) {
+@@ -898,6 +899,7 @@ public class Chunk implements IChunk {
+ 
+             while (iterator.hasNext()) {
+                 T entity = (T) iterator.next(); // CraftBukkit - decompile error
++                if (entity.shouldBeRemoved) continue; // Paper
+ 
+                 if ((p_217313_1_ == null || entity.func_200600_R() == p_217313_1_) && entity.func_174813_aQ().func_72326_a(p_217313_2_) && p_217313_4_.test(entity)) {
+                     p_217313_3_.add(entity);
+@@ -919,6 +921,7 @@ public class Chunk implements IChunk {
+ 
+             while (iterator.hasNext()) {
+                 T t0 = (T) iterator.next(); // CraftBukkit - decompile error
++                if (t0.shouldBeRemoved) continue; // Paper
+ 
+                 if (p_177430_1_.isInstance(t0) && t0.func_174813_aQ().func_72326_a(p_177430_2_) && (p_177430_4_ == null || p_177430_4_.test(t0))) { // Spigot - instance check
+                     p_177430_3_.add(t0);
+diff --git a/src/main/java/net/minecraft/world/server/ServerWorld.java b/src/main/java/net/minecraft/world/server/ServerWorld.java
+index 7cf1afa8fb285491f589dd540938ea39c07f8a5c..1b24c0d1020a45f606ca30ae566c9d3170d7002e 100644
+--- a/src/main/java/net/minecraft/world/server/ServerWorld.java
++++ b/src/main/java/net/minecraft/world/server/ServerWorld.java
+@@ -1300,6 +1300,7 @@ public class ServerWorld extends World implements ISeedReader {
+                 p_217465_1_.origin = p_217465_1_.getBukkitEntity().getLocation();
+             }
+             // Paper end
++            p_217465_1_.shouldBeRemoved = false; // Paper - shouldn't be removed after being re-added
+             new com.destroystokyo.paper.event.entity.EntityAddToWorldEvent(p_217465_1_.getBukkitEntity()).callEvent(); // Paper - fire while valid
+         }
+ 
+@@ -1312,6 +1313,7 @@ public class ServerWorld extends World implements ISeedReader {
+             this.func_217454_n(p_217467_1_);
+             this.field_217498_x.remove(p_217467_1_.func_145782_y());
+             this.func_217484_g(p_217467_1_);
++            p_217467_1_.shouldBeRemoved = true; // Paper
+         }
+     }
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+index 7f36736c07c2e19c19df25026b4e29d487fa0dcb..20eaa835e13d16f0f657e1348ca8b221ac984f54 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
+@@ -1021,6 +1021,7 @@ public class CraftWorld implements World {
+         for (Object o : world.field_217498_x.values()) {
+             if (o instanceof net.minecraft.entity.Entity) {
+                 net.minecraft.entity.Entity mcEnt = (net.minecraft.entity.Entity) o;
++                if (mcEnt.shouldBeRemoved) continue; // Paper
+                 Entity bukkitEntity = mcEnt.getBukkitEntity();
+ 
+                 // Assuming that bukkitEntity isn't null
+@@ -1040,6 +1041,7 @@ public class CraftWorld implements World {
+         for (Object o : world.field_217498_x.values()) {
+             if (o instanceof net.minecraft.entity.Entity) {
+                 net.minecraft.entity.Entity mcEnt = (net.minecraft.entity.Entity) o;
++                if (mcEnt.shouldBeRemoved) continue; // Paper
+                 Entity bukkitEntity = mcEnt.getBukkitEntity();
+ 
+                 // Assuming that bukkitEntity isn't null
+@@ -1066,6 +1068,7 @@ public class CraftWorld implements World {
+ 
+         for (Object entity: world.field_217498_x.values()) {
+             if (entity instanceof net.minecraft.entity.Entity) {
++                if (((net.minecraft.entity.Entity) entity).shouldBeRemoved) continue; // Paper
+                 Entity bukkitEntity = ((net.minecraft.entity.Entity) entity).getBukkitEntity();
+ 
+                 if (bukkitEntity == null) {
+@@ -1089,6 +1092,7 @@ public class CraftWorld implements World {
+ 
+         for (Object entity: world.field_217498_x.values()) {
+             if (entity instanceof net.minecraft.entity.Entity) {
++                if (((net.minecraft.entity.Entity) entity).shouldBeRemoved) continue; // Paper
+                 Entity bukkitEntity = ((net.minecraft.entity.Entity) entity).getBukkitEntity();
+ 
+                 if (bukkitEntity == null) {

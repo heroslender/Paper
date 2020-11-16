@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Mariell Hoversholm <proximyst@proximyst.com>
+Date: Wed, 30 Sep 2020 22:49:14 +0200
+Subject: [PATCH] Toggle for removing existing dragon
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+index 8923314d731dea5c2707dbb271b8b0819d826a2e..9a0ade5875c34487a65f82f9380f9d25b4432586 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperWorldConfig.java
+@@ -672,4 +672,12 @@ public class PaperWorldConfig {
+             log("Using vanilla redstone algorithm.");
+         }
+     }
++
++    public boolean shouldRemoveDragon = false;
++    private void shouldRemoveDragon() {
++        shouldRemoveDragon = getBoolean("should-remove-dragon", shouldRemoveDragon);
++        if (shouldRemoveDragon) {
++            log("The Ender Dragon will be removed if she already exists without a portal.");
++        }
++    }
+ }
+diff --git a/src/main/java/net/minecraft/world/end/DragonFightManager.java b/src/main/java/net/minecraft/world/end/DragonFightManager.java
+index ea201af8678c422fac43eea7218aabcb552446ba..7ef0a4553e61fd2c18412c3b77ffb456b048c0f1 100644
+--- a/src/main/java/net/minecraft/world/end/DragonFightManager.java
++++ b/src/main/java/net/minecraft/world/end/DragonFightManager.java
+@@ -214,7 +214,7 @@ public class DragonFightManager {
+             this.field_186119_m = entityenderdragon.func_110124_au();
+             DragonFightManager.field_186107_a.info("Found that there's a dragon still alive ({})", entityenderdragon);
+             this.field_186117_k = false;
+-            if (!flag) {
++            if (!flag && this.field_186110_d.paperConfig.shouldRemoveDragon) { // Paper
+                 DragonFightManager.field_186107_a.info("But we didn't have a portal, let's remove it.");
+                 entityenderdragon.func_70106_y();
+                 this.field_186119_m = null;

@@ -1,0 +1,101 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <spottedleaf@spottedleaf.dev>
+Date: Mon, 6 Jul 2020 20:46:50 -0700
+Subject: [PATCH] Improve inlinig for some hot IBlockData methods
+
+
+diff --git a/src/main/java/net/minecraft/block/AbstractBlock.java b/src/main/java/net/minecraft/block/AbstractBlock.java
+index ddc73bdcfa4444a90b63224ea23fcb9399543899..f703d18266845179017fd6cf9183f02ea405270a 100644
+--- a/src/main/java/net/minecraft/block/AbstractBlock.java
++++ b/src/main/java/net/minecraft/block/AbstractBlock.java
+@@ -387,7 +387,14 @@ public abstract class AbstractBlock {
+         }
+         // Paper end
+ 
++        // Paper start
++        protected boolean isTicking;
++        protected FluidState fluid;
++        // Paper end
++
+         public void func_215692_c() {
++            this.fluid = this.func_177230_c().func_204507_t(this.func_230340_p_()); // Paper - moved from getFluid()
++            this.isTicking = this.func_177230_c().func_149653_t(this.func_230340_p_()); // Paper - moved from isTicking()
+             if (!this.func_177230_c().func_208619_r()) {
+                 this.field_215707_c = new AbstractBlock.AbstractBlockState.Cache(this.func_230340_p_());
+             }
+@@ -426,19 +433,19 @@ public abstract class AbstractBlock {
+             return this.func_177230_c().func_196247_c(this.func_230340_p_(), p_235754_1_, p_235754_2_);
+         }
+ 
+-        public boolean func_215704_f() {
++        public final boolean func_215704_f() { // Paper
+             return this.field_215707_c == null || this.field_215707_c.field_222503_g;
+         }
+ 
+-        public boolean func_215691_g() {
++        public final boolean func_215691_g() { // Paper
+             return this.field_215709_e;
+         }
+ 
+-        public int func_185906_d() {
++        public final int func_185906_d() { // Paper
+             return this.field_215708_d;
+         }
+ 
+-        public boolean func_196958_f() {
++        public final boolean func_196958_f() { // Paper
+             return this.field_235702_f_;
+         }
+ 
+@@ -504,7 +511,7 @@ public abstract class AbstractBlock {
+             }
+         }
+ 
+-        public boolean func_200132_m() {
++        public final boolean func_200132_m() { // Paper
+             return this.field_235707_k_;
+         }
+ 
+@@ -676,12 +683,12 @@ public abstract class AbstractBlock {
+             return this.func_177230_c().func_235332_a_(p_203425_1_);
+         }
+ 
+-        public FluidState func_204520_s() {
+-            return this.func_177230_c().func_204507_t(this.func_230340_p_());
++        public final FluidState func_204520_s() { // Paper
++            return this.fluid; // Paper - moved into init
+         }
+ 
+-        public boolean func_204519_t() {
+-            return this.func_177230_c().func_149653_t(this.func_230340_p_());
++        public final boolean func_204519_t() { // Paper
++            return this.isTicking; // Paper - moved into init
+         }
+ 
+         public SoundType func_215695_r() {
+diff --git a/src/main/java/net/minecraft/fluid/FluidState.java b/src/main/java/net/minecraft/fluid/FluidState.java
+index 143c8877523aa53db1c35d9615d6bdd754ffd909..420481498f9ecae4077e5e96644da48c77f0595d 100644
+--- a/src/main/java/net/minecraft/fluid/FluidState.java
++++ b/src/main/java/net/minecraft/fluid/FluidState.java
+@@ -20,8 +20,12 @@ public final class FluidState extends StateHolder<Fluid, FluidState> {
+ 
+     public static final Codec<FluidState> field_237213_a_ = func_235897_a_((Codec) Registry.field_212619_h, Fluid::func_207188_f).stable();
+ 
++    // Paper start
++    protected final boolean isEmpty;
++    // Paper end
+     public FluidState(Fluid fluidtype, ImmutableMap<Property<?>, Comparable<?>> immutablemap, MapCodec<FluidState> mapcodec) {
+         super(fluidtype, immutablemap, mapcodec);
++        this.isEmpty = fluidtype.func_204538_c(); // Paper - moved from isEmpty()
+     }
+ 
+     public Fluid func_206886_c() {
+@@ -33,7 +37,7 @@ public final class FluidState extends StateHolder<Fluid, FluidState> {
+     }
+ 
+     public boolean func_206888_e() {
+-        return this.func_206886_c().func_204538_c();
++        return this.isEmpty; // Paper - moved into constructor
+     }
+ 
+     public float func_215679_a(IBlockReader p_215679_1_, BlockPos p_215679_2_) {

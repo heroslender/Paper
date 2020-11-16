@@ -1,0 +1,95 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 9 Aug 2020 08:59:25 +0300
+Subject: [PATCH] Incremental player saving
+
+
+diff --git a/src/main/java/com/destroystokyo/paper/PaperConfig.java b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+index fc03df234fc641f72b4d4a79535860300006ff50..d86474a1a97597c14ea8a28444e2a5d82fcda2a7 100644
+--- a/src/main/java/com/destroystokyo/paper/PaperConfig.java
++++ b/src/main/java/com/destroystokyo/paper/PaperConfig.java
+@@ -435,4 +435,15 @@ public class PaperConfig {
+         allowPistonDuplication = getBoolean("settings.unsupported-settings.allow-piston-duplication", config.getBoolean("settings.unsupported-settings.allow-tnt-duplication", false));
+         set("settings.unsupported-settings.allow-tnt-duplication", null);
+     }
++
++    public static int playerAutoSaveRate = -1;
++    public static int maxPlayerAutoSavePerTick = 10;
++    private static void playerAutoSaveRate() {
++        playerAutoSaveRate = getInt("settings.player-auto-save-rate", -1);
++        maxPlayerAutoSavePerTick = getInt("settings.max-player-auto-save-per-tick", -1);
++        if (maxPlayerAutoSavePerTick == -1) { // -1 Automatic / "Recommended"
++            // 10 should be safe for everyone unless you mass spamming player auto save
++            maxPlayerAutoSavePerTick = (playerAutoSaveRate == -1 || playerAutoSaveRate > 100) ? 10 : 20;
++        }
++    }
+ }
+diff --git a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+index 846facf59072d5939399a820cc81c0ef66fb1737..0b94f783d7c92b2bc739a5a9130d469cdc7fc2a2 100644
+--- a/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
++++ b/src/main/java/net/minecraft/entity/player/ServerPlayerEntity.java
+@@ -172,6 +172,7 @@ import org.bukkit.inventory.MainHand;
+ public class ServerPlayerEntity extends PlayerEntity implements IContainerListener {
+ 
+     private static final Logger field_147102_bM = LogManager.getLogger();
++    public long lastSave = MinecraftServer.currentTick; // Paper
+     public ServerPlayNetHandler field_71135_a;
+     public NetworkManager networkManager; // Paper
+     public final MinecraftServer field_71133_b;
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 9a62c4ee8d8819de44c548a59ccac68c3ca26508..08c6fc8415417d530708292f3ab204b804dd1ea9 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -1335,9 +1335,15 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         //if (autosavePeriod > 0 && this.ticks % autosavePeriod == 0) { // CraftBukkit // Paper - move down
+             //MinecraftServer.LOGGER.debug("Autosave started"); // Paper
+             serverAutoSave = (autosavePeriod > 0 && this.field_71315_w % autosavePeriod == 0); // Paper
++            // Paper start
++            int playerSaveInterval = com.destroystokyo.paper.PaperConfig.playerAutoSaveRate;
++            if (playerSaveInterval < 0) {
++                playerSaveInterval = autosavePeriod;
++            }
++            // Paper end
+             this.field_71304_b.func_76320_a("save");
+-            if (autosavePeriod > 0 && this.field_71315_w % autosavePeriod == 0) { // Paper
+-            this.field_71318_t.func_72389_g();
++            if (playerSaveInterval > 0) { // Paper
++            this.field_71318_t.savePlayers(playerSaveInterval); // Paper
+             }// Paper
+             // Paper start
+             for (ServerWorld world : func_212370_w()) {
+diff --git a/src/main/java/net/minecraft/server/management/PlayerList.java b/src/main/java/net/minecraft/server/management/PlayerList.java
+index 1c51cda0a941119ccc43d5d94f75494b04e37519..5d607e32710ae62eab32b84ce7c4b10f2864df11 100644
+--- a/src/main/java/net/minecraft/server/management/PlayerList.java
++++ b/src/main/java/net/minecraft/server/management/PlayerList.java
+@@ -560,6 +560,7 @@ public abstract class PlayerList {
+     protected void func_72391_b(ServerPlayerEntity p_72391_1_) {
+         if (!p_72391_1_.getBukkitEntity().isPersistent()) return; // CraftBukkit
+         if (!p_72391_1_.didPlayerJoinEvent) return; // Paper - If we never fired PJE, we disconnected during login. Data has not changed, and additionally, our saved vehicle is not loaded! If we save now, we will lose our vehicle (CraftBukkit bug)
++        p_72391_1_.lastSave = MinecraftServer.currentTick; // Paper
+         this.field_72412_k.func_237335_a_(p_72391_1_);
+         ServerStatisticsManager serverstatisticmanager = (ServerStatisticsManager) p_72391_1_.func_147099_x(); // CraftBukkit
+ 
+@@ -1219,10 +1220,21 @@ public abstract class PlayerList {
+     }
+ 
+     public void func_72389_g() {
++        // Paper start - incremental player saving
++        savePlayers(null);
++    }
++    public void savePlayers(Integer interval) {
+         MCUtil.ensureMain("Save Players" , () -> { // Paper - Ensure main
+         MinecraftTimings.savePlayers.startTiming(); // Paper
++        int numSaved = 0;
++        long now = MinecraftServer.currentTick;
+         for (int i = 0; i < this.field_72404_b.size(); ++i) {
+-            this.func_72391_b((ServerPlayerEntity) this.field_72404_b.get(i));
++            ServerPlayerEntity entityplayer = this.field_72404_b.get(i);
++            if (interval == null || now - entityplayer.lastSave >= interval) {
++                this.func_72391_b(entityplayer);
++                if (interval != null && ++numSaved <= com.destroystokyo.paper.PaperConfig.maxPlayerAutoSavePerTick) { break; }
++            }
++            // Paper end
+         }
+         MinecraftTimings.savePlayers.stopTiming(); // Paper
+         return null; }); // Paper - ensure main

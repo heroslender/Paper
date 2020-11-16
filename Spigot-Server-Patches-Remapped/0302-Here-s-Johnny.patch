@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: BillyGalbreath <Blake.Galbreath@GMail.com>
+Date: Fri, 12 Oct 2018 01:37:22 -0500
+Subject: [PATCH] Here's Johnny!
+
+
+diff --git a/src/main/java/net/minecraft/entity/monster/VindicatorEntity.java b/src/main/java/net/minecraft/entity/monster/VindicatorEntity.java
+index be5c31e79fd1a21f55d07d70d2a0086bbecdafec..be32f29eaf2ca497a867b33550a7180befcde43b 100644
+--- a/src/main/java/net/minecraft/entity/monster/VindicatorEntity.java
++++ b/src/main/java/net/minecraft/entity/monster/VindicatorEntity.java
+@@ -49,7 +49,7 @@ public class VindicatorEntity extends AbstractIllagerEntity {
+     private static final Predicate<Difficulty> field_213681_b = (enumdifficulty) -> {
+         return enumdifficulty == Difficulty.NORMAL || enumdifficulty == Difficulty.HARD;
+     };
+-    private boolean field_190643_b;
++    private boolean field_190643_b; public boolean isJohnny() { return field_190643_b; } public void setJohnny(boolean johnny) { field_190643_b = johnny; } // Paper - OBFHELPER
+ 
+     public VindicatorEntity(EntityType<? extends VindicatorEntity> entitytypes, World world) {
+         super(entitytypes, world);
+diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftVindicator.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftVindicator.java
+index 204a91e41368fcc22a5dc6093665f2c7f4dee26b..bb20b20478aae123faac489cfc54952d28cb2e0b 100644
+--- a/src/main/java/org/bukkit/craftbukkit/entity/CraftVindicator.java
++++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftVindicator.java
+@@ -25,4 +25,14 @@ public class CraftVindicator extends CraftIllager implements Vindicator {
+     public EntityType getType() {
+         return EntityType.VINDICATOR;
+     }
++
++    // Paper start
++    public boolean isJohnny() {
++        return getHandle().isJohnny();
++    }
++
++    public void setJohnny(boolean johnny) {
++        getHandle().setJohnny(johnny);
++    }
++    // Paper end
+ }

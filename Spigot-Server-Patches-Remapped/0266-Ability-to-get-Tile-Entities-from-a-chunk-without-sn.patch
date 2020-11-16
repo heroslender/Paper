@@ -1,0 +1,36 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Wed, 15 Aug 2018 01:16:34 -0400
+Subject: [PATCH] Ability to get Tile Entities from a chunk without snapshots
+
+
+diff --git a/src/main/java/org/bukkit/craftbukkit/CraftChunk.java b/src/main/java/org/bukkit/craftbukkit/CraftChunk.java
+index 08bebaadf353a133411947983021325cc41378dc..7c802740f67127db7e72249ac499f2c9b1f47e53 100644
+--- a/src/main/java/org/bukkit/craftbukkit/CraftChunk.java
++++ b/src/main/java/org/bukkit/craftbukkit/CraftChunk.java
+@@ -129,9 +129,16 @@ public class CraftChunk implements Chunk {
+ 
+     @Override
+     public BlockState[] getTileEntities() {
++        // Paper start
++        return getTileEntities(true);
++    }
++
++    @Override
++    public BlockState[] getTileEntities(boolean useSnapshot) {
+         if (!isLoaded()) {
+             getWorld().getChunkAt(x, z); // Transient load for this tick
+         }
++        // Paper end
+         int index = 0;
+         net.minecraft.world.chunk.Chunk chunk = getHandle();
+ 
+@@ -143,7 +150,7 @@ public class CraftChunk implements Chunk {
+             }
+ 
+             BlockPos position = (BlockPos) obj;
+-            entities[index++] = worldServer.getWorld().getBlockAt(position.func_177958_n(), position.func_177956_o(), position.func_177952_p()).getState();
++            entities[index++] = worldServer.getWorld().getBlockAt(position.func_177958_n(), position.func_177956_o(), position.func_177952_p()).getState(useSnapshot); // Paper
+         }
+ 
+         return entities;

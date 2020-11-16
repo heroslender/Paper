@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gabscap <git@gabscap.de>
+Date: Sat, 19 Mar 2016 22:25:11 +0100
+Subject: [PATCH] Waving banner workaround
+
+This patch is a workaround for MC-63720
+
+diff --git a/src/main/java/net/minecraft/network/play/server/SUpdateTimePacket.java b/src/main/java/net/minecraft/network/play/server/SUpdateTimePacket.java
+index a7b7006e3f2c7c108fa35c420200a14607e7abd9..094649bb415e9cdfd5ca6306a605753df0119aa8 100644
+--- a/src/main/java/net/minecraft/network/play/server/SUpdateTimePacket.java
++++ b/src/main/java/net/minecraft/network/play/server/SUpdateTimePacket.java
+@@ -7,7 +7,13 @@ import net.minecraft.network.PacketBuffer;
+ 
+ public class SUpdateTimePacket implements IPacket<IClientPlayNetHandler> {
+ 
++    // World Age in ticks
++    // Not changed by server commands
++    // World Age must not be negative
+     private long field_149369_a;
++    // Time of Day in ticks
++    // If negative the sun will stop moving at the Math.abs of the time
++    // Displayed in the debug screen (F3)
+     private long field_149368_b;
+ 
+     public SUpdateTimePacket() {}
+@@ -22,6 +28,9 @@ public class SUpdateTimePacket implements IPacket<IClientPlayNetHandler> {
+             }
+         }
+ 
++        // Paper start
++        this.field_149369_a = this.field_149369_a % 192000;
++        // Paper end
+     }
+ 
+     @Override

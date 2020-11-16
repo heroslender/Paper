@@ -1,0 +1,48 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Sun, 10 May 2020 22:12:46 -0400
+Subject: [PATCH] Ensure Entity AABB's are never invalid
+
+
+diff --git a/src/main/java/net/minecraft/entity/Entity.java b/src/main/java/net/minecraft/entity/Entity.java
+index f2604f81ee34fed19973f8f639a9c26a52709fcb..20e7aa174b2d3b9536e5c6f5d7a30b8c017f227f 100644
+--- a/src/main/java/net/minecraft/entity/Entity.java
++++ b/src/main/java/net/minecraft/entity/Entity.java
+@@ -38,6 +38,7 @@ import net.minecraft.enchantment.EnchantmentHelper;
+ import net.minecraft.enchantment.ProtectionEnchantment;
+ import net.minecraft.entity.effect.LightningBoltEntity;
+ import net.minecraft.entity.item.BoatEntity;
++import net.minecraft.entity.item.HangingEntity;
+ import net.minecraft.entity.item.ItemEntity;
+ import net.minecraft.entity.item.minecart.AbstractMinecartEntity;
+ import net.minecraft.entity.passive.AnimalEntity;
+@@ -484,7 +485,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+ 
+     public void func_70107_b(double p_70107_1_, double p_70107_2_, double p_70107_3_) {
+         this.func_226288_n_(p_70107_1_, p_70107_2_, p_70107_3_);
+-        this.func_174826_a(this.field_213325_aI.func_242285_a(p_70107_1_, p_70107_2_, p_70107_3_));
++        //this.a(this.size.a(d0, d1, d2)); // Paper - move into setPositionRaw
+         if (valid) ((ServerWorld) field_70170_p).func_217464_b(this); // CraftBukkit
+     }
+ 
+@@ -2992,6 +2993,7 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+         return new AxisAlignedBB(vec3d, vec3d1);
+     }
+ 
++    public final void setBoundingBox(AxisAlignedBB axisalignedbb) { func_174826_a(axisalignedbb); } // Paper - OBFHELPER
+     public void func_174826_a(AxisAlignedBB p_174826_1_) {
+         // CraftBukkit start - block invalid bounding boxes
+         double minX = p_174826_1_.field_72340_a,
+@@ -3430,6 +3432,12 @@ public abstract class Entity implements INameable, ICommandSource, KeyedObject {
+     }
+ 
+     public void func_226288_n_(double p_226288_1_, double p_226288_2_, double p_226288_3_) {
++        // Paper start - never allow AABB to become desynced from position
++        // hanging has its own special logic
++        if (!(this instanceof HangingEntity) && (this.field_233557_ao_.field_72450_a != p_226288_1_ || this.field_233557_ao_.field_72448_b != p_226288_2_ || this.field_233557_ao_.field_72449_c != p_226288_3_)) {
++            this.setBoundingBox(this.field_213325_aI.func_242285_a(p_226288_1_, p_226288_2_, p_226288_3_));
++        }
++        // Paper end
+         if (this.field_233557_ao_.field_72450_a != p_226288_1_ || this.field_233557_ao_.field_72448_b != p_226288_2_ || this.field_233557_ao_.field_72449_c != p_226288_3_) {
+             this.field_233557_ao_ = new Vector3d(p_226288_1_, p_226288_2_, p_226288_3_);
+             int i = MathHelper.func_76128_c(p_226288_1_);

@@ -1,0 +1,35 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Spottedleaf <Spottedleaf@users.noreply.github.com>
+Date: Wed, 15 Jul 2020 19:34:11 -0700
+Subject: [PATCH] Move range check for block placing up
+
+
+diff --git a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+index 53f2e38d246250d7cc821b8c52620bdf255ad138..4a946931f5e0afaeccfbd981b3557999d7f20f85 100644
+--- a/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
++++ b/src/main/java/net/minecraft/network/play/ServerPlayNetHandler.java
+@@ -1648,15 +1648,19 @@ public class ServerPlayNetHandler implements IServerPlayNetHandler {
+         BlockPos blockposition = movingobjectpositionblock.func_216350_a();
+         Direction enumdirection = movingobjectpositionblock.func_216354_b();
+ 
++        // Paper start - move check up
++        Location eyeLoc = this.getPlayer().getEyeLocation();
++        double reachDistance = NumberConversions.square(eyeLoc.getX() - blockposition.func_177958_n()) + NumberConversions.square(eyeLoc.getY() - blockposition.func_177956_o()) + NumberConversions.square(eyeLoc.getZ() - blockposition.func_177952_p());
++        if (reachDistance > (this.getPlayer().getGameMode() == org.bukkit.GameMode.CREATIVE ? CREATIVE_PLACE_DISTANCE_SQUARED : SURVIVAL_PLACE_DISTANCE_SQUARED)) {
++            return;
++        }
++        // Paper end - move check up
++
+         this.field_147369_b.func_143004_u();
+         if (blockposition.func_177956_o() < this.field_147367_d.func_71207_Z()) {
+             if (this.field_184362_y == null && this.field_147369_b.func_70092_e((double) blockposition.func_177958_n() + 0.5D, (double) blockposition.func_177956_o() + 0.5D, (double) blockposition.func_177952_p() + 0.5D) < 64.0D && worldserver.func_175660_a((PlayerEntity) this.field_147369_b, blockposition)) {
+                 // CraftBukkit start - Check if we can actually do something over this large a distance
+-                Location eyeLoc = this.getPlayer().getEyeLocation();
+-                double reachDistance = NumberConversions.square(eyeLoc.getX() - blockposition.func_177958_n()) + NumberConversions.square(eyeLoc.getY() - blockposition.func_177956_o()) + NumberConversions.square(eyeLoc.getZ() - blockposition.func_177952_p());
+-                if (reachDistance > (this.getPlayer().getGameMode() == org.bukkit.GameMode.CREATIVE ? CREATIVE_PLACE_DISTANCE_SQUARED : SURVIVAL_PLACE_DISTANCE_SQUARED)) {
+-                    return;
+-                }
++                // Paper - move check up
+                 this.field_147369_b.func_184602_cy(); // SPIGOT-4706
+                 // CraftBukkit end
+                 ActionResultType enuminteractionresult = this.field_147369_b.field_71134_c.func_219441_a(this.field_147369_b, worldserver, itemstack, enumhand, movingobjectpositionblock);

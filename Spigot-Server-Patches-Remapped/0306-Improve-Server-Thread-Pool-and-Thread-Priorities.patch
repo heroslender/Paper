@@ -1,0 +1,123 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aikar <aikar@aikar.co>
+Date: Tue, 23 Oct 2018 23:14:38 -0400
+Subject: [PATCH] Improve Server Thread Pool and Thread Priorities
+
+Use a simple executor since Fork join is a much more complex pool
+type and we are not using its capabilities.
+
+Set thread priorities so main thread has above normal priority over
+server threads
+
+Allow usage of a single thread executor by not using ForkJoin so single core CPU's.
+
+diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
+index 65960873692f9c6f72363ee1f701165af20f6be8..8f2a32629be42fd80edcf2917a50835d74ad164c 100644
+--- a/src/main/java/net/minecraft/server/MinecraftServer.java
++++ b/src/main/java/net/minecraft/server/MinecraftServer.java
+@@ -284,6 +284,7 @@ public abstract class MinecraftServer extends RecursiveEventLoop<TickDelayedTask
+         S s0 = p_240784_0_.apply(thread); // CraftBukkit - decompile error
+ 
+         atomicreference.set(s0);
++        thread.setPriority(Thread.NORM_PRIORITY+2); // Paper - boost priority
+         thread.start();
+         return s0;
+     }
+diff --git a/src/main/java/net/minecraft/server/ServerWorkerThread.java b/src/main/java/net/minecraft/server/ServerWorkerThread.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..84a646bab8810f5e11c96125e9180e55f90739d4
+--- /dev/null
++++ b/src/main/java/net/minecraft/server/ServerWorkerThread.java
+@@ -0,0 +1,14 @@
++package net.minecraft.server;
++
++import java.util.concurrent.atomic.AtomicInteger;
++import net.minecraft.util.Util;
++
++public class ServerWorkerThread extends Thread {
++    private static final AtomicInteger threadId = new AtomicInteger(1);
++    public ServerWorkerThread(Runnable target, String poolName, int prioritityModifier) {
++        super(target, "Worker-" + poolName + "-" + threadId.getAndIncrement());
++        setPriority(Thread.NORM_PRIORITY+prioritityModifier); // Deprioritize over main
++        this.setDaemon(true);
++        this.setUncaughtExceptionHandler(Util::onThreadError);
++    }
++}
+diff --git a/src/main/java/net/minecraft/util/Util.java b/src/main/java/net/minecraft/util/Util.java
+index e1bfeab6237c9cfdd9be33091e747300b559f299..4c5ce77b072fd876b6364de8a541b536b1e0d1a8 100644
+--- a/src/main/java/net/minecraft/util/Util.java
++++ b/src/main/java/net/minecraft/util/Util.java
+@@ -43,9 +43,9 @@ import java.util.stream.IntStream;
+ import java.util.stream.Stream;
+ import javax.annotation.Nullable;
+ import net.minecraft.crash.ReportedException;
++import net.minecraft.server.ServerWorkerThread;
+ import net.minecraft.state.Property;
+ import net.minecraft.util.datafix.DataFixesManager;
+-import net.minecraft.util.math.MathHelper;
+ import net.minecraft.util.registry.Bootstrap;
+ import org.apache.logging.log4j.LogManager;
+ import org.apache.logging.log4j.Logger;
+@@ -53,8 +53,8 @@ import org.apache.logging.log4j.Logger;
+ public class Util {
+ 
+     private static final AtomicInteger field_215090_b = new AtomicInteger(1);
+-    private static final ExecutorService field_240974_d_ = func_240979_a_("Bootstrap");
+-    private static final ExecutorService field_215091_c = func_240979_a_("Main");
++    private static final ExecutorService field_240974_d_ = a("Bootstrap", -2); // Paper - add -2 priority
++    private static final ExecutorService field_215091_c = a("Main", -1); // Paper - add -1 priority
+     private static final ExecutorService field_240975_f_ = func_240995_n_();
+     public static LongSupplier field_211180_a = System::nanoTime;
+     public static final UUID field_240973_b_ = new UUID(0L, 0L); public static final UUID getNullUUID() {return field_240973_b_;} // Paper OBFHELPER
+@@ -84,30 +84,34 @@ public class Util {
+         return Instant.now().toEpochMilli();
+     }
+ 
+-    private static ExecutorService func_240979_a_(String p_240979_0_) {
+-        int i = MathHelper.func_76125_a(Runtime.getRuntime().availableProcessors() - 1, 1, 7);
+-        Object object;
++    private static ExecutorService a(String s, int priorityModifier) { // Paper - add priority
++        // Paper start - use simpler thread pool that allows 1 thread
++        int i = Math.min(8, Math.max(Runtime.getRuntime().availableProcessors() - 2, 1));
++        i = Integer.getInteger("Paper.WorkerThreadCount", i);
++        ExecutorService object;
+ 
+         if (i <= 0) {
+             object = MoreExecutors.newDirectExecutorService();
+         } else {
+-            object = new ForkJoinPool(i, (forkjoinpool) -> {
+-                ForkJoinWorkerThread forkjoinworkerthread = new ForkJoinWorkerThread(forkjoinpool) {
++            object = new java.util.concurrent.ThreadPoolExecutor(i, i,0L, TimeUnit.MILLISECONDS, new java.util.concurrent.LinkedBlockingQueue<Runnable>(), target -> new ServerWorkerThread(target, s, priorityModifier));
++        }
++        /*
+                     protected void onTermination(Throwable throwable) {
+                         if (throwable != null) {
+-                            Util.field_195650_a.warn("{} died", this.getName(), throwable);
++                            SystemUtils.LOGGER.warn("{} died", this.getName(), throwable);
+                         } else {
+-                            Util.field_195650_a.debug("{} shutdown", this.getName());
++                            SystemUtils.LOGGER.debug("{} shutdown", this.getName());
+                         }
+ 
+                         super.onTermination(throwable);
+                     }
+                 };
+ 
+-                forkjoinworkerthread.setName("Worker-" + p_240979_0_ + "-" + Util.field_215090_b.getAndIncrement());
++                forkjoinworkerthread.setName("Worker-" + s + "-" + SystemUtils.c.getAndIncrement());
+                 return forkjoinworkerthread;
+-            }, Util::func_240983_a_, true);
++            }, SystemUtils::a, true);
+         }
++        }*/ // Paper end
+ 
+         return (ExecutorService) object;
+     }
+@@ -156,6 +160,7 @@ public class Util {
+         });
+     }
+ 
++    public static void onThreadError(Thread thread, Throwable throwable) { func_240983_a_(thread, throwable); } // Paper - OBFHELPER
+     private static void func_240983_a_(Thread p_240983_0_, Throwable p_240983_1_) {
+         func_229757_c_(p_240983_1_);
+         if (p_240983_1_ instanceof CompletionException) {
