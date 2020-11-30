@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PS1="$"
-basedir=`pwd`
+basedir="$(cd "$1" && pwd -P)"
 echo "Rebuilding patch files from current fork state..."
 
 function cleanupPatches {

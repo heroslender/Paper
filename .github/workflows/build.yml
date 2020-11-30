@@ -1,0 +1,49 @@
+name: Build Paper
+on: [ push, pull_request ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: [ 8 ]
+      fail-fast: true
+    steps:
+      - uses: actions/checkout@v2
+      - name: JDK ${{ matrix.java }}
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Cache maven
+        uses: actions/cache@v2
+        with:
+          path: |
+            ~/.m2/repository/
+            work/Minecraft
+          key: ${{ runner.os }}-paper-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-paper
+      - name: Build patches
+        run: |
+          git config --global user.email "no-reply@github.com"
+          git config --global user.name "Github Actions"
+          ./paper patch
+      - name: Build
+        run: |
+          git config --global user.email "no-reply@github.com"
+          git config --global user.name "Github Actions"
+          mvn clean package
+      - name: Archive PaperSpigot jar
+        uses: actions/upload-artifact@v2
+        with:
+          name: PaperSpigot-1.8.8.jar
+          path: PaperSpigot-Server/target/paperspigot-1.8.8-R0.1-SNAPSHOT.jar
+      - name: Create paperclip
+        run: |
+          git config --global user.email "no-reply@github.com"
+          git config --global user.name "Github Actions"
+          ./paper paperclip
+      - name: Archive Paperclip jar
+        uses: actions/upload-artifact@v2
+        with:
+          name: Paperclip-1.8.8.jar
+          path: Paperclip-1.8.8.jar
