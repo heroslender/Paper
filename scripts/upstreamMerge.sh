@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PS1="$"
-basedir=`pwd`
+basedir="$(cd "$1" && pwd -P)"
 
 function update {
     cd "$basedir/$1"

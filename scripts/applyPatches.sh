@@ -1,8 +1,9 @@
 #!/bin/bash
 
 PS1="$"
-basedir=`pwd`
+basedir="$(cd "$1" && pwd -P)"
 echo "Rebuilding Forked projects.... "
+gitcmd="git -c commit.gpgsign=false"
 
 function applyPatch {
     what=$1
@@ -36,4 +37,8 @@ function applyPatch {
 }
 
 applyPatch Bukkit Spigot-API HEAD && applyPatch CraftBukkit Spigot-Server patched
+
+echo "Importing MC Dev"
+$basedir/scripts/importmcdev.sh $basedir
+
 applyPatch Spigot-API PaperSpigot-API HEAD && applyPatch Spigot-Server PaperSpigot-Server HEAD

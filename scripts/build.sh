@@ -8,17 +8,17 @@ gitcmd="git -c commit.gpgsign=false"
 cd "$basedir"
 
 ($gitcmd submodule update --init \
-  && ./remap.sh \
-  && ./decompile.sh \
-  && ./init.sh \
-  && ./newApplyPatches.sh) || (
+  && ./scripts/remap.sh $basedir \
+  && ./scripts/decompile.sh $basedir \
+  && ./scripts/init.sh $basedir \
+  && ./scripts/applyPatches.sh $basedir) || (
     echo "Failed to build Paper"
     exit 1
 ) || exit 1
 
 case "$2" in
     "-j" | "--jar")
-        mvn clean package
+        mvn clean install
     ;;
     "-i" | "--install")
         mvn clean \

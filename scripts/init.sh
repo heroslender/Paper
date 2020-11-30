@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PS1="$"
-basedir=`pwd`
+basedir="$(cd "$1" && pwd -P)"
 workdir=$basedir/work
 minecraftversion=$(cat BuildData/info.json | grep minecraftVersion | cut -d '"' -f 4)
 decompiledir=$workdir/$minecraftversion
