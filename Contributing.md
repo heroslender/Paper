@@ -8,7 +8,7 @@ Patches to PaperSpigot are very simple, but center around the directories 'Paper
 Assuming you already have forked the repository:
 
 1. Pull the latest changes from the main repository
-2. Type `./applyPatches.sh` in git bash to apply the changes from upstream
+2. Type `./paper patch` in git bash to apply the changes from upstream
 3. cd into `PaperSpigot-Server` for server changes, and `PaperSpigot-API` for api changes
 
 These directories aren't git repositories in the traditional sense:
@@ -21,34 +21,54 @@ These directories aren't git repositories in the traditional sense:
 ## Adding Patches
 Adding patches to PaperSpigot is very simple:
 
-1) Modify `PaperSpigot-Server` and/or `PaperSpigot-API` with the appropriate changes
-2) Type `git add .` to add your changes
-3) Run `git commit` with the desired patch message
-4) Run `./rebuildPatches.sh` in the main directory to convert your commit into a new patch
-5) PR your patches back to this repository
+1. Modify `PaperSpigot-Server` and/or `PaperSpigot-API` with the appropriate changes;
+2. `cd` into the module you made the changes(e.g. `cd PaperSpigot-Server`) and inside it do the following:
+    1. Run `git add .` to add your changes;
+    2. Run `git commit` with the desired patch message.
+3. Go back to the main directory by running `cd ..`;
+4. Run `./paper rebuild`(or `./paper rb`) to convert your commit into a new patch;
+5. Done, now you have your patch inside `Spigot-API-Patches` or `Spigot-Server-Patches` depending on what module you changed.
 
 Your commit will be converted into a patch that you can then PR into PaperSpigot
 
 ## Modifying Patches
 Modifying previous patches is a bit more complex:
 
+0. `cd` into the desired module(e.g. `cd PaperSpigot-Server`);
 1. Make sure `git status` is correct
-  - If it says something like `212 commits ahead, 207 commits behind`, then type `git fetch` to update spigot
+    - If it says something like `212 commits ahead, 207 commits behind`, then type `git fetch` to update spigot
 2. If you have changes you are working on type `git stash` to store them for later
-  - Later you can type `git stash pop` to get them back
+    - Later you can type `git stash pop` to get them back
 3. Type `git rebase -i`
-  - It should show something like [this](https://gist.github.com/Zbob750/e6bb220d3b734933c320)
+    - It should show something like [this](https://gist.github.com/Zbob750/e6bb220d3b734933c320)
 4. Replace `pick` with `edit` for the commit/patch you want to modify, and "save" the changes
-  - Only do this for one commit until you get more advanced and understand what `git rebase -i` does
+    - > Only do this for one commit until you get more advanced and understand what `git rebase -i` does
 5. Make the changes you want to make to the patch
 6. Type `git add .` to add your changes
 7. Type `git commit --amend` to commit
-  - **MAKE SURE TO ADD `--amend`** or else a new patch will be created
-  - You can also modify the commit message here
+    - **MAKE SURE TO ADD `--amend`** or else a new patch will be created
+    - You can also modify the commit message here
 8. Type `git rebase --continue` to finish rebasing
-9. Type `./rebuildPatches.sh` in the main directory
-  - This will modify the appropriate patches based on your commits
-10. PR your modifications to github
+9. Go back to the main directory by running `cd ..`;
+10. Run `./paper rebuild`(or `./paper rb`) to convert your commit into a new patch;
+    - This will modify the appropriate patches based on your commits
+11. Done.
+
+## Building
+
+Building the projet is quite trivial:
+
+1. Make sure you're on the main directory of the project;
+2. Run `./paper build` or `./paper jar`;
+3. When it finishes building, it'll show the output jar file location
+
+### Intalling to the maven cache repository
+
+Installing to the `.m2` maven cache repository is quite trivial as well:
+
+1. Make sure you're on the main directory of the project;
+2. Run `./paper install` or `./paper i`;
+3. Wait for it to finish and done!
 
 ## PR Policy
 We'll accept changes that make sense. You should be able to justify their existence, along with any maintenance costs that come with them. Remember, these changes will affect everyone who runs Paper, not just you and your server.
