@@ -2,6 +2,16 @@ Contributing to PaperSpigot
 ==========================
 PaperSpigot has a very lenient policy towards PRs, but would prefer that you try and adhere to the following guidelines.
 
+## Cloning the project
+There is some setup to do before being able to work on the project.
+
+1. Clone the repository using `git clone https://github.com/heroslender/Paper.git`;
+2. Run `cd Paper` to move into the project folder;
+3. Run `./paper patch` to set up the project;
+4. Wait a few minutes while it does its job.
+5. Done! Now you can get your hands on the code! 
+    - See [Understanding Patches](#understanding-patches) for an intro on how to work on the project.
+
 ## Understanding Patches
 Patches to PaperSpigot are very simple, but center around the directories 'PaperSpigot-API' and 'PaperSpigot-Server'
 
