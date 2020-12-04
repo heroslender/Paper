@@ -1,14 +1,14 @@
-From 6cf2f2c6d473ad1f7f4d501082520b475dd6d7a6 Mon Sep 17 00:00:00 2001
+From a702e991854bea90d1d75de133f55f8748715f2c Mon Sep 17 00:00:00 2001
 From: heroslender <bruno.martins1998@hotmail.com>
-Date: Thu, 3 Dec 2020 21:42:50 +0000
+Date: Fri, 4 Dec 2020 20:31:15 +0000
 Subject: [PATCH] Fix player joining with null address
 
 
 diff --git a/src/main/java/net/minecraft/server/PlayerList.java b/src/main/java/net/minecraft/server/PlayerList.java
-index b8478945..71edd5f7 100644
+index 3c2d3197f..e943b9a7e 100644
 --- a/src/main/java/net/minecraft/server/PlayerList.java
 +++ b/src/main/java/net/minecraft/server/PlayerList.java
-@@ -37,6 +37,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
+@@ -36,6 +36,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
  import org.bukkit.event.player.PlayerRespawnEvent;
  import org.bukkit.event.player.PlayerTeleportEvent.TeleportCause;
  import org.bukkit.util.Vector;
@@ -16,16 +16,10 @@ index b8478945..71edd5f7 100644
  import org.spigotmc.event.player.PlayerSpawnLocationEvent;
  // CraftBukkit end
  
-@@ -433,11 +434,13 @@ public abstract class PlayerList {
-         // Instead of kicking then returning, we need to store the kick reason
+@@ -433,6 +434,12 @@ public abstract class PlayerList {
          // in the event, check with plugins to see if it's ok, and THEN kick
          // depending on the outcome.
--//        SocketAddress socketaddress = loginlistener.networkManager.getSocketAddress();
--        SocketAddress socketaddress = new InetSocketAddress(
--                "null",
--                ((InetSocketAddress) loginlistener.networkManager.getRawAddress()).getPort()
--        );
-+        SocketAddress socketaddress = loginlistener.networkManager.getSocketAddress();
+         SocketAddress socketaddress = loginlistener.networkManager.getSocketAddress();
 +        // Paper start - Fix null address(#1)
 +        if (PaperSpigotConfig.exploitNullAddressEnabled && ((java.net.InetSocketAddress) socketaddress).getAddress() == null) {
 +            loginlistener.disconnect(PaperSpigotConfig.exploitNullAddressKickMessage);
@@ -36,24 +30,21 @@ index b8478945..71edd5f7 100644
          EntityPlayer entity = new EntityPlayer(server, server.getWorldServer(0), gameprofile, new PlayerInteractManager(server.getWorldServer(0)));
          Player player = entity.getBukkitEntity();
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
-index d6d9899e..365f1605 100644
+index d6d9899e2..65f43b002 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
-@@ -217,6 +217,14 @@ public class PaperSpigotConfig
-         }
+@@ -222,4 +222,11 @@ public class PaperSpigotConfig
+     {
+         warnForExcessiveVelocity = getBoolean("warnWhenSettingExcessiveVelocity", true);
      }
- 
++
 +    public static boolean exploitNullAddressEnabled;
 +    public static String exploitNullAddressKickMessage;
-+    private static void exploits()
-+    {
-+        exploitNullAddressEnabled = getBoolean( "exploits.null-address.enabled", true );
-+        exploitNullAddressKickMessage = getString( "exploits.null-address.kick-message", "Invalid address!" );
++    private static void exploits() {
++        exploitNullAddressEnabled = getBoolean("exploits.null-address.enabled", true);
++        exploitNullAddressKickMessage = getString("exploits.null-address.kick-message", "Invalid address!");
 +    }
-+
-     public static boolean warnForExcessiveVelocity;
-     private static void excessiveVelocityWarning()
-     {
+ }
 -- 
 2.28.0
 
