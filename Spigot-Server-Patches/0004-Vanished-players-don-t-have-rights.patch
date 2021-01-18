@@ -1,11 +1,11 @@
-From 4c8e5bf4bb19ffc86e578b04deaa1ec1746a0201 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <zach.brown@destroystokyo.com>
 Date: Sat, 7 Mar 2015 19:50:01 -0600
 Subject: [PATCH] Vanished players don't have rights
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityArrow.java b/src/main/java/net/minecraft/server/EntityArrow.java
-index 3a80776..eac0363 100644
+index 3a807761c3b4b2ed84b31af12e2ef3c2fbbdd414..eac0363c2e8c2a75481000077725f09f2c492e3e 100644
 --- a/src/main/java/net/minecraft/server/EntityArrow.java
 +++ b/src/main/java/net/minecraft/server/EntityArrow.java
 @@ -220,6 +220,14 @@ public class EntityArrow extends Entity implements IProjectile {
@@ -24,7 +24,7 @@ index 3a80776..eac0363 100644
                  org.bukkit.craftbukkit.event.CraftEventFactory.callProjectileHitEvent(this); // CraftBukkit - Call event
                  if (movingobjectposition.entity != null) {
 diff --git a/src/main/java/net/minecraft/server/EntityFishingHook.java b/src/main/java/net/minecraft/server/EntityFishingHook.java
-index 503e78a..00ffff0 100644
+index 503e78a7ff16dda135770dfa0f75c047132e4d99..00ffff0ccc173d70a01439fde46a191900780bbd 100644
 --- a/src/main/java/net/minecraft/server/EntityFishingHook.java
 +++ b/src/main/java/net/minecraft/server/EntityFishingHook.java
 @@ -187,6 +187,14 @@ public class EntityFishingHook extends Entity {
@@ -43,7 +43,7 @@ index 503e78a..00ffff0 100644
                  org.bukkit.craftbukkit.event.CraftEventFactory.callProjectileHitEvent(this); // Craftbukkit - Call event
                  if (movingobjectposition.entity != null) {
 diff --git a/src/main/java/net/minecraft/server/EntityProjectile.java b/src/main/java/net/minecraft/server/EntityProjectile.java
-index 72478be..e7cca3c 100644
+index 72478be821ad10d04734b7a79b7207ae495f1fbc..e7cca3c6c44644898cd8acb7b24956bff7777b9a 100644
 --- a/src/main/java/net/minecraft/server/EntityProjectile.java
 +++ b/src/main/java/net/minecraft/server/EntityProjectile.java
 @@ -147,6 +147,14 @@ public abstract class EntityProjectile extends Entity implements IProjectile {
@@ -62,7 +62,7 @@ index 72478be..e7cca3c 100644
              if (movingobjectposition.type == MovingObjectPosition.EnumMovingObjectType.BLOCK && this.world.getType(movingobjectposition.a()).getBlock() == Blocks.PORTAL) {
                  this.d(movingobjectposition.a());
 diff --git a/src/main/java/net/minecraft/server/ItemBlock.java b/src/main/java/net/minecraft/server/ItemBlock.java
-index 57b3d9d..0cd4175 100644
+index 57b3d9d0f639536d8c200ec5fd1bc1d4c03815df..0cd41754982eb3ddfb4310df94434a232ca8ae24 100644
 --- a/src/main/java/net/minecraft/server/ItemBlock.java
 +++ b/src/main/java/net/minecraft/server/ItemBlock.java
 @@ -25,7 +25,7 @@ public class ItemBlock extends Item {
@@ -75,7 +75,7 @@ index 57b3d9d..0cd4175 100644
              IBlockData iblockdata1 = this.a.getPlacedState(world, blockposition, enumdirection, f, f1, f2, i, entityhuman);
  
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index bb46799..d184f8a 100644
+index bb4679943b7275c409908d88c3af76fa442525df..d184f8a4c947faceca38288672de2942a46a37dd 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -1673,6 +1673,13 @@ public abstract class World implements IBlockAccess {
@@ -92,6 +92,3 @@ index bb46799..d184f8a 100644
              if (!entity1.dead && entity1.k && entity1 != entity && (entity == null || entity.vehicle != entity1 && entity.passenger != entity1)) {
                  return false;
              }
--- 
-2.6.3.windows.1
-

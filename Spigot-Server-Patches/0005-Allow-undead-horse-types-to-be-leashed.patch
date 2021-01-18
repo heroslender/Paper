@@ -1,11 +1,11 @@
-From 0105ce07d38b5554882c5c8293218219baf01c74 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <zach.brown@destroystokyo.com>
 Date: Sat, 7 Mar 2015 19:57:50 -0600
 Subject: [PATCH] Allow undead horse types to be leashed
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityHorse.java b/src/main/java/net/minecraft/server/EntityHorse.java
-index 688099f..d1d45b6 100644
+index f131419247f0be8c0b60c4229ae2a18c0855e14d..53aaa65494dc3c35e9883e8539c11f28ad14aaf0 100644
 --- a/src/main/java/net/minecraft/server/EntityHorse.java
 +++ b/src/main/java/net/minecraft/server/EntityHorse.java
 @@ -179,6 +179,11 @@ public class EntityHorse extends EntityAnimal implements IInventoryListener {
@@ -21,7 +21,7 @@ index 688099f..d1d45b6 100644
      }
  
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index f3bc3aa..0b47234 100644
+index 146324ac94ab9e923b0654af0801b5b0e0dbae42..49bad735247cdc798c7894fe55606881fa58ccd6 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -74,4 +74,11 @@ public class PaperSpigotWorldConfig
@@ -36,6 +36,3 @@ index f3bc3aa..0b47234 100644
 +        log( "Allow undead horse types to be leashed: " + allowUndeadHorseLeashing );
 +    }
  }
--- 
-1.9.1
-

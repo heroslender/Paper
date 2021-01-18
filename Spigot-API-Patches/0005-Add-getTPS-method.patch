@@ -1,11 +1,11 @@
-From 8bce4a508162d640c99efa7ddde38c1fe773d49e Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <Zbob750@live.com>
 Date: Sun, 19 Oct 2014 18:22:18 -0500
 Subject: [PATCH] Add getTPS method
 
 
 diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java
-index 169008a..26acdda 100644
+index 169008a5464eb96bbd29ab63d8efad357ce93039..26acdda0cb42703074691e7b22c30092fd0837e2 100644
 --- a/src/main/java/org/bukkit/Server.java
 +++ b/src/main/java/org/bukkit/Server.java
 @@ -956,6 +956,13 @@ public interface Server extends PluginMessageRecipient {
@@ -22,6 +22,3 @@ index 169008a..26acdda 100644
      }
  
      Spigot spigot();
--- 
-2.5.0
-

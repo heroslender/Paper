@@ -1,4 +1,4 @@
-From 3228daa638da4a8f5f70ad49d57ab2c84f555e10 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Wed, 8 Oct 2014 19:51:28 -0400
 Subject: [PATCH] Ensure commands are not ran async
@@ -14,7 +14,7 @@ big slowdown in execution but throwing an exception at same time to raise awaren
 that it is happening so that plugin authors can fix their code to stop executing commands async.
 
 diff --git a/src/main/java/net/minecraft/server/PlayerConnection.java b/src/main/java/net/minecraft/server/PlayerConnection.java
-index 1138042..4391ad7 100644
+index 113804232fc6efda8dd45de28eab6855d88a9ac1..4391ad7e7cf547b5e179c06e64b3a6e02cbe7a41 100644
 --- a/src/main/java/net/minecraft/server/PlayerConnection.java
 +++ b/src/main/java/net/minecraft/server/PlayerConnection.java
 @@ -1079,6 +1079,29 @@ public class PlayerConnection implements PacketListenerPlayIn, IUpdatePlayerList
@@ -48,7 +48,7 @@ index 1138042..4391ad7 100644
          } else if (this.player.getChatFlags() == EntityHuman.EnumChatVisibility.SYSTEM) {
              // Do nothing, this is coming from a plugin
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
-index 97f9f96..a54b3e8 100644
+index 97f9f96e3b311f4a161c0074565505169625edca..a54b3e849f9dbd7e2e43c24e51e142fd57b99204 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 @@ -639,6 +639,29 @@ public final class CraftServer implements Server {
@@ -81,6 +81,3 @@ index 97f9f96..a54b3e8 100644
          if (commandMap.dispatch(sender, commandLine)) {
              return true;
          }
--- 
-2.7.0.windows.2
-

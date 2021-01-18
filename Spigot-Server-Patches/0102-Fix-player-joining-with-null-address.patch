@@ -1,11 +1,11 @@
-From a702e991854bea90d1d75de133f55f8748715f2c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: heroslender <bruno.martins1998@hotmail.com>
 Date: Fri, 4 Dec 2020 20:31:15 +0000
 Subject: [PATCH] Fix player joining with null address
 
 
 diff --git a/src/main/java/net/minecraft/server/PlayerList.java b/src/main/java/net/minecraft/server/PlayerList.java
-index 3c2d3197f..e943b9a7e 100644
+index 3c2d3197faa7e5212f7c6f9970e56426ae02ade7..e943b9a7e20a935637716ccd1001601276ca4a6a 100644
 --- a/src/main/java/net/minecraft/server/PlayerList.java
 +++ b/src/main/java/net/minecraft/server/PlayerList.java
 @@ -36,6 +36,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
@@ -30,7 +30,7 @@ index 3c2d3197f..e943b9a7e 100644
          EntityPlayer entity = new EntityPlayer(server, server.getWorldServer(0), gameprofile, new PlayerInteractManager(server.getWorldServer(0)));
          Player player = entity.getBukkitEntity();
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
-index d6d9899e2..65f43b002 100644
+index d6d9899e27f5c002f31598deeaea8c52b158c175..65f43b002515987bd44d35e8e08fdc383fbdab34 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 @@ -222,4 +222,11 @@ public class PaperSpigotConfig
@@ -45,6 +45,3 @@ index d6d9899e2..65f43b002 100644
 +        exploitNullAddressKickMessage = getString("exploits.null-address.kick-message", "Invalid address!");
 +    }
  }
--- 
-2.28.0
-

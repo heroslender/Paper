@@ -1,11 +1,11 @@
-From 887a1070709897069646cb85cb7c86813926d695 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Wed, 1 Jul 2015 00:18:10 -0700
 Subject: [PATCH] Configurable async light updates
 
 
 diff --git a/src/main/java/net/minecraft/server/Chunk.java b/src/main/java/net/minecraft/server/Chunk.java
-index 7242d45..5a3b22a 100644
+index 7242d4560549c1dd5cf9fefe67755dd3fa996d9e..5a3b22a3162a830ab82dd071ac0c8ed3e50ad3a0 100644
 --- a/src/main/java/net/minecraft/server/Chunk.java
 +++ b/src/main/java/net/minecraft/server/Chunk.java
 @@ -11,6 +11,8 @@ import java.util.Map;
@@ -71,7 +71,7 @@ index 7242d45..5a3b22a 100644
          // Spigot Start
          /*
 diff --git a/src/main/java/net/minecraft/server/ChunkProviderServer.java b/src/main/java/net/minecraft/server/ChunkProviderServer.java
-index 975d666..ae0f276 100644
+index 975d666b987eb52284d094ff7ee98a211db83325..ae0f2765a4389e331fefb63d262e9b06d51bef83 100644
 --- a/src/main/java/net/minecraft/server/ChunkProviderServer.java
 +++ b/src/main/java/net/minecraft/server/ChunkProviderServer.java
 @@ -53,6 +53,12 @@ public class ChunkProviderServer implements IChunkProvider {
@@ -88,7 +88,7 @@ index 975d666..ae0f276 100644
              if (!this.world.c(i, j)) {
                  // CraftBukkit start
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index c50536e..82c43e3 100644
+index c50536ec52f68e2c18b361c033c4e648e4a6aeac..82c43e3c60ab416a604f6f6a428c6a5da5e963b7 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -18,6 +18,12 @@ import org.bukkit.generator.ChunkGenerator;
@@ -216,7 +216,7 @@ index c50536e..82c43e3 100644
          return false;
      }
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index c8971d1..9ad53fa 100644
+index c8971d1657095cb6071236282772e9561c263249..9ad53fafe5cfc734f0ef8a2145914928d89ad2f1 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -212,4 +212,11 @@ public class PaperSpigotWorldConfig
@@ -231,6 +231,3 @@ index c8971d1..9ad53fa 100644
 +        log( "World async lighting: " + useAsyncLighting );
 +    }
  }
--- 
-2.7.0
-

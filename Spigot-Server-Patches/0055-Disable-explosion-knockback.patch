@@ -1,11 +1,11 @@
-From b3a5cb356f485d1408532c223268045d25a76112 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Sudzzy <originmc@outlook.com>
 Date: Tue, 14 Jul 2015 09:20:44 -0700
 Subject: [PATCH] Disable explosion knockback
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityLiving.java b/src/main/java/net/minecraft/server/EntityLiving.java
-index f643b29..0de13bb 100644
+index f643b29bf9710faf9ed8996de4aac5799614fcc4..0de13bb08dee67194363f6325a10fa68e056a131 100644
 --- a/src/main/java/net/minecraft/server/EntityLiving.java
 +++ b/src/main/java/net/minecraft/server/EntityLiving.java
 @@ -779,7 +779,10 @@ public abstract class EntityLiving extends Entity {
@@ -30,7 +30,7 @@ index f643b29..0de13bb 100644
  
                  if (this.getHealth() <= 0.0F) {
 diff --git a/src/main/java/net/minecraft/server/Explosion.java b/src/main/java/net/minecraft/server/Explosion.java
-index f6067ce..a60d3dd 100644
+index f6067ce28eee83e8b51c542f43cac3c9fb6079a1..a60d3dd4c6ee9fe098319645b0f4c83dd3ec49c7 100644
 --- a/src/main/java/net/minecraft/server/Explosion.java
 +++ b/src/main/java/net/minecraft/server/Explosion.java
 @@ -141,7 +141,7 @@ public class Explosion {
@@ -52,7 +52,7 @@ index f6067ce..a60d3dd 100644
                          }
                      }
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 349f77a..eaf1eda 100644
+index 349f77a8d5754b659b4e239c93d4f086f93fc71a..eaf1eda0a15073c872ae6946abbc23c9a8bcfe94 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -328,4 +328,10 @@ public class PaperSpigotWorldConfig
@@ -66,6 +66,3 @@ index 349f77a..eaf1eda 100644
 +        disableExplosionKnockback = getBoolean( "disable-explosion-knockback", false );
 +    }
  }
--- 
-2.7.0
-

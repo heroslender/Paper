@@ -1,11 +1,11 @@
-From afaf20bf4d69579819800ee7daa8c9a677ebe318 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Jedediah Smith <jedediah@silencegreys.com>
 Date: Mon, 18 May 2015 17:52:45 -0500
 Subject: [PATCH] Player affects spawning API
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityHuman.java b/src/main/java/net/minecraft/server/EntityHuman.java
-index ae2c44e..b901c69 100644
+index ae2c44e064671f59d8fcd13c4d142eab446bdf42..b901c69c0c10ec2a62fdcdadd9ef59e9fc8591c5 100644
 --- a/src/main/java/net/minecraft/server/EntityHuman.java
 +++ b/src/main/java/net/minecraft/server/EntityHuman.java
 @@ -60,6 +60,7 @@ public abstract class EntityHuman extends EntityLiving {
@@ -17,7 +17,7 @@ index ae2c44e..b901c69 100644
      // CraftBukkit start
      public boolean fauxSleeping;
 diff --git a/src/main/java/net/minecraft/server/EntityInsentient.java b/src/main/java/net/minecraft/server/EntityInsentient.java
-index 2d4d34c..b82b984 100644
+index 2d4d34c882da3f785711731ffbcbcccb9c136b99..b82b98473f516e5963fed51ba892bfa59a80c2f5 100644
 --- a/src/main/java/net/minecraft/server/EntityInsentient.java
 +++ b/src/main/java/net/minecraft/server/EntityInsentient.java
 @@ -431,7 +431,7 @@ public abstract class EntityInsentient extends EntityLiving {
@@ -30,7 +30,7 @@ index 2d4d34c..b82b984 100644
              if (entityhuman != null) {
                  double d0 = entityhuman.locX - this.locX;
 diff --git a/src/main/java/net/minecraft/server/MobSpawnerAbstract.java b/src/main/java/net/minecraft/server/MobSpawnerAbstract.java
-index 6004e23..ebd1e36 100644
+index 6004e236fd8e2d2c0beadac31fd8aec2d9f09c3b..ebd1e36da13386fa03b6f217ec257fc5b9dd8ece 100644
 --- a/src/main/java/net/minecraft/server/MobSpawnerAbstract.java
 +++ b/src/main/java/net/minecraft/server/MobSpawnerAbstract.java
 @@ -52,7 +52,7 @@ public abstract class MobSpawnerAbstract {
@@ -43,7 +43,7 @@ index 6004e23..ebd1e36 100644
  
      public void c() {
 diff --git a/src/main/java/net/minecraft/server/SpawnerCreature.java b/src/main/java/net/minecraft/server/SpawnerCreature.java
-index 3964e3f..611b8fd 100644
+index 3964e3f59f84ca80523bdece7f16430dda381e46..611b8fd54a1efc11ef146e631cd81e45690373f3 100644
 --- a/src/main/java/net/minecraft/server/SpawnerCreature.java
 +++ b/src/main/java/net/minecraft/server/SpawnerCreature.java
 @@ -52,7 +52,7 @@ public final class SpawnerCreature {
@@ -65,7 +65,7 @@ index 3964e3f..611b8fd 100644
                                                          biomebase_biomemeta = worldserver.a(enumcreaturetype, blockposition2);
                                                          if (biomebase_biomemeta == null) {
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index 03eb5f2..641db2a 100644
+index 9938f9e0743f4dfa05f0b3cb01998df3f647a079..acfceb8aa765f54ac1a7a8685796fe2cc3043d19 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -2,35 +2,23 @@ package net.minecraft.server;
@@ -167,7 +167,7 @@ index 03eb5f2..641db2a 100644
          for (int i = 0; i < this.players.size(); ++i) {
              EntityHuman entityhuman = (EntityHuman) this.players.get(i);
 diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
-index 35608b7..a9b4160 100644
+index 29082aae43a3762fff04565d3d315abcea1d2e51..b88f6e8e9d897c992e30865af1c5012aa110a9b8 100644
 --- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
 @@ -7,6 +7,7 @@ import io.netty.buffer.Unpooled;
@@ -197,6 +197,3 @@ index 35608b7..a9b4160 100644
      };
  
      public Player.Spigot spigot()
--- 
-2.5.1
-

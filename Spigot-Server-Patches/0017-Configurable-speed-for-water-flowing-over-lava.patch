@@ -1,11 +1,11 @@
-From 89acd9868cbace41415af5c22266009e9e7b8764 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Sat, 7 Mar 2015 22:17:03 -0600
 Subject: [PATCH] Configurable speed for water flowing over lava
 
 
 diff --git a/src/main/java/net/minecraft/server/BlockFlowing.java b/src/main/java/net/minecraft/server/BlockFlowing.java
-index 5d36af3..de1dddb 100644
+index 5d36af344b46de99cd2cf51672b97df6e5ba035f..de1dddbcf16ac52dc61c75c9f6ac24b21add5fa5 100644
 --- a/src/main/java/net/minecraft/server/BlockFlowing.java
 +++ b/src/main/java/net/minecraft/server/BlockFlowing.java
 @@ -35,7 +35,7 @@ public class BlockFlowing extends BlockFluids {
@@ -42,7 +42,7 @@ index 5d36af3..de1dddb 100644
 +    }
  }
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 52c05a8..781cf75 100644
+index 52c05a895e9a764014d49e9651126bc6e90a9e04..781cf759d3ef0c99bfbfe17a8062a85f6b009f4b 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -166,4 +166,11 @@ public class PaperSpigotWorldConfig
@@ -57,6 +57,3 @@ index 52c05a8..781cf75 100644
 +        log( "Water over lava flow speed: " + waterOverLavaFlowSpeed );
 +    }
  }
--- 
-2.7.0
-

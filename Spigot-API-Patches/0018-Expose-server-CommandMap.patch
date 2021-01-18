@@ -1,11 +1,11 @@
-From 184494ffcdbd826e48aa98fd8945b44723793af8 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: kashike <kashike@vq.lc>
 Date: Mon, 15 Feb 2016 07:11:17 -0800
 Subject: [PATCH] Expose server CommandMap
 
 
 diff --git a/src/main/java/org/bukkit/Bukkit.java b/src/main/java/org/bukkit/Bukkit.java
-index a4396e8..f0e1b99 100644
+index a4396e8bf034f51ffeec07b56afeea0c29eee247..f0e1b99b2eba75c8ac90ac8cdf4e769247100448 100644
 --- a/src/main/java/org/bukkit/Bukkit.java
 +++ b/src/main/java/org/bukkit/Bukkit.java
 @@ -14,6 +14,7 @@ import java.util.logging.Logger;
@@ -35,7 +35,7 @@ index a4396e8..f0e1b99 100644
      {
          return server.spigot();
 diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java
-index ae75bd4..316336d 100644
+index ae75bd45ab485762381d34c9fc8ffe1ed0e13f96..316336d94fcd4e257d10e427634e6ea43f0ae5bd 100644
 --- a/src/main/java/org/bukkit/Server.java
 +++ b/src/main/java/org/bukkit/Server.java
 @@ -14,6 +14,7 @@ import java.util.logging.Logger;
@@ -62,6 +62,3 @@ index ae75bd4..316336d 100644
      public class Spigot
      {
          @Deprecated
--- 
-2.7.0.rc0.20.g4b9ab0e
-

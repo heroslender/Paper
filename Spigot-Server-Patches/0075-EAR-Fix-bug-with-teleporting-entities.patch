@@ -1,4 +1,4 @@
-From 9a4310cbb356279870135af7e2c69828cc462a90 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Tue, 22 Dec 2015 18:16:11 -0600
 Subject: [PATCH] EAR: Fix bug with teleporting entities
@@ -7,7 +7,7 @@ Subject: [PATCH] EAR: Fix bug with teleporting entities
 https://hub.spigotmc.org/stash/projects/SPIGOT/repos/spigot/pull-requests/52/overview
 
 diff --git a/src/main/java/net/minecraft/server/Entity.java b/src/main/java/net/minecraft/server/Entity.java
-index 68126c4..20cc946 100644
+index 68126c47dacdbc48e840cf292d1d3ce7b09e65c4..20cc94699ed758d9e4dde90cd8f1851832d6aafe 100644
 --- a/src/main/java/net/minecraft/server/Entity.java
 +++ b/src/main/java/net/minecraft/server/Entity.java
 @@ -96,10 +96,19 @@ public abstract class Entity implements ICommandListener {
@@ -34,6 +34,3 @@ index 68126c4..20cc946 100644
      public boolean ah;
      public boolean ai;
      public int portalCooldown;
--- 
-2.6.4
-

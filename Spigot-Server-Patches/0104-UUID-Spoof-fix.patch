@@ -1,11 +1,11 @@
-From fca5aeae64e0be783aeb7d9ad9707b811d5e0dcf Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: heroslender <bruno.martins1998@hotmail.com>
 Date: Sun, 6 Dec 2020 12:19:53 +0000
 Subject: [PATCH] UUID Spoof fix
 
 
 diff --git a/src/main/java/net/minecraft/server/LoginListener.java b/src/main/java/net/minecraft/server/LoginListener.java
-index 541cec7cf..739914cf3 100644
+index 541cec7cfb0fcc680af4bb34eeeb1eb20131d3cc..739914cf36c03a6489909109fa93f8e73bf70576 100644
 --- a/src/main/java/net/minecraft/server/LoginListener.java
 +++ b/src/main/java/net/minecraft/server/LoginListener.java
 @@ -23,6 +23,7 @@ import org.apache.logging.log4j.Logger;
@@ -68,7 +68,7 @@ index 541cec7cf..739914cf3 100644
  
                  @Override
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
-index 65f43b002..ab3cbeb79 100644
+index 65f43b002515987bd44d35e8e08fdc383fbdab34..ab3cbeb799e729225e6fadeb9fcd219a8ea5aa66 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 @@ -225,8 +225,13 @@ public class PaperSpigotConfig
@@ -85,6 +85,3 @@ index 65f43b002..ab3cbeb79 100644
 +        exploitUuidSpoofKickMessage = getString("exploits.uuid-spoof.kick-message", "Invalid connection!");
      }
  }
--- 
-2.28.0
-

@@ -1,11 +1,11 @@
-From b79b958ca82c49a83def1f2f4e8f02fbf7ee7e9d Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Nik Gil <nikmanG@users.noreply.github.com>
 Date: Mon, 1 Feb 2016 23:47:24 -0700
 Subject: [PATCH] Made EntityDismountEvent Cancellable
 
 
 diff --git a/src/main/java/net/minecraft/server/Entity.java b/src/main/java/net/minecraft/server/Entity.java
-index ef59b40..2da303f 100644
+index ef59b4028fac1caa67f54a1c36b37869a8354052..2da303feee4191d6a47108ef904d32958ce6a23d 100644
 --- a/src/main/java/net/minecraft/server/Entity.java
 +++ b/src/main/java/net/minecraft/server/Entity.java
 @@ -33,6 +33,10 @@ import org.bukkit.event.entity.EntityPortalEvent;
@@ -33,7 +33,7 @@ index ef59b40..2da303f 100644
                  this.vehicle.passenger = null;
              }
 diff --git a/src/main/java/net/minecraft/server/EntityLiving.java b/src/main/java/net/minecraft/server/EntityLiving.java
-index 19a743c..c8b4e29 100644
+index 19a743c2ec12b9c4405cef34a3ea369d35557755..c8b4e292849486eadfb437110466d6eafe275411 100644
 --- a/src/main/java/net/minecraft/server/EntityLiving.java
 +++ b/src/main/java/net/minecraft/server/EntityLiving.java
 @@ -25,6 +25,11 @@ import org.bukkit.event.vehicle.VehicleExitEvent;
@@ -63,6 +63,3 @@ index 19a743c..c8b4e29 100644
              if (!this.world.isClientSide) {
                  this.q(this.vehicle);
              }
--- 
-2.7.0.windows.2
-

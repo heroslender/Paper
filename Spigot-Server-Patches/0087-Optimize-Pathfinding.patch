@@ -1,4 +1,4 @@
-From c6cd94e6eaec67e31528ad1c871a473e9415bc61 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Mon, 18 Jan 2016 00:18:43 -0500
 Subject: [PATCH] Optimize Pathfinding
@@ -10,7 +10,7 @@ Also remove a duplicate .getType() call and fix .getType() on others
 to make them use the chunk cache vs chunk lookups
 
 diff --git a/src/main/java/net/minecraft/server/NavigationAbstract.java b/src/main/java/net/minecraft/server/NavigationAbstract.java
-index d5eaa24..8ebe584 100644
+index d5eaa241b0d225e13765542a834233db7a0eab4e..8ebe58495efda8b15012946b6c13daa72a61e008 100644
 --- a/src/main/java/net/minecraft/server/NavigationAbstract.java
 +++ b/src/main/java/net/minecraft/server/NavigationAbstract.java
 @@ -82,10 +82,25 @@ public abstract class NavigationAbstract {
@@ -49,7 +49,7 @@ index d5eaa24..8ebe584 100644
      }
  
 diff --git a/src/main/java/net/minecraft/server/PathfinderNormal.java b/src/main/java/net/minecraft/server/PathfinderNormal.java
-index 0a14c9d..629aa16 100644
+index 0a14c9d44c67b83b64a894eca35735ceab8aad38..629aa160f55894960e5f3c3d10e131f5eee3bd5a 100644
 --- a/src/main/java/net/minecraft/server/PathfinderNormal.java
 +++ b/src/main/java/net/minecraft/server/PathfinderNormal.java
 @@ -158,8 +158,8 @@ public class PathfinderNormal extends PathfinderAbstract {
@@ -63,6 +63,3 @@ index 0a14c9d..629aa16 100644
                                  return -3;
                              }
                          } else if (!block.b(iblockaccess, blockposition_mutableblockposition) && (!flag1 || !(block instanceof BlockDoor) || block.getMaterial() != Material.WOOD)) {
--- 
-2.7.1
-

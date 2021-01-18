@@ -1,11 +1,11 @@
-From b492b9f378575d22dba8aa0c1766c5c1b06133b4 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Fri, 5 Jun 2015 00:43:17 -0700
 Subject: [PATCH] FallingBlock and TNT entities collide with specific blocks
 
 
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index d2cb1f1..7660356 100644
+index d2cb1f111421a90611379d074fee211ca94369a7..b90de8c9676e12830a29c571671b567edcb86840 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -1207,7 +1207,15 @@ public abstract class World implements IBlockAccess {
@@ -26,7 +26,7 @@ index d2cb1f1..7660356 100644
                          }
                      }
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 180158b..ef59074 100644
+index 180158bf70e8911579801768cf2883f33f30af31..ef590747e2dfeab64fc7f28fafb044050b59135a 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -300,4 +300,10 @@ public class PaperSpigotWorldConfig
@@ -40,6 +40,3 @@ index 180158b..ef59074 100644
 +        fallingBlocksCollideWithSigns = getBoolean( "falling-blocks-collide-with-signs", false );
 +    }
  }
--- 
-2.7.0
-

@@ -1,11 +1,11 @@
-From 0400a17ebc786a5b92448a24fb891814519d2fd3 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Tue, 30 Jun 2015 19:31:02 -0700
 Subject: [PATCH] Fast draining
 
 
 diff --git a/src/main/java/net/minecraft/server/BlockFlowing.java b/src/main/java/net/minecraft/server/BlockFlowing.java
-index ab2e43f..fc3fc48 100644
+index ab2e43f0885fbe1f30c24677d23acce937efff66..fc3fc489b63c33ccbef2244af19850c5ed03968d 100644
 --- a/src/main/java/net/minecraft/server/BlockFlowing.java
 +++ b/src/main/java/net/minecraft/server/BlockFlowing.java
 @@ -74,7 +74,7 @@ public class BlockFlowing extends BlockFluids {
@@ -80,7 +80,7 @@ index ab2e43f..fc3fc48 100644
 +    }
  }
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index e42b574..56c8433 100644
+index e42b574f67d976a2892b7ba379d95037e857f7c6..56c84334e033f58de778f7c266cc581c6204741a 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -312,4 +312,12 @@ public class PaperSpigotWorldConfig
@@ -96,6 +96,3 @@ index e42b574..56c8433 100644
 +        fastDrainWater = getBoolean( "fast-drain.water", false );
 +    }
  }
--- 
-2.7.0
-

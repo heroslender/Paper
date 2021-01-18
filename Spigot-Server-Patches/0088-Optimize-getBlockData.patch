@@ -1,4 +1,4 @@
-From 114866a0d3665b3f45a5e3e5b95d9ba34ec895fa Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Sat, 13 Feb 2016 19:28:50 -0600
 Subject: [PATCH] Optimize getBlockData
@@ -6,7 +6,7 @@ Subject: [PATCH] Optimize getBlockData
 Hot method, so reduce # of instructions for the method.
 
 diff --git a/src/main/java/net/minecraft/server/Chunk.java b/src/main/java/net/minecraft/server/Chunk.java
-index 7efacfa..c636da3 100644
+index 7efacfac3bbf14d837710d538fc1f0e6ef114ed1..c636da31976e774b6b6c0754ba427c9b17ffe3f6 100644
 --- a/src/main/java/net/minecraft/server/Chunk.java
 +++ b/src/main/java/net/minecraft/server/Chunk.java
 @@ -489,7 +489,18 @@ public class Chunk {
@@ -28,6 +28,3 @@ index 7efacfa..c636da3 100644
          if (this.world.G() == WorldType.DEBUG_ALL_BLOCK_STATES) {
              IBlockData iblockdata = null;
  
--- 
-2.7.1
-

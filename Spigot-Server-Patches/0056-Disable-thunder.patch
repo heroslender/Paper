@@ -1,11 +1,11 @@
-From 1fac37952e90156a79e01dc1ae40d02b31c7fd6c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Sudzzy <originmc@outlook.com>
 Date: Tue, 14 Jul 2015 09:26:41 -0700
 Subject: [PATCH] Disable thunder
 
 
 diff --git a/src/main/java/net/minecraft/server/WorldServer.java b/src/main/java/net/minecraft/server/WorldServer.java
-index 9829ff0..6cf3157 100644
+index a94c6dca60b9526ac177f7b9ce63cc4969f32b76..2a3b94461eeb8c79bbf38e782efdd3b03635757a 100644
 --- a/src/main/java/net/minecraft/server/WorldServer.java
 +++ b/src/main/java/net/minecraft/server/WorldServer.java
 @@ -422,7 +422,7 @@ public class WorldServer extends World implements IAsyncTaskHandler {
@@ -18,7 +18,7 @@ index 9829ff0..6cf3157 100644
                      i1 = this.m >> 2;
                      blockposition = this.a(new BlockPosition(k + (i1 & 15), 0, l + (i1 >> 8 & 15)));
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index eaf1eda..a29f042 100644
+index eaf1eda0a15073c872ae6946abbc23c9a8bcfe94..a29f0422a6e0600e068e9a6abe63e4a4e33fffdb 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -334,4 +334,10 @@ public class PaperSpigotWorldConfig
@@ -32,6 +32,3 @@ index eaf1eda..a29f042 100644
 +        disableThunder = getBoolean( "disable-thunder", false );
 +    }
  }
--- 
-2.7.0
-

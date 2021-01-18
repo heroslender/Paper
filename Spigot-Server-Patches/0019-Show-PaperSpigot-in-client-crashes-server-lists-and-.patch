@@ -1,4 +1,4 @@
-From 98de4059bdb6cc1443c58be63c829dfea29d11cb Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <zach.brown@destroystokyo.com>
 Date: Sat, 7 Mar 2015 22:55:25 -0600
 Subject: [PATCH] Show 'PaperSpigot' in client crashes, server lists, and
@@ -6,7 +6,7 @@ Subject: [PATCH] Show 'PaperSpigot' in client crashes, server lists, and
 
 
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index 1d29ae7..9fc2cfa 100644
+index 1d29ae789b523b6fedf638436a178b155d5813bc..9fc2cfa2da4056d36cb9aef2f0fd8776f4d6f75a 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
 @@ -1023,7 +1023,7 @@ public abstract class MinecraftServer implements Runnable, ICommandListener, IAs
@@ -19,7 +19,7 @@ index 1d29ae7..9fc2cfa 100644
  
      public CrashReport b(CrashReport crashreport) {
 diff --git a/src/main/java/org/spigotmc/WatchdogThread.java b/src/main/java/org/spigotmc/WatchdogThread.java
-index 94a3d42..c8f619a 100644
+index 94a3d4237d86040a221f54a1a463e79a885b4b6e..c8f619a7eddd0fbfe10e13164c946b50734e3100 100644
 --- a/src/main/java/org/spigotmc/WatchdogThread.java
 +++ b/src/main/java/org/spigotmc/WatchdogThread.java
 @@ -19,7 +19,7 @@ public class WatchdogThread extends Thread
@@ -52,6 +52,3 @@ index 94a3d42..c8f619a 100644
                  dumpThread( ManagementFactory.getThreadMXBean().getThreadInfo( MinecraftServer.getServer().primaryThread.getId(), Integer.MAX_VALUE ), log );
                  log.log( Level.SEVERE, "------------------------------" );
                  //
--- 
-2.6.1.windows.1
-

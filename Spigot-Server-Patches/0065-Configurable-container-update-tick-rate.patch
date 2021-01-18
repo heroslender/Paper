@@ -1,11 +1,11 @@
-From 54a6f2217b848ae8f4a01a8315e5266feac87dc8 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Sudzzy <originmc@outlook.com>
 Date: Thu, 23 Jul 2015 22:05:22 -0700
 Subject: [PATCH] Configurable container update tick rate
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityPlayer.java b/src/main/java/net/minecraft/server/EntityPlayer.java
-index 3e4869b..0c49a25 100644
+index 3e4869bca2502c9566240b3c8a016be068a08863..0c49a256cc481af1ceb7a873b03763e1d942a362 100644
 --- a/src/main/java/net/minecraft/server/EntityPlayer.java
 +++ b/src/main/java/net/minecraft/server/EntityPlayer.java
 @@ -65,6 +65,7 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
@@ -33,7 +33,7 @@ index 3e4869b..0c49a25 100644
              this.closeInventory();
              this.activeContainer = this.defaultContainer;
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 54f432d..f1409cf 100644
+index 54f432d50785403364bfed255a77bd52df690216..f1409cf32ba00fb9cefda8fa59ea320a56db51b7 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -364,4 +364,10 @@ public class PaperSpigotWorldConfig
@@ -47,6 +47,3 @@ index 54f432d..f1409cf 100644
 +        containerUpdateTickRate = getInt( "container-update-tick-rate", 1 );
 +    }
  }
--- 
-2.7.0
-

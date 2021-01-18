@@ -1,11 +1,11 @@
-From 19bf0a56a0ee703d978da8e5f84999d1f5b20602 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joseph Hirschfeld <joe@ibj.io>
 Date: Sat, 20 Feb 2016 20:07:46 -0500
 Subject: [PATCH] Add exception reporting event
 
 
 diff --git a/src/main/java/org/bukkit/command/SimpleCommandMap.java b/src/main/java/org/bukkit/command/SimpleCommandMap.java
-index 12d9232..f35bc09 100644
+index 12d9232ca980251534593199329cee7d6cd394cf..f35bc0921e1f65c8f35cca28b081d3223c2f417b 100644
 --- a/src/main/java/org/bukkit/command/SimpleCommandMap.java
 +++ b/src/main/java/org/bukkit/command/SimpleCommandMap.java
 @@ -17,6 +17,9 @@ import org.bukkit.Server;
@@ -41,7 +41,7 @@ index 12d9232..f35bc09 100644
      }
      // PaperSpigot end
 diff --git a/src/main/java/org/bukkit/plugin/SimplePluginManager.java b/src/main/java/org/bukkit/plugin/SimplePluginManager.java
-index 1325b03..ce9839e 100644
+index 1325b032a2a05b56a87ae58b7c80fd03d52ea6ad..ce9839ec73e7ca668f1c920ddcd23fdeacd67a6a 100644
 --- a/src/main/java/org/bukkit/plugin/SimplePluginManager.java
 +++ b/src/main/java/org/bukkit/plugin/SimplePluginManager.java
 @@ -33,6 +33,9 @@ import org.bukkit.permissions.PermissionDefault;
@@ -134,7 +134,7 @@ index 1325b03..ce9839e 100644
          }
      }
 diff --git a/src/main/java/org/bukkit/plugin/messaging/StandardMessenger.java b/src/main/java/org/bukkit/plugin/messaging/StandardMessenger.java
-index 4c171e8..9ef6525 100644
+index 4c171e882c65813a2959661d652b82d8ff12e76c..9ef6525590918f2fe69a036a11327f4b326ddf46 100644
 --- a/src/main/java/org/bukkit/plugin/messaging/StandardMessenger.java
 +++ b/src/main/java/org/bukkit/plugin/messaging/StandardMessenger.java
 @@ -8,6 +8,8 @@ import java.util.Map;
@@ -163,7 +163,7 @@ index 4c171e8..9ef6525 100644
          }
 diff --git a/src/main/java/org/github/paperspigot/event/ServerExceptionEvent.java b/src/main/java/org/github/paperspigot/event/ServerExceptionEvent.java
 new file mode 100644
-index 0000000..317e9d2
+index 0000000000000000000000000000000000000000..317e9d2f4a2de65faebe4ad17c427b9b9c07bf66
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/event/ServerExceptionEvent.java
 @@ -0,0 +1,36 @@
@@ -205,7 +205,7 @@ index 0000000..317e9d2
 +}
 diff --git a/src/main/java/org/github/paperspigot/exception/ServerCommandException.java b/src/main/java/org/github/paperspigot/exception/ServerCommandException.java
 new file mode 100644
-index 0000000..aae647a
+index 0000000000000000000000000000000000000000..aae647a38fcb4a822baa5b8c82181e58e377a087
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/exception/ServerCommandException.java
 @@ -0,0 +1,64 @@
@@ -275,7 +275,7 @@ index 0000000..aae647a
 +}
 diff --git a/src/main/java/org/github/paperspigot/exception/ServerEventException.java b/src/main/java/org/github/paperspigot/exception/ServerEventException.java
 new file mode 100644
-index 0000000..d99cab8
+index 0000000000000000000000000000000000000000..d99cab82b59af12d71d4f0671bc3259a1a90ae8b
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/exception/ServerEventException.java
 @@ -0,0 +1,52 @@
@@ -333,7 +333,7 @@ index 0000000..d99cab8
 +}
 diff --git a/src/main/java/org/github/paperspigot/exception/ServerException.java b/src/main/java/org/github/paperspigot/exception/ServerException.java
 new file mode 100644
-index 0000000..f7aad05
+index 0000000000000000000000000000000000000000..f7aad05fa00959b2fbe95727e7dce9df403be5b2
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/exception/ServerException.java
 @@ -0,0 +1,23 @@
@@ -362,7 +362,7 @@ index 0000000..f7aad05
 +}
 diff --git a/src/main/java/org/github/paperspigot/exception/ServerInternalException.java b/src/main/java/org/github/paperspigot/exception/ServerInternalException.java
 new file mode 100644
-index 0000000..17ad4cb
+index 0000000000000000000000000000000000000000..17ad4cb4e1a01448ceb3b2628706d3f5c3ca588c
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/exception/ServerInternalException.java
 @@ -0,0 +1,35 @@
@@ -403,7 +403,7 @@ index 0000000..17ad4cb
 +}
 diff --git a/src/main/java/org/github/paperspigot/exception/ServerPluginEnableDisableException.java b/src/main/java/org/github/paperspigot/exception/ServerPluginEnableDisableException.java
 new file mode 100644
-index 0000000..8c938d0
+index 0000000000000000000000000000000000000000..8c938d0e714ce79813748f7faffa7269e1ac5911
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/exception/ServerPluginEnableDisableException.java
 @@ -0,0 +1,20 @@
@@ -429,7 +429,7 @@ index 0000000..8c938d0
 +}
 diff --git a/src/main/java/org/github/paperspigot/exception/ServerPluginException.java b/src/main/java/org/github/paperspigot/exception/ServerPluginException.java
 new file mode 100644
-index 0000000..f9241ad
+index 0000000000000000000000000000000000000000..f9241ad60545e0c561f17aea44fa4582fbdff440
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/exception/ServerPluginException.java
 @@ -0,0 +1,39 @@
@@ -474,7 +474,7 @@ index 0000000..f9241ad
 +}
 diff --git a/src/main/java/org/github/paperspigot/exception/ServerPluginMessageException.java b/src/main/java/org/github/paperspigot/exception/ServerPluginMessageException.java
 new file mode 100644
-index 0000000..b71303b
+index 0000000000000000000000000000000000000000..b71303b44dfa88c072934fdd7e6f44dccace50c9
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/exception/ServerPluginMessageException.java
 @@ -0,0 +1,61 @@
@@ -541,7 +541,7 @@ index 0000000..b71303b
 +}
 diff --git a/src/main/java/org/github/paperspigot/exception/ServerSchedulerException.java b/src/main/java/org/github/paperspigot/exception/ServerSchedulerException.java
 new file mode 100644
-index 0000000..99757ee
+index 0000000000000000000000000000000000000000..99757eebf1c401c3657a3c91e2ccffcc31e1121e
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/exception/ServerSchedulerException.java
 @@ -0,0 +1,37 @@
@@ -584,7 +584,7 @@ index 0000000..99757ee
 +}
 diff --git a/src/main/java/org/github/paperspigot/exception/ServerTabCompleteException.java b/src/main/java/org/github/paperspigot/exception/ServerTabCompleteException.java
 new file mode 100644
-index 0000000..6e1e2ab
+index 0000000000000000000000000000000000000000..6e1e2abd0c8e842b7376f855b4f6234a0728008a
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/exception/ServerTabCompleteException.java
 @@ -0,0 +1,22 @@
@@ -610,6 +610,3 @@ index 0000000..6e1e2ab
 +        super(message, cause, enableSuppression, writableStackTrace, command, commandSender, arguments);
 +    }
 +}
--- 
-2.5.0
-

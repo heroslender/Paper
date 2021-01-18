@@ -1,11 +1,11 @@
-From 386d76f2e47c4d3e3b824d6ec2c25d914fbe6e2c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <Zbob750@live.com>
 Date: Sun, 28 Dec 2014 16:28:21 -0600
 Subject: [PATCH] Check PaperSpigot versions
 
 
 diff --git a/src/main/java/org/bukkit/command/defaults/VersionCommand.java b/src/main/java/org/bukkit/command/defaults/VersionCommand.java
-index b55abdb..e91e1d8 100644
+index b55abdbffd5a5c001f15ad63fbf9adf07f6059bf..e91e1d8c1215d19a78611d3c8302ed9634bfbda5 100644
 --- a/src/main/java/org/bukkit/command/defaults/VersionCommand.java
 +++ b/src/main/java/org/bukkit/command/defaults/VersionCommand.java
 @@ -185,7 +185,21 @@ public class VersionCommand extends BukkitCommand {
@@ -58,6 +58,3 @@ index b55abdb..e91e1d8 100644
                  return -1;
              } finally {
                  reader.close();
--- 
-2.7.1
-

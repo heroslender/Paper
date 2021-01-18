@@ -1,11 +1,11 @@
-From 5ac0e55838b5e0bf667cc3759af1e2744eea2a2a Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <zach.brown@destroystokyo.com>
 Date: Sat, 7 Mar 2015 20:32:13 -0600
 Subject: [PATCH] Configurable cactus and reed natural growth heights
 
 
 diff --git a/src/main/java/net/minecraft/server/BlockCactus.java b/src/main/java/net/minecraft/server/BlockCactus.java
-index 488e5c2..ddc2135 100644
+index 488e5c2e12346fdd2e12b8c27ac6319a378da7bc..ddc213517d36fb772999182d66baf7f9ea49d29b 100644
 --- a/src/main/java/net/minecraft/server/BlockCactus.java
 +++ b/src/main/java/net/minecraft/server/BlockCactus.java
 @@ -26,7 +26,7 @@ public class BlockCactus extends Block {
@@ -18,7 +18,7 @@ index 488e5c2..ddc2135 100644
  
                  if (j >= (byte) range(3, (world.growthOdds / world.spigotConfig.cactusModifier * 15) + 0.5F, 15)) { // Spigot
 diff --git a/src/main/java/net/minecraft/server/BlockReed.java b/src/main/java/net/minecraft/server/BlockReed.java
-index d00067d..337f2c4 100644
+index d00067d8bb5907ec75a1a00a47c820f4fd5785b8..337f2c40e3ecd817a0b838a624a661bb459f589e 100644
 --- a/src/main/java/net/minecraft/server/BlockReed.java
 +++ b/src/main/java/net/minecraft/server/BlockReed.java
 @@ -25,7 +25,7 @@ public class BlockReed extends Block {
@@ -31,7 +31,7 @@ index d00067d..337f2c4 100644
  
                      if (j >= (byte) range(3, (world.growthOdds / world.spigotConfig.caneModifier * 15) + 0.5F, 15)) { // Spigot
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 2a84879..c8b428c 100644
+index 38192ad6dd327d02e5942d89ca7a48b48597b8c7..db40fb8131f8891bdca42e3c3e06170d789be976 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -97,4 +97,13 @@ public class PaperSpigotWorldConfig
@@ -48,6 +48,3 @@ index 2a84879..c8b428c 100644
 +        log( "Max height for cactus growth " + cactusMaxHeight + ". Max height for reed growth " + reedMaxHeight );
 +    }
  }
--- 
-1.9.1
-

@@ -1,11 +1,11 @@
-From 0cedba608ed4c22ed465f612d48437ec5955953b Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <zach.brown@destroystokyo.com>
 Date: Tue, 16 Feb 2016 19:15:30 -0600
 Subject: [PATCH] Graduate bungeecord chat API from spigot subclasses
 
 
 diff --git a/src/main/java/org/bukkit/Bukkit.java b/src/main/java/org/bukkit/Bukkit.java
-index f0e1b99..8fbc828 100644
+index f0e1b99b2eba75c8ac90ac8cdf4e769247100448..8fbc82833d16138914e379fef9a38c206d9cc07b 100644
 --- a/src/main/java/org/bukkit/Bukkit.java
 +++ b/src/main/java/org/bukkit/Bukkit.java
 @@ -292,6 +292,26 @@ public final class Bukkit {
@@ -36,7 +36,7 @@ index f0e1b99..8fbc828 100644
       * Gets the name of the update folder. The update folder is used to safely
       * update plugins at the right moment on a plugin load.
 diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java
-index 316336d..1b62463 100644
+index 316336d94fcd4e257d10e427634e6ea43f0ae5bd..1b62463a1e18d7e35524e06e791d321d6b3823c0 100644
 --- a/src/main/java/org/bukkit/Server.java
 +++ b/src/main/java/org/bukkit/Server.java
 @@ -238,6 +238,22 @@ public interface Server extends PluginMessageRecipient {
@@ -63,7 +63,7 @@ index 316336d..1b62463 100644
       * Gets the name of the update folder. The update folder is used to safely
       * update plugins at the right moment on a plugin load.
 diff --git a/src/main/java/org/bukkit/entity/Player.java b/src/main/java/org/bukkit/entity/Player.java
-index c0ebe65..9ebfa47 100644
+index c0ebe6551941be5fbe54efc426600f3ff2511127..9ebfa4743f3d03b1d0c4b10c92ada763301e4a81 100644
 --- a/src/main/java/org/bukkit/entity/Player.java
 +++ b/src/main/java/org/bukkit/entity/Player.java
 @@ -330,6 +330,22 @@ public interface Player extends HumanEntity, Conversable, CommandSender, Offline
@@ -89,6 +89,3 @@ index c0ebe65..9ebfa47 100644
      /**
       * Forces an update of the player's entire inventory.
       *
--- 
-2.7.1
-

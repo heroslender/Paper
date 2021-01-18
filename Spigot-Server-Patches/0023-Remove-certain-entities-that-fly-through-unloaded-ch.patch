@@ -1,11 +1,11 @@
-From ac3f20717a8488391789eefd180e54977a436842 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Iceee <andrew@opticgaming.tv>
 Date: Sun, 8 Mar 2015 03:34:15 -0500
 Subject: [PATCH] Remove certain entities that fly through unloaded chunks
 
 
 diff --git a/src/main/java/net/minecraft/server/Entity.java b/src/main/java/net/minecraft/server/Entity.java
-index e345dd7..3e89aa9 100644
+index e345dd7b5c77777764a3643d86094e576510fb58..3e89aa9bb62e1951d26018f2fc650380f32349c1 100644
 --- a/src/main/java/net/minecraft/server/Entity.java
 +++ b/src/main/java/net/minecraft/server/Entity.java
 @@ -115,6 +115,7 @@ public abstract class Entity implements ICommandListener {
@@ -17,7 +17,7 @@ index e345dd7..3e89aa9 100644
      // Spigot start
      public CustomTimingsHandler tickTimer = org.bukkit.craftbukkit.SpigotTimings.getEntityTimings(this); // Spigot
 diff --git a/src/main/java/net/minecraft/server/EntityEnderPearl.java b/src/main/java/net/minecraft/server/EntityEnderPearl.java
-index 48ada4d..f4b5032 100644
+index 48ada4d603f58fbddf99bb7e7de6d498498bdad5..f4b50323698afedaf7cb5c5232141d46e2e041b8 100644
 --- a/src/main/java/net/minecraft/server/EntityEnderPearl.java
 +++ b/src/main/java/net/minecraft/server/EntityEnderPearl.java
 @@ -30,6 +30,12 @@ public class EntityEnderPearl extends EntityProjectile {
@@ -34,7 +34,7 @@ index 48ada4d..f4b5032 100644
              this.world.addParticle(EnumParticle.PORTAL, this.locX, this.locY + this.random.nextDouble() * 2.0D, this.locZ, this.random.nextGaussian(), 0.0D, this.random.nextGaussian(), new int[0]);
          }
 diff --git a/src/main/java/net/minecraft/server/EntityFallingBlock.java b/src/main/java/net/minecraft/server/EntityFallingBlock.java
-index 95c188b..86556cd 100644
+index 95c188ba123e5a2caa0cd8411e25da8419da7c3a..86556cdec991d0061078b8d5c0adf00821a72cfc 100644
 --- a/src/main/java/net/minecraft/server/EntityFallingBlock.java
 +++ b/src/main/java/net/minecraft/server/EntityFallingBlock.java
 @@ -70,6 +70,12 @@ public class EntityFallingBlock extends Entity {
@@ -51,7 +51,7 @@ index 95c188b..86556cd 100644
              if (this.world.paperSpigotConfig.fallingBlockHeightNerf != 0 && this.locY > this.world.paperSpigotConfig.fallingBlockHeightNerf) {
                  if (this.dropItem) {
 diff --git a/src/main/java/net/minecraft/server/EntityTNTPrimed.java b/src/main/java/net/minecraft/server/EntityTNTPrimed.java
-index d2d94d7..ebc4b85 100644
+index d2d94d70936a4c50fbc27e804380236bf4e3b9c5..ebc4b8505605df5d04754950409d04dca6192546 100644
 --- a/src/main/java/net/minecraft/server/EntityTNTPrimed.java
 +++ b/src/main/java/net/minecraft/server/EntityTNTPrimed.java
 @@ -54,6 +54,13 @@ public class EntityTNTPrimed extends Entity {
@@ -69,7 +69,7 @@ index d2d94d7..ebc4b85 100644
          this.motY *= 0.9800000190734863D;
          this.motZ *= 0.9800000190734863D;
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index 4b642ba..46e39f2 100644
+index 4b642ba5b4f4418f95b3d462908d7d62a9353664..46e39f260d958ced8e142cb67a532c0253fa97e2 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -1160,6 +1160,7 @@ public abstract class World implements IBlockAccess {
@@ -96,7 +96,7 @@ index 4b642ba..46e39f2 100644
              entity.tickTimer.startTiming(); // Spigot
              // CraftBukkit end
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index af53220..4596616 100644
+index af53220284b98b70a3f9935343c017b6c952504d..45966163a4dad3df67d7f311c85e878f97e5491a 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -180,4 +180,14 @@ public class PaperSpigotWorldConfig
@@ -114,6 +114,3 @@ index af53220..4596616 100644
 +        removeUnloadedFallingBlocks = getBoolean( "remove-unloaded.falling-blocks", true );
 +    }
  }
--- 
-2.7.0
-

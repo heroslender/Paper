@@ -1,11 +1,11 @@
-From 4848135e06d958fd85b7cda96e131280270fb39c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Sun, 10 Jan 2016 20:40:33 -0600
 Subject: [PATCH] Disable chest cat detection
 
 
 diff --git a/src/main/java/net/minecraft/server/BlockChest.java b/src/main/java/net/minecraft/server/BlockChest.java
-index f725aea..eed516e 100644
+index f725aea8cf2e80a0014868c3fd31b0f794f65efc..eed516e223607e84bb475c51cef21e7f0b1073c2 100644
 --- a/src/main/java/net/minecraft/server/BlockChest.java
 +++ b/src/main/java/net/minecraft/server/BlockChest.java
 @@ -410,6 +410,11 @@ public class BlockChest extends BlockContainer {
@@ -21,7 +21,7 @@ index f725aea..eed516e 100644
  
          EntityOcelot entityocelot;
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 7eb3463..b6ce3bb 100644
+index 7eb34630ef6b7ffddad2e02513d2f4652bdfaa66..b6ce3bbea2a73b94f16a1cab8c2846f4a5b302ef 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -193,10 +193,12 @@ public class PaperSpigotWorldConfig
@@ -37,6 +37,3 @@ index 7eb3463..b6ce3bb 100644
      }
  
      public boolean netherVoidTopDamage;
--- 
-2.7.0.windows.2
-

@@ -1,11 +1,11 @@
-From faf83e8f660a77386fd15533e3031bf6734ad1b3 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Sudzzy <originmc@outlook.com>
 Date: Tue, 14 Jul 2015 09:58:15 -0700
 Subject: [PATCH] Configurable mob spawner tick rate
 
 
 diff --git a/src/main/java/net/minecraft/server/MobSpawnerAbstract.java b/src/main/java/net/minecraft/server/MobSpawnerAbstract.java
-index ebd1e36..d4674dc 100644
+index ebd1e36da13386fa03b6f217ec257fc5b9dd8ece..d4674dcdf3130254779ebf74fc0b9caa20b17f72 100644
 --- a/src/main/java/net/minecraft/server/MobSpawnerAbstract.java
 +++ b/src/main/java/net/minecraft/server/MobSpawnerAbstract.java
 @@ -25,6 +25,7 @@ public abstract class MobSpawnerAbstract {
@@ -50,7 +50,7 @@ index ebd1e36..d4674dc 100644
                  }
  
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 469b620..8247aef 100644
+index 469b620079af1978baf662ef4266c29c02ddd27b..8247aef474899cc147ddcb0f9468b5cd6add4ead 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -352,4 +352,10 @@ public class PaperSpigotWorldConfig
@@ -64,6 +64,3 @@ index 469b620..8247aef 100644
 +        mobSpawnerTickRate = getInt( "mob-spawner-tick-rate", 1 );
 +    }
  }
--- 
-2.7.0
-

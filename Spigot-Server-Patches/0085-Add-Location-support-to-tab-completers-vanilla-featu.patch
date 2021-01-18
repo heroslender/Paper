@@ -1,4 +1,4 @@
-From 80b20092e304d27660bf79623f9187c93cf28984 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: DemonWav <demonwav@gmail.com>
 Date: Sat, 30 Jan 2016 19:17:19 -0600
 Subject: [PATCH] Add Location support to tab completers (vanilla feature
@@ -6,7 +6,7 @@ Subject: [PATCH] Add Location support to tab completers (vanilla feature
 
 
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index ee09922..b400ce0 100644
+index ee0992221248f7d12feffb32288b66926c5f3b91..b400ce04db4dfefaca9a040902bf2d5e50168b7f 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
 @@ -1153,7 +1153,7 @@ public abstract class MinecraftServer implements Runnable, ICommandListener, IAs
@@ -19,7 +19,7 @@ index ee09922..b400ce0 100644
      }
  
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftServer.java b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
-index a54b3e8..642880e 100644
+index a54b3e849f9dbd7e2e43c24e51e142fd57b99204..642880ee644211e131a05ae38da6269ba6bdb241 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftServer.java
 @@ -29,6 +29,7 @@ import org.bukkit.BanList;
@@ -95,7 +95,7 @@ index a54b3e8..642880e 100644
      public List<String> tabCompleteChat(Player player, String message) {
          List<String> completions = new ArrayList<String>();
 diff --git a/src/main/java/org/bukkit/craftbukkit/command/VanillaCommandWrapper.java b/src/main/java/org/bukkit/craftbukkit/command/VanillaCommandWrapper.java
-index de788d6..db46eb0 100644
+index de788d617997122f07e20816e217c4cae197c085..db46eb055ff915525515068d53d58d68ad4009b6 100644
 --- a/src/main/java/org/bukkit/craftbukkit/command/VanillaCommandWrapper.java
 +++ b/src/main/java/org/bukkit/craftbukkit/command/VanillaCommandWrapper.java
 @@ -7,6 +7,7 @@ import net.minecraft.server.*;
@@ -134,7 +134,7 @@ index de788d6..db46eb0 100644
      public static CommandSender lastSender = null; // Nasty :(
  
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 00057a1..c3c374d 100644
+index 00057a1dd96a23465da9883637363163091e5b71..c3c374dfc9720daeae0813e967e682a6844fef19 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -390,4 +390,10 @@ public class PaperSpigotWorldConfig
@@ -148,6 +148,3 @@ index 00057a1..c3c374d 100644
 +        allowBlockLocationTabCompletion = getBoolean( "allow-block-location-tab-completion", true );
 +    }
  }
--- 
-2.7.1
-

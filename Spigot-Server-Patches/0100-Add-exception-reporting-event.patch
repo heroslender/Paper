@@ -1,11 +1,11 @@
-From 3222d65f280871d3cc7b9a3d0250934dcc5f456c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joseph Hirschfeld <joe@ibj.io>
 Date: Sat, 20 Feb 2016 20:07:46 -0500
 Subject: [PATCH] Add exception reporting event
 
 
 diff --git a/src/main/java/net/minecraft/server/Chunk.java b/src/main/java/net/minecraft/server/Chunk.java
-index aa555f5..ab0d41c 100644
+index aa555f51fbd0b6fa0ac2360b56086bad4b612bcb..ab0d41cadabe4c010751994515925525df66dace 100644
 --- a/src/main/java/net/minecraft/server/Chunk.java
 +++ b/src/main/java/net/minecraft/server/Chunk.java
 @@ -18,6 +18,9 @@ import org.apache.logging.log4j.Logger;
@@ -39,7 +39,7 @@ index aa555f5..ab0d41c 100644
          }
      }
 diff --git a/src/main/java/net/minecraft/server/ChunkProviderServer.java b/src/main/java/net/minecraft/server/ChunkProviderServer.java
-index 0e6a37f..c4dab42 100644
+index 0e6a37f719c6ee715482c74f35e3e5b71caf2154..c4dab42bdf868f73f0c3875e8adfb852b2b02e18 100644
 --- a/src/main/java/net/minecraft/server/ChunkProviderServer.java
 +++ b/src/main/java/net/minecraft/server/ChunkProviderServer.java
 @@ -15,12 +15,15 @@ import org.apache.logging.log4j.Logger;
@@ -90,7 +90,7 @@ index 0e6a37f..c4dab42 100644
              }
          }
 diff --git a/src/main/java/net/minecraft/server/NameReferencingFileConverter.java b/src/main/java/net/minecraft/server/NameReferencingFileConverter.java
-index d67539c..4029109 100644
+index d67539c769900f1653bb4af9192db7518eb8fca6..40291094e8aeff2a12b7b4ae721ef3e928a3b0b1 100644
 --- a/src/main/java/net/minecraft/server/NameReferencingFileConverter.java
 +++ b/src/main/java/net/minecraft/server/NameReferencingFileConverter.java
 @@ -25,6 +25,9 @@ import java.util.Map;
@@ -123,7 +123,7 @@ index d67539c..4029109 100644
  
                          NameReferencingFileConverter.b(file);
 diff --git a/src/main/java/net/minecraft/server/PersistentCollection.java b/src/main/java/net/minecraft/server/PersistentCollection.java
-index 451f481..6459594 100644
+index 451f4810f8ee23ffd01297e0c8c02961789e39e3..6459594c7f58c48ff04f0576309cc462720faf73 100644
 --- a/src/main/java/net/minecraft/server/PersistentCollection.java
 +++ b/src/main/java/net/minecraft/server/PersistentCollection.java
 @@ -2,6 +2,10 @@ package net.minecraft.server;
@@ -154,7 +154,7 @@ index 451f481..6459594 100644
  
              return oshort.shortValue();
 diff --git a/src/main/java/net/minecraft/server/RegionFile.java b/src/main/java/net/minecraft/server/RegionFile.java
-index 348706f..8165a50 100644
+index 348706f74b9c223e6d35a9187af5c89ca808f816..8165a5020c1969a136a5d60c5725433ba6b25190 100644
 --- a/src/main/java/net/minecraft/server/RegionFile.java
 +++ b/src/main/java/net/minecraft/server/RegionFile.java
 @@ -1,6 +1,8 @@
@@ -183,7 +183,7 @@ index 348706f..8165a50 100644
  
      }
 diff --git a/src/main/java/net/minecraft/server/RegionFileCache.java b/src/main/java/net/minecraft/server/RegionFileCache.java
-index 5b000c4..4cfaf30 100644
+index 5b000c47cb6abc705fb683e743f28017714d7715..4cfaf3005f94881d01e11f9bf9a771da141e190c 100644
 --- a/src/main/java/net/minecraft/server/RegionFileCache.java
 +++ b/src/main/java/net/minecraft/server/RegionFileCache.java
 @@ -1,6 +1,8 @@
@@ -204,7 +204,7 @@ index 5b000c4..4cfaf30 100644
          }
  
 diff --git a/src/main/java/net/minecraft/server/SpawnerCreature.java b/src/main/java/net/minecraft/server/SpawnerCreature.java
-index 611b8fd..284f4bf 100644
+index 611b8fd54a1efc11ef146e631cd81e45690373f3..284f4bf2f6b7790a85d22fa1d4e5fa37f1f4aca2 100644
 --- a/src/main/java/net/minecraft/server/SpawnerCreature.java
 +++ b/src/main/java/net/minecraft/server/SpawnerCreature.java
 @@ -10,6 +10,7 @@ import java.util.Set;
@@ -232,7 +232,7 @@ index 611b8fd..284f4bf 100644
                              }
  
 diff --git a/src/main/java/net/minecraft/server/TileEntity.java b/src/main/java/net/minecraft/server/TileEntity.java
-index fdcbf44..f68b132 100644
+index fdcbf4434f7aac195f62419214431db834f43691..f68b132fb9d0b38f2ebc1e4c8c4ca6ef993fc72a 100644
 --- a/src/main/java/net/minecraft/server/TileEntity.java
 +++ b/src/main/java/net/minecraft/server/TileEntity.java
 @@ -9,6 +9,7 @@ import org.apache.logging.log4j.Logger;
@@ -252,7 +252,7 @@ index fdcbf44..f68b132 100644
  
          if (tileentity != null) {
 diff --git a/src/main/java/net/minecraft/server/VillageSiege.java b/src/main/java/net/minecraft/server/VillageSiege.java
-index 42d6737..01dbc98 100644
+index 42d6737af2939a446cf0bd747c2240cb22780753..01dbc98a6d70778065f38cb2637df07199f23a49 100644
 --- a/src/main/java/net/minecraft/server/VillageSiege.java
 +++ b/src/main/java/net/minecraft/server/VillageSiege.java
 @@ -1,5 +1,7 @@
@@ -272,7 +272,7 @@ index 42d6737..01dbc98 100644
              }
  
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index f0cd810..8f3511f 100644
+index f0cd8108119ef09cbdd5d922b30f2a9a220156a0..8f3511f800818c36b9387b92376e0b9785ec52b5 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -24,6 +24,8 @@ import java.util.concurrent.Callable;
@@ -309,7 +309,7 @@ index f0cd810..8f3511f 100644
                          this.tileEntityList.remove(tileTickPosition--);
                          continue;
 diff --git a/src/main/java/net/minecraft/server/WorldNBTStorage.java b/src/main/java/net/minecraft/server/WorldNBTStorage.java
-index e5124af..b4056a2 100644
+index e5124af9b5ca68b9059a193b43e15bc708050134..b4056a28a00ba706a4cec5c22ed815ca9c980196 100644
 --- a/src/main/java/net/minecraft/server/WorldNBTStorage.java
 +++ b/src/main/java/net/minecraft/server/WorldNBTStorage.java
 @@ -15,6 +15,7 @@ import org.apache.logging.log4j.Logger;
@@ -353,7 +353,7 @@ index e5124af..b4056a2 100644
  
      }
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
-index 72c0b17..7640070 100644
+index 72c0b1772545fbb4f7f8d68e0ed76a45d0ebe4b4..7640070937b361aeda4d200710deddfbbbc4fb42 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 @@ -55,6 +55,7 @@ import org.bukkit.metadata.MetadataValue;
@@ -373,7 +373,7 @@ index 72c0b17..7640070 100644
      }
  
 diff --git a/src/main/java/org/bukkit/craftbukkit/scheduler/CraftScheduler.java b/src/main/java/org/bukkit/craftbukkit/scheduler/CraftScheduler.java
-index d76ec40..f036709 100644
+index d76ec40a0e4490760c50ec26ea4ff653f399e08b..f036709c4895639d6f3af764c209e1caa643d5dd 100644
 --- a/src/main/java/org/bukkit/craftbukkit/scheduler/CraftScheduler.java
 +++ b/src/main/java/org/bukkit/craftbukkit/scheduler/CraftScheduler.java
 @@ -21,6 +21,9 @@ import org.bukkit.scheduler.BukkitRunnable;
@@ -418,7 +418,7 @@ index d76ec40..f036709 100644
              }
 diff --git a/src/main/java/org/github/paperspigot/ServerSchedulerReportingWrapper.java b/src/main/java/org/github/paperspigot/ServerSchedulerReportingWrapper.java
 new file mode 100644
-index 0000000..6499373
+index 0000000000000000000000000000000000000000..64993736fdc1e06dfdeb78f3e030681d2e7ef9a3
 --- /dev/null
 +++ b/src/main/java/org/github/paperspigot/ServerSchedulerReportingWrapper.java
 @@ -0,0 +1,39 @@
@@ -461,6 +461,3 @@ index 0000000..6499373
 +        return internalTask;
 +    }
 +}
--- 
-2.5.0
-

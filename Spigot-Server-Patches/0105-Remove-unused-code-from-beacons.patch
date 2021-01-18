@@ -1,11 +1,11 @@
-From 1cf3a0e96c640ff4d0beeed213bfb0bd8675bcfa Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: heroslender <bruno.martins1998@hotmail.com>
 Date: Mon, 18 Jan 2021 17:39:52 +0000
 Subject: [PATCH] Remove unused code from beacons
 
 
 diff --git a/src/main/java/net/minecraft/server/TileEntityBeacon.java b/src/main/java/net/minecraft/server/TileEntityBeacon.java
-index f4717af7d..9fc40a3c4 100644
+index f4717af7d1a430dab45c5c8c368fd26c4fd73cb2..9fc40a3c4848295736572ef22332a0afbf26a8d0 100644
 --- a/src/main/java/net/minecraft/server/TileEntityBeacon.java
 +++ b/src/main/java/net/minecraft/server/TileEntityBeacon.java
 @@ -1,39 +1,56 @@
@@ -412,6 +412,3 @@ index f4717af7d..9fc40a3c4 100644
 +//        }
 +//    }
  }
--- 
-2.28.0
-

@@ -1,11 +1,11 @@
-From addd766578b634af56ba6ceef98ea1d74426f9f1 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach <zach.brown@destroystokyo.com>
 Date: Fri, 13 Feb 2015 14:49:30 -0600
 Subject: [PATCH] Enderman drop the block they're holding when they die
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityEnderman.java b/src/main/java/net/minecraft/server/EntityEnderman.java
-index a250062..f3afbbd 100644
+index a250062dfc96e45b3d755e3b294bede59657efd5..f3afbbd3a20ebf7d51a8fac418cff3e6f59ab56f 100644
 --- a/src/main/java/net/minecraft/server/EntityEnderman.java
 +++ b/src/main/java/net/minecraft/server/EntityEnderman.java
 @@ -251,6 +251,13 @@ public class EntityEnderman extends EntityMonster {
@@ -22,6 +22,3 @@ index a250062..f3afbbd 100644
      }
  
      public void setCarried(IBlockData iblockdata) {
--- 
-2.5.2
-

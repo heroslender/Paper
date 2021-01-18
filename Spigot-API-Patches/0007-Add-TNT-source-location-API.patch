@@ -1,11 +1,11 @@
-From 28b66c77af202f83255000ebfa9050978a83af4a Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Sun, 30 Nov 2014 22:57:17 -0600
 Subject: [PATCH] Add TNT source location API
 
 
 diff --git a/src/main/java/org/bukkit/entity/TNTPrimed.java b/src/main/java/org/bukkit/entity/TNTPrimed.java
-index 3ce322d..7b1b6b6 100644
+index 3ce322d955a2a34cd5e1f82c8246373faf8b8a23..7b1b6b6d05ceb1c19bf9ea87dfe3ece94b58ad74 100644
 --- a/src/main/java/org/bukkit/entity/TNTPrimed.java
 +++ b/src/main/java/org/bukkit/entity/TNTPrimed.java
 @@ -35,4 +35,11 @@ public interface TNTPrimed extends Explosive {
@@ -20,6 +20,3 @@ index 3ce322d..7b1b6b6 100644
 +     */
 +    public org.bukkit.Location getSourceLoc();
  }
--- 
-1.9.1
-

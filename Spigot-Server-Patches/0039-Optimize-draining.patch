@@ -1,11 +1,11 @@
-From e930fc7dbc68671274199b2268d34bb3d8179990 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Fri, 10 Apr 2015 02:24:20 -0700
 Subject: [PATCH] Optimize draining
 
 
 diff --git a/src/main/java/net/minecraft/server/BlockFlowing.java b/src/main/java/net/minecraft/server/BlockFlowing.java
-index de1dddb..ff18f63 100644
+index de1dddbcf16ac52dc61c75c9f6ac24b21add5fa5..ff18f634d07f99a214904b26306a9d4029a75984 100644
 --- a/src/main/java/net/minecraft/server/BlockFlowing.java
 +++ b/src/main/java/net/minecraft/server/BlockFlowing.java
 @@ -88,7 +88,14 @@ public class BlockFlowing extends BlockFluids {
@@ -24,6 +24,3 @@ index de1dddb..ff18f63 100644
                  }
              }
          } else {
--- 
-2.5.2
-

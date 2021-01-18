@@ -1,4 +1,4 @@
-From 4110f43983a26695d465396b2a0d5af28b47f9c7 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Tue, 3 Nov 2015 21:05:41 -0500
 Subject: [PATCH] Don't create Region File's when checking if chunk exists
@@ -7,7 +7,7 @@ Plugins like Dynap can end up creating tons of emtpy Region Files
 when using chunkExists.
 
 diff --git a/src/main/java/net/minecraft/server/ChunkRegionLoader.java b/src/main/java/net/minecraft/server/ChunkRegionLoader.java
-index 206e3aa..6b24490 100644
+index 206e3aa3a00e4fc3631d00cd6198c72bc2fddf07..6b244904d60ebbd2bf4a93a320c9b161e879451e 100644
 --- a/src/main/java/net/minecraft/server/ChunkRegionLoader.java
 +++ b/src/main/java/net/minecraft/server/ChunkRegionLoader.java
 @@ -36,7 +36,8 @@ public class ChunkRegionLoader implements IChunkLoader, IAsyncChunkSaver {
@@ -21,7 +21,7 @@ index 206e3aa..6b24490 100644
      // CraftBukkit end
  
 diff --git a/src/main/java/net/minecraft/server/RegionFileCache.java b/src/main/java/net/minecraft/server/RegionFileCache.java
-index 5528019..5b000c4 100644
+index 55280195189fd3765182694fd71076dce652da49..5b000c47cb6abc705fb683e743f28017714d7715 100644
 --- a/src/main/java/net/minecraft/server/RegionFileCache.java
 +++ b/src/main/java/net/minecraft/server/RegionFileCache.java
 @@ -12,7 +12,12 @@ public class RegionFileCache {
@@ -45,6 +45,3 @@ index 5528019..5b000c4 100644
              if (!file1.exists()) {
                  file1.mkdirs();
              }
--- 
-2.6.3
-

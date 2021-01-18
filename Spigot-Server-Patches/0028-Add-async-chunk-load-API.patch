@@ -1,11 +1,11 @@
-From 33a53bb028aadbb40a503e0f4087cb6718bfc420 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Thu, 6 Nov 2014 18:29:20 -0600
 Subject: [PATCH] Add async chunk load API
 
 
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
-index 17f2c0a..552f5c3 100644
+index 49c7fa60a1856e39845f7e16187c1b08e9a2808b..89e78ab83ab548cc0edc895ca41e72ac91140fa4 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 @@ -122,6 +122,24 @@ public class CraftWorld implements World {
@@ -33,6 +33,3 @@ index 17f2c0a..552f5c3 100644
      public Chunk getChunkAt(int x, int z) {
          return this.world.chunkProviderServer.getChunkAt(x, z).bukkitChunk;
      }
--- 
-2.5.2
-

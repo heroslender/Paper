@@ -1,11 +1,11 @@
-From adb1d170502e3b0e44d08399ec31c0633f411c1c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Iceee <andrew@opticgaming.tv>
 Date: Tue, 30 Jun 2015 19:31:02 -0700
 Subject: [PATCH] Stop updating flowing block if material has changed
 
 
 diff --git a/src/main/java/net/minecraft/server/BlockFlowing.java b/src/main/java/net/minecraft/server/BlockFlowing.java
-index ff18f63..ab2e43f 100644
+index ff18f634d07f99a214904b26306a9d4029a75984..ab2e43f0885fbe1f30c24677d23acce937efff66 100644
 --- a/src/main/java/net/minecraft/server/BlockFlowing.java
 +++ b/src/main/java/net/minecraft/server/BlockFlowing.java
 @@ -102,6 +102,7 @@ public class BlockFlowing extends BlockFluids {
@@ -16,6 +16,3 @@ index ff18f63..ab2e43f 100644
          IBlockData iblockdata2 = world.getType(blockposition.down());
  
          if (this.h(world, blockposition.down(), iblockdata2)) {
--- 
-2.5.2
-

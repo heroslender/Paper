@@ -1,11 +1,11 @@
-From fbdc8216d9f45a2c13cdf26343f5306ccc73664b Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: gsand <gsandowns@gmail.com>
 Date: Sat, 7 Mar 2015 21:35:14 -0600
 Subject: [PATCH] Player Exhaustion Multipliers
 
 
 diff --git a/src/main/java/net/minecraft/server/Block.java b/src/main/java/net/minecraft/server/Block.java
-index 5e91e82..c26975a 100644
+index 5e91e82090663c42a8763ff51e912497081823da..c26975a066b5ffdab2ce51d9e1b2f554f7daf999 100644
 --- a/src/main/java/net/minecraft/server/Block.java
 +++ b/src/main/java/net/minecraft/server/Block.java
 @@ -566,7 +566,7 @@ public class Block {
@@ -18,7 +18,7 @@ index 5e91e82..c26975a 100644
              ItemStack itemstack = this.i(iblockdata);
  
 diff --git a/src/main/java/net/minecraft/server/EntityHuman.java b/src/main/java/net/minecraft/server/EntityHuman.java
-index e705b86..ae2c44e 100644
+index e705b869925598f69c60cb5c67df648abaa3ba4a..ae2c44e064671f59d8fcd13c4d142eab446bdf42 100644
 --- a/src/main/java/net/minecraft/server/EntityHuman.java
 +++ b/src/main/java/net/minecraft/server/EntityHuman.java
 @@ -1370,13 +1370,13 @@ public abstract class EntityHuman extends EntityLiving {
@@ -38,7 +38,7 @@ index e705b86..ae2c44e 100644
              } else if (this.k_()) {
                  if (d1 > 0.0D) {
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 5ae9afb..23a2a96 100644
+index 5ae9afb6cf9dffc1196d42b4b6c6d1d2f702e656..23a2a967f016dc599626d47da08ac371332f0dd8 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -114,4 +114,12 @@ public class PaperSpigotWorldConfig
@@ -54,6 +54,3 @@ index 5ae9afb..23a2a96 100644
 +        playerSwimmingExhaustion = getFloat( "player-exhaustion.swimming", 0.015F );
 +    }
  }
--- 
-2.5.1
-

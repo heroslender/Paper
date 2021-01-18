@@ -1,11 +1,11 @@
-From 70a6bd60d4c817a5d2420fdefcc6ad1d4afe869a Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Wed, 1 Jul 2015 00:38:10 -0700
 Subject: [PATCH] Configurable lava flow speed
 
 
 diff --git a/src/main/java/net/minecraft/server/BlockFlowing.java b/src/main/java/net/minecraft/server/BlockFlowing.java
-index fc3fc48..23130ba 100644
+index fc3fc489b63c33ccbef2244af19850c5ed03968d..23130ba963a7fb0024cee47a2a44006e08d06353 100644
 --- a/src/main/java/net/minecraft/server/BlockFlowing.java
 +++ b/src/main/java/net/minecraft/server/BlockFlowing.java
 @@ -276,6 +276,9 @@ public class BlockFlowing extends BlockFluids {
@@ -19,7 +19,7 @@ index fc3fc48..23130ba 100644
                  world.getType(blockposition.north(1)).getBlock().getMaterial() == Material.LAVA ||
                          world.getType(blockposition.south(1)).getBlock().getMaterial() == Material.LAVA ||
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 56c8433..349f77a 100644
+index 56c84334e033f58de778f7c266cc581c6204741a..349f77a8d5754b659b4e239c93d4f086f93fc71a 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -320,4 +320,12 @@ public class PaperSpigotWorldConfig
@@ -35,6 +35,3 @@ index 56c8433..349f77a 100644
 +        lavaFlowSpeedNether = getInt( "lava-flow-speed.nether", 10 );
 +    }
  }
--- 
-2.7.0
-

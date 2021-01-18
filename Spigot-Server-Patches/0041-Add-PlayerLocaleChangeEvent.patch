@@ -1,11 +1,11 @@
-From 8dff59c6bbe54bad21324805a3302cf346c987c9 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Isaac Moore <rmsy@me.com>
 Date: Fri, 27 Mar 2015 00:52:24 -0400
 Subject: [PATCH] Add PlayerLocaleChangeEvent
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityPlayer.java b/src/main/java/net/minecraft/server/EntityPlayer.java
-index 3810f86..be50b55 100644
+index 3810f86dc17d44a008d6bbc975cd00e5e332327b..be50b551cbae449a8603e943d7aacbab84a4be88 100644
 --- a/src/main/java/net/minecraft/server/EntityPlayer.java
 +++ b/src/main/java/net/minecraft/server/EntityPlayer.java
 @@ -995,7 +995,13 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
@@ -23,7 +23,7 @@ index 3810f86..be50b55 100644
          this.bS = packetplayinsettings.d();
          this.getDataWatcher().watch(10, Byte.valueOf((byte) packetplayinsettings.e()));
 diff --git a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
-index 147b928..db91503 100644
+index 147b9283dc02caf93bdbee985544250657d544a6..db915033b217518a918e3553d90d1c193d78e67b 100644
 --- a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
 +++ b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
 @@ -970,4 +970,13 @@ public class CraftEventFactory {
@@ -40,6 +40,3 @@ index 147b928..db91503 100644
 +    }
 +    // PaperSpigot end
  }
--- 
-2.6.0
-

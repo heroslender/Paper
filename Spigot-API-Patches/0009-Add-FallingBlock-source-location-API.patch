@@ -1,11 +1,11 @@
-From f255e1de552da583447620334ba2df03daabf61d Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Fri, 17 Apr 2015 02:43:00 -0700
 Subject: [PATCH] Add FallingBlock source location API
 
 
 diff --git a/src/main/java/org/bukkit/entity/FallingBlock.java b/src/main/java/org/bukkit/entity/FallingBlock.java
-index bc56fa2..240a278 100644
+index bc56fa2223a3ff62f0ec45f660ed662167f41614..240a2783650e8bd6171575c388b0a0a183ea31dc 100644
 --- a/src/main/java/org/bukkit/entity/FallingBlock.java
 +++ b/src/main/java/org/bukkit/entity/FallingBlock.java
 @@ -59,4 +59,11 @@ public interface FallingBlock extends Entity {
@@ -20,6 +20,3 @@ index bc56fa2..240a278 100644
 +     */
 +    org.bukkit.Location getSourceLoc(); // PaperSpigot - Add FallingBlock source location API
  }
--- 
-2.5.2
-

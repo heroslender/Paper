@@ -1,11 +1,11 @@
-From 34a2d7adb137bd4481b238bc5a80aaf0cbbbc7db Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joseph Hirschfeld <joe@ibj.io>
 Date: Mon, 22 Feb 2016 16:05:32 -0500
 Subject: [PATCH] Add velocity warnings
 
 
 diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
-index 5df3476..4f91799 100644
+index 5df3476cf85536fb0d00eee1f747e7f6b9f0bf70..4f9179908e2cd74d6170a614a0971ef0f9ddaafa 100644
 --- a/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
 +++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftEntity.java
 @@ -25,6 +25,7 @@ import org.bukkit.permissions.PermissionAttachmentInfo;
@@ -33,7 +33,7 @@ index 5df3476..4f91799 100644
          entity.motY = vel.getY();
          entity.motZ = vel.getZ();
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
-index ea5a427..d6d9899 100644
+index ea5a427237adbb3af49ab1171bdce6d1f31314d6..d6d9899e27f5c002f31598deeaea8c52b158c175 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 @@ -216,4 +216,10 @@ public class PaperSpigotConfig
@@ -47,6 +47,3 @@ index ea5a427..d6d9899 100644
 +        warnForExcessiveVelocity = getBoolean("warnWhenSettingExcessiveVelocity", true);
 +    }
  }
--- 
-2.7.1
-

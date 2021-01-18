@@ -1,11 +1,11 @@
-From 246f9b49c79068ca061b938ab2824c8bffa6eb7c Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Thu, 13 Aug 2015 10:33:34 -0700
 Subject: [PATCH] Re-add Spigot's hopper-check feature
 
 
 diff --git a/src/main/java/net/minecraft/server/TileEntityHopper.java b/src/main/java/net/minecraft/server/TileEntityHopper.java
-index cab636a..760a076 100644
+index cab636a0af1fdf2b3af7f5c3351a26469d6f7c93..760a0767eae7c148efd27c78a4a2f142507b75b7 100644
 --- a/src/main/java/net/minecraft/server/TileEntityHopper.java
 +++ b/src/main/java/net/minecraft/server/TileEntityHopper.java
 @@ -199,6 +199,11 @@ public class TileEntityHopper extends TileEntityContainer implements IHopper, IU
@@ -21,7 +21,7 @@ index cab636a..760a076 100644
          } else {
              return false;
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 346e3f9..7eb3463 100644
+index 346e3f994617595c97390d9829dd78ca7a994ac9..7eb34630ef6b7ffddad2e02513d2f4652bdfaa66 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -376,4 +376,10 @@ public class PaperSpigotWorldConfig
@@ -35,6 +35,3 @@ index 346e3f9..7eb3463 100644
 +        useHopperCheck = getBoolean( "use-hopper-check", false );
 +    }
  }
--- 
-2.7.0
-

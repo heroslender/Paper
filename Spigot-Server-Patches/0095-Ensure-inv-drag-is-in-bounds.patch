@@ -1,11 +1,11 @@
-From df382ed55169c36f68183a98494e24277c2b3553 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joseph Hirschfeld <joe@ibj.io>
 Date: Sat, 20 Feb 2016 02:19:31 -0500
 Subject: [PATCH] Ensure inv drag is in bounds
 
 
 diff --git a/src/main/java/net/minecraft/server/Container.java b/src/main/java/net/minecraft/server/Container.java
-index 3cfaa75..7fc4957 100644
+index 3cfaa75caf72cd946158ec1a211572015ccace17..7fc495792c1caf81511d8197b05e2d0b5ddb71b7 100644
 --- a/src/main/java/net/minecraft/server/Container.java
 +++ b/src/main/java/net/minecraft/server/Container.java
 @@ -138,7 +138,7 @@ public abstract class Container {
@@ -17,6 +17,3 @@ index 3cfaa75..7fc4957 100644
  
                  if (slot != null && a(slot, playerinventory.getCarried(), true) && slot.isAllowed(playerinventory.getCarried()) && playerinventory.getCarried().count > this.h.size() && this.b(slot)) {
                      this.h.add(slot);
--- 
-2.7.1
-

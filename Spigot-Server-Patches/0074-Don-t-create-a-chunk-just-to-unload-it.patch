@@ -1,11 +1,11 @@
-From 97ec86b24834b3e21c8a76022f31964f3befdb7f Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Sun, 15 Nov 2015 19:46:07 -0600
 Subject: [PATCH] Don't create a chunk just to unload it
 
 
 diff --git a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
-index c15a0ba..72c0b17 100644
+index c15a0baf1792195f6f3ae94f7c8de9428ce265c8..72c0b1772545fbb4f7f8d68e0ed76a45d0ebe4b4 100644
 --- a/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 +++ b/src/main/java/org/bukkit/craftbukkit/CraftWorld.java
 @@ -201,7 +201,12 @@ public class CraftWorld implements World {
@@ -22,6 +22,3 @@ index c15a0ba..72c0b17 100644
          if (chunk.mustSave) {   // If chunk had previously been queued to save, must do save to avoid loss of that data
              save = true;
          }
--- 
-2.6.3
-

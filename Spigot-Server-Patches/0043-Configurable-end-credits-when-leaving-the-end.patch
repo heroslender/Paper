@@ -1,11 +1,11 @@
-From 49ec7288782b79ced596646469a118e5885a6aaa Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: DoctorDark <doctordark11@gmail.com>
 Date: Thu, 28 May 2015 20:12:38 -0500
 Subject: [PATCH] Configurable end credits when leaving the end
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityPlayer.java b/src/main/java/net/minecraft/server/EntityPlayer.java
-index be50b55..161b191 100644
+index be50b551cbae449a8603e943d7aacbab84a4be88..161b19129ab5ed880cd397ad87b3fa3a56625bbf 100644
 --- a/src/main/java/net/minecraft/server/EntityPlayer.java
 +++ b/src/main/java/net/minecraft/server/EntityPlayer.java
 @@ -508,11 +508,16 @@ public class EntityPlayer extends EntityHuman implements ICrafting {
@@ -51,7 +51,7 @@ index be50b55..161b191 100644
      }
  
 diff --git a/src/main/java/net/minecraft/server/PlayerList.java b/src/main/java/net/minecraft/server/PlayerList.java
-index d3d19dd..deb0b82 100644
+index da576bcd01b272a56217559b1717247bc4bf1f0a..52b512627a6664f1883cc52f1f32348ffaa05a2a 100644
 --- a/src/main/java/net/minecraft/server/PlayerList.java
 +++ b/src/main/java/net/minecraft/server/PlayerList.java
 @@ -666,6 +666,8 @@ public abstract class PlayerList {
@@ -74,7 +74,7 @@ index d3d19dd..deb0b82 100644
              return;
          }
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 1a4a9af..00ca118 100644
+index 1a4a9af8f869b7b0335224c3243e5f53c445b81d..00ca11837fbf2d89c7ced4626141f20e791d2c53 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -221,4 +221,10 @@ public class PaperSpigotWorldConfig
@@ -88,6 +88,3 @@ index 1a4a9af..00ca118 100644
 +        disableEndCredits = getBoolean( "game-mechanics.disable-end-credits", false );
 +    }
  }
--- 
-2.7.0
-

@@ -1,11 +1,11 @@
-From c3927047bad51cac16f2bf233572c1982cd18185 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: heroslender <bruno.martins1998@hotmail.com>
 Date: Fri, 4 Dec 2020 22:12:50 +0000
 Subject: [PATCH] Suggest UTF-8 for default encoding
 
 
 diff --git a/src/main/java/net/minecraft/server/DedicatedServer.java b/src/main/java/net/minecraft/server/DedicatedServer.java
-index 088beb22b..dea548cd6 100644
+index 088beb22b53ddf77dc182dd5ac39e1086d5279aa..dea548cd651270198a012eb05609af04c1496154 100644
 --- a/src/main/java/net/minecraft/server/DedicatedServer.java
 +++ b/src/main/java/net/minecraft/server/DedicatedServer.java
 @@ -119,6 +119,13 @@ public class DedicatedServer extends MinecraftServer implements IMinecraftServer
@@ -22,6 +22,3 @@ index 088beb22b..dea548cd6 100644
  
          DedicatedServer.LOGGER.info("Loading properties");
          this.propertyManager = new PropertyManager(this.options); // CraftBukkit - CLI argument support
--- 
-2.28.0
-

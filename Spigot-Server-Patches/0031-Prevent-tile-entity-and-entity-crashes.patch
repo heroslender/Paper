@@ -1,11 +1,11 @@
-From a68057fa44ba44de92cdaf84ed4a047960c9e1bd Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Sun, 8 Mar 2015 04:37:23 -0500
 Subject: [PATCH] Prevent tile entity and entity crashes
 
 
 diff --git a/src/main/java/net/minecraft/server/TileEntity.java b/src/main/java/net/minecraft/server/TileEntity.java
-index c268a40..3fc6450 100644
+index c268a40556c8fe4df6e66a520381070c86504dab..3fc6450ab57b46215b4d24790bc882047cb60f31 100644
 --- a/src/main/java/net/minecraft/server/TileEntity.java
 +++ b/src/main/java/net/minecraft/server/TileEntity.java
 @@ -157,7 +157,12 @@ public abstract class TileEntity {
@@ -23,7 +23,7 @@ index c268a40..3fc6450 100644
                  public String a() throws Exception {
                      int i = Block.getId(TileEntity.this.world.getType(TileEntity.this.position).getBlock());
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index 46e39f2..c50536e 100644
+index 46e39f260d958ced8e142cb67a532c0253fa97e2..c50536ec52f68e2c18b361c033c4e648e4a6aeac 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -1418,10 +1418,13 @@ public abstract class World implements IBlockAccess {
@@ -64,6 +64,3 @@ index 46e39f2..c50536e 100644
                      }
                      // Spigot start
                      finally {
--- 
-2.6.1.windows.1
-

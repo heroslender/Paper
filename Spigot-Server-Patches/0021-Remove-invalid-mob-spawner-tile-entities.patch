@@ -1,11 +1,11 @@
-From 1f32bbad70c29f4636c376fa8dac5e579e3e4865 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Sun, 8 Mar 2015 22:55:25 -0600
 Subject: [PATCH] Remove invalid mob spawner tile entities
 
 
 diff --git a/src/main/java/net/minecraft/server/Chunk.java b/src/main/java/net/minecraft/server/Chunk.java
-index 022ba31..7242d45 100644
+index 022ba312da9c727acc14260d0aebd9dc69ece2de..7242d4560549c1dd5cf9fefe67755dd3fa996d9e 100644
 --- a/src/main/java/net/minecraft/server/Chunk.java
 +++ b/src/main/java/net/minecraft/server/Chunk.java
 @@ -784,6 +784,11 @@ public class Chunk {
@@ -21,7 +21,7 @@ index 022ba31..7242d45 100644
              System.out.println("Attempted to place a tile entity (" + tileentity + ") at " + tileentity.position.getX() + "," + tileentity.position.getY() + "," + tileentity.position.getZ()
                  + " (" + org.bukkit.craftbukkit.util.CraftMagicNumbers.getMaterial(getType(blockposition)) + ") where there was no entity tile!");
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 781cf75..af53220 100644
+index 781cf759d3ef0c99bfbfe17a8062a85f6b009f4b..af53220284b98b70a3f9935343c017b6c952504d 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -173,4 +173,11 @@ public class PaperSpigotWorldConfig
@@ -36,6 +36,3 @@ index 781cf75..af53220 100644
 +        log( "Remove invalid mob spawner tile entities: " + removeInvalidMobSpawnerTEs );
 +    }
  }
--- 
-2.7.0
-

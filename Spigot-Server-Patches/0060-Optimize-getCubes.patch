@@ -1,11 +1,11 @@
-From ad9631fe4ee824d1e2443306f6df0d782aea44cb Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Tue, 14 Jul 2015 10:03:45 -0700
 Subject: [PATCH] Optimize getCubes()
 
 
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index 64713bd..08041af 100644
+index 46a82293e8bd9777ae59645c547b43df00d2ce09..427a28df5fc1aff97932adc3ee5f19f18b5ad521 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -1166,11 +1166,12 @@ public abstract class World implements IBlockAccess {
@@ -40,6 +40,3 @@ index 64713bd..08041af 100644
          double d0 = 0.25D;
          List list = this.getEntities(entity, axisalignedbb.grow(d0, d0, d0));
  
--- 
-2.6.1.windows.1
-

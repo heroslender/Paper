@@ -1,4 +1,4 @@
-From 3cd83fe77b1f1c37592895e602d2c4588aa9cbdc Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joseph Hirschfeld <joe@ibj.io>
 Date: Sat, 20 Feb 2016 00:42:18 -0500
 Subject: [PATCH] Change implementation of (tile)entity removal list
@@ -7,7 +7,7 @@ As it stood, the complexity of a ArrayList.removeAll(ArrayList) is
 much greater as the argument array list grew than .removeAll(HashSet).
 
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index a76d83c..f0cd810 100644
+index a76d83c799045526e83db0bd5fa8fcaa9dc55a3c..f0cd8108119ef09cbdd5d922b30f2a9a220156a0 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -3,6 +3,7 @@ package net.minecraft.server;
@@ -60,6 +60,3 @@ index a76d83c..f0cd810 100644
  
          this.g.clear();
          timings.entityRemoval.stopTiming(); // Spigot
--- 
-2.7.1
-

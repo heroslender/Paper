@@ -1,11 +1,11 @@
-From 1ada1bf4361c4a6312d2228ad5fa62ade8d0d91e Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <zach.brown@destroystokyo.com>
 Date: Thu, 28 May 2015 00:00:29 -0500
 Subject: [PATCH] Stop using spigot's website for timings
 
 
 diff --git a/src/main/java/org/bukkit/command/defaults/TimingsCommand.java b/src/main/java/org/bukkit/command/defaults/TimingsCommand.java
-index fc59aa3..9782a3b 100644
+index fc59aa3a9adaac1e2ac7a7f59562bc16ddb67c88..9782a3bb91ed38f2646f1b857ae0c9527ad6d23c 100644
 --- a/src/main/java/org/bukkit/command/defaults/TimingsCommand.java
 +++ b/src/main/java/org/bukkit/command/defaults/TimingsCommand.java
 @@ -94,7 +94,7 @@ public class TimingsCommand extends BukkitCommand {
@@ -26,6 +26,3 @@ index fc59aa3..9782a3b 100644
              } catch ( IOException ex )
              {
                  sender.sendMessage( ChatColor.RED + "Error pasting timings, check your console for more information" );
--- 
-2.4.1.windows.1
-

@@ -1,11 +1,11 @@
-From 09b55d7828f2499a4179e60f0be9dbb6b7888ba8 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Nik Gil <nikmanG@users.noreply.github.com>
 Date: Mon, 1 Feb 2016 23:36:31 -0700
 Subject: [PATCH] Made EntityDismountEvent Cancellable
 
 
 diff --git a/src/main/java/org/spigotmc/event/entity/EntityDismountEvent.java b/src/main/java/org/spigotmc/event/entity/EntityDismountEvent.java
-index 24d4942..b35c7c1 100644
+index 24d4942a95b3f26652efa40b74dd14e4d18849a0..b35c7c18898aec37fc4a52eb23eb635e27b0f13a 100644
 --- a/src/main/java/org/spigotmc/event/entity/EntityDismountEvent.java
 +++ b/src/main/java/org/spigotmc/event/entity/EntityDismountEvent.java
 @@ -4,11 +4,15 @@ import org.bukkit.entity.Entity;
@@ -42,6 +42,3 @@ index 24d4942..b35c7c1 100644
 +    }
 +    // PaperSpigot end
  }
--- 
-2.7.0
-

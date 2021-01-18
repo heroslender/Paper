@@ -1,11 +1,11 @@
-From 5fefb8fed5df6e1200c3119a6fbce019cf19e720 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Joseph Hirschfeld <joe@ibj.io>
 Date: Sat, 20 Feb 2016 23:38:24 -0500
 Subject: [PATCH] Add configurable portal search radius
 
 
 diff --git a/src/main/java/net/minecraft/server/PortalTravelAgent.java b/src/main/java/net/minecraft/server/PortalTravelAgent.java
-index 729cb96..72f3735 100644
+index 729cb96b102b75fdb083ca89a56dc4c41a1123f8..72f3735b196cbd7d420c6338eb7aba01b40c7804 100644
 --- a/src/main/java/net/minecraft/server/PortalTravelAgent.java
 +++ b/src/main/java/net/minecraft/server/PortalTravelAgent.java
 @@ -109,7 +109,7 @@ public class PortalTravelAgent {
@@ -31,7 +31,7 @@ index 729cb96..72f3735 100644
                          blockposition1 = blockposition2.down();
                          if (this.a.getType(blockposition2).getBlock() == Blocks.PORTAL) {
 diff --git a/src/main/java/net/minecraft/server/WorldServer.java b/src/main/java/net/minecraft/server/WorldServer.java
-index 3a2ca89..8752955 100644
+index 3a2ca89c3866d3f4c299b99d0637ce60a9d1f94f..87529552aa27fc89a542130a27a6b2bfdda44ccd 100644
 --- a/src/main/java/net/minecraft/server/WorldServer.java
 +++ b/src/main/java/net/minecraft/server/WorldServer.java
 @@ -65,7 +65,7 @@ public class WorldServer extends World implements IAsyncTaskHandler {
@@ -44,7 +44,7 @@ index 3a2ca89..8752955 100644
          this.C();
          this.getWorldBorder().a(minecraftserver.aI());
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index c3c374d..6ad8e81 100644
+index c3c374dfc9720daeae0813e967e682a6844fef19..6ad8e817dc345d34c63bed5b72b8c4061d8ff252 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -396,4 +396,10 @@ public class PaperSpigotWorldConfig
@@ -58,6 +58,3 @@ index c3c374d..6ad8e81 100644
 +        portalSearchRadius = getInt("portal-search-radius", 128);
 +    }
  }
--- 
-2.5.0
-

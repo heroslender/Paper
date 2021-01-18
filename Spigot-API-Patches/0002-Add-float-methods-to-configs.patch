@@ -1,11 +1,11 @@
-From 5db35d30b2c5deb83eae1e6b2f9f9e60dba9a31e Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <Zbob750@live.com>
 Date: Mon, 19 May 2014 22:51:45 -0500
 Subject: [PATCH] Add float methods to configs
 
 
 diff --git a/src/main/java/org/bukkit/configuration/ConfigurationSection.java b/src/main/java/org/bukkit/configuration/ConfigurationSection.java
-index 1bd7fb5..9afc1dc 100644
+index 1bd7fb51c2e22b51b4f413ff1cd470ab9fe9dcb3..9afc1dc71c6f47d4e085afed1b48d1ac4cb96ac3 100644
 --- a/src/main/java/org/bukkit/configuration/ConfigurationSection.java
 +++ b/src/main/java/org/bukkit/configuration/ConfigurationSection.java
 @@ -355,6 +355,48 @@ public interface ConfigurationSection {
@@ -58,7 +58,7 @@ index 1bd7fb5..9afc1dc 100644
       * Gets the requested long by path.
       * <p>
 diff --git a/src/main/java/org/bukkit/configuration/MemorySection.java b/src/main/java/org/bukkit/configuration/MemorySection.java
-index f180bf5..0e2b26a 100644
+index f180bf5f76b44df58f00728f388df0b74b3c4cd7..0e2b26a9a82f98bbfd0a9a847ccb4a8c3e45498f 100644
 --- a/src/main/java/org/bukkit/configuration/MemorySection.java
 +++ b/src/main/java/org/bukkit/configuration/MemorySection.java
 @@ -336,6 +336,23 @@ public class MemorySection implements ConfigurationSection {
@@ -85,6 +85,3 @@ index f180bf5..0e2b26a 100644
      public long getLong(String path) {
          Object def = getDefault(path);
          return getLong(path, (def instanceof Number) ? toLong(def) : 0);
--- 
-1.9.1
-

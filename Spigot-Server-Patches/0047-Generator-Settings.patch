@@ -1,11 +1,11 @@
-From d4c583643d602b2740c1c919eceeb624997b69a2 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Tue, 2 Jun 2015 00:41:23 -0700
 Subject: [PATCH] Generator Settings
 
 
 diff --git a/src/main/java/net/minecraft/server/BiomeBase.java b/src/main/java/net/minecraft/server/BiomeBase.java
-index b1ae67a..28da136 100644
+index b1ae67ac68277a491bef2ceb719339adb8d76236..28da1365a7e9d12288448d09e577520547bc7e89 100644
 --- a/src/main/java/net/minecraft/server/BiomeBase.java
 +++ b/src/main/java/net/minecraft/server/BiomeBase.java
 @@ -278,7 +278,7 @@ public abstract class BiomeBase {
@@ -18,7 +18,7 @@ index b1ae67a..28da136 100644
              } else {
                  IBlockData iblockdata2 = chunksnapshot.a(k1, l1, j1);
 diff --git a/src/main/java/net/minecraft/server/BiomeMesa.java b/src/main/java/net/minecraft/server/BiomeMesa.java
-index fd827f2..65cd706 100644
+index fd827f2d1038c8e50a526b03660e0604f6412b09..65cd706acabc943b53f6e5d835d63ba3b52a316c 100644
 --- a/src/main/java/net/minecraft/server/BiomeMesa.java
 +++ b/src/main/java/net/minecraft/server/BiomeMesa.java
 @@ -94,7 +94,7 @@ public class BiomeMesa extends BiomeBase {
@@ -31,7 +31,7 @@ index fd827f2..65cd706 100644
              } else {
                  IBlockData iblockdata2 = chunksnapshot.a(l, l1, k);
 diff --git a/src/main/java/net/minecraft/server/ChunkProviderFlat.java b/src/main/java/net/minecraft/server/ChunkProviderFlat.java
-index d1e10c6..b939f47 100644
+index d1e10c6e9fbd04ef5276437ca993214041b142ff..b939f47ac0c02875474b5034d4485b781981ab44 100644
 --- a/src/main/java/net/minecraft/server/ChunkProviderFlat.java
 +++ b/src/main/java/net/minecraft/server/ChunkProviderFlat.java
 @@ -25,7 +25,7 @@ public class ChunkProviderFlat implements IChunkProvider {
@@ -77,7 +77,7 @@ index d1e10c6..b939f47 100644
          int k = 0;
          boolean flag1 = true;
 diff --git a/src/main/java/net/minecraft/server/ChunkProviderGenerate.java b/src/main/java/net/minecraft/server/ChunkProviderGenerate.java
-index e0be3c1..ad464d3 100644
+index e0be3c122d0ad2a8d3fc87bd8f85527ca35e67c9..ad464d32d94763871027398ac27a71b9209267e5 100644
 --- a/src/main/java/net/minecraft/server/ChunkProviderGenerate.java
 +++ b/src/main/java/net/minecraft/server/ChunkProviderGenerate.java
 @@ -156,31 +156,31 @@ public class ChunkProviderGenerate implements IChunkProvider {
@@ -187,7 +187,7 @@ index e0be3c1..ad464d3 100644
          }
  
 diff --git a/src/main/java/net/minecraft/server/ChunkProviderHell.java b/src/main/java/net/minecraft/server/ChunkProviderHell.java
-index 2f01bbf..0156892 100644
+index 2f01bbf53e8dcdbc243e9aa10c42f9b0ecdea406..0156892a88e5bd7ce16d73e05c55907a330f3a73 100644
 --- a/src/main/java/net/minecraft/server/ChunkProviderHell.java
 +++ b/src/main/java/net/minecraft/server/ChunkProviderHell.java
 @@ -142,7 +142,10 @@ public class ChunkProviderHell implements IChunkProvider {
@@ -223,7 +223,7 @@ index 2f01bbf..0156892 100644
  
      public Chunk getChunkAt(BlockPosition blockposition) {
 diff --git a/src/main/java/net/minecraft/server/StructureGenerator.java b/src/main/java/net/minecraft/server/StructureGenerator.java
-index 0f8211a..e76acfc 100644
+index 0f8211af6ada6a3d477ea794503ebcb160a8a92a..e76acfc4f39287f8f3078ce1b2516d4ca8fc4c6c 100644
 --- a/src/main/java/net/minecraft/server/StructureGenerator.java
 +++ b/src/main/java/net/minecraft/server/StructureGenerator.java
 @@ -88,6 +88,7 @@ public abstract class StructureGenerator extends WorldGenBase {
@@ -243,7 +243,7 @@ index 0f8211a..e76acfc 100644
          Iterator iterator = this.e.values().iterator();
  
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 65e0f12..cffb5f0 100644
+index 65e0f1269f73a6ac7770516f8cf87ccaf232e6b7..cffb5f01d66e23598da7a0c0563eeb4e0f4edb9a 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -237,4 +237,28 @@ public class PaperSpigotWorldConfig
@@ -275,6 +275,3 @@ index 65e0f12..cffb5f0 100644
 +        generateFlatBedrock = getBoolean( "generator-settings.flat-bedrock", false );
 +    }
  }
--- 
-2.7.0
-

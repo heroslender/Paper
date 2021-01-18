@@ -9,13 +9,7 @@ function cleanupPatches {
     cd "$1"
     for patch in *.patch; do
         echo "$patch"
-        gitver=$(tail -n 2 $patch | grep -ve "^$" | tail -n 1)
-        diffs=$(git diff --staged $patch | grep -E "^(\+|\-)" | grep -Ev "(From [a-z0-9]{32,}|\-\-\- a|\+\+\+ b|.index)")
-
-        testver=$(echo "$diffs" | tail -n 2 | grep -ve "^$" | tail -n 1 | grep "$gitver")
-        if [ "x$testver" != "x" ]; then
-            diffs=$(echo "$diffs" | sed 'N;$!P;$!D;$d')
-        fi
+        diffs=$(  git diff --staged "$patch" | grep --color=none -E "^(\+|\-)" | grep --color=none -Ev "(\-\-\- a|\+\+\+ b|^.index)")
 
         if [ "x$diffs" == "x" ] ; then
             git reset HEAD $patch >/dev/null
@@ -28,9 +22,12 @@ function savePatches {
     what=$1
     target=$2
     echo "Formatting patches for $what..."
+
     cd "$basedir/$target"
     rm -rf "$basedir/${what}-Patches/"
-    git format-patch --no-stat -N -o "$basedir/${what}-Patches/" upstream/upstream >/dev/null
+
+    git format-patch --zero-commit --full-index --no-signature --no-stat -N -o "$basedir/${what}-Patches/" upstream/upstream >/dev/null
+
     cd "$basedir"
     git add -A "$basedir/${what}-Patches"
     cleanupPatches "$basedir/${what}-Patches"

@@ -1,11 +1,11 @@
-From 3688509ebd26b57e70a5d28caa24be2d44e3f387 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Dmck2b <itallhappenedverysuddenly@gmail.com>
 Date: Sat, 7 Mar 2015 21:50:40 -0600
 Subject: [PATCH] Allow for toggling of spawn chunks
 
 
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index af60059..03eb5f2 100644
+index d184f8a4c947faceca38288672de2942a46a37dd..9938f9e0743f4dfa05f0b3cb01998df3f647a079 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -230,6 +230,7 @@ public abstract class World implements IBlockAccess {
@@ -17,7 +17,7 @@ index af60059..03eb5f2 100644
          this.entityLimiter = new org.spigotmc.TickLimiter(spigotConfig.entityMaxTickTime);
          this.tileLimiter = new org.spigotmc.TickLimiter(spigotConfig.tileMaxTickTime);
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 1164186..b7703a0 100644
+index 1164186c2e10f932a2cdf7b965bdaaa88331271a..b7703a025ebac705aa76c04ac237f38728489165 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -139,4 +139,11 @@ public class PaperSpigotWorldConfig
@@ -32,6 +32,3 @@ index 1164186..b7703a0 100644
 +        log( "Keep spawn chunk loaded: " + keepSpawnInMemory );
 +    }
  }
--- 
-2.5.1
-

@@ -1,11 +1,11 @@
-From 9e315343a720a550c61568b70657ad2076501022 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <zach.brown@destroystokyo.com>
 Date: Thu, 19 Mar 2015 19:41:15 -0500
 Subject: [PATCH] POM Changes
 
 
 diff --git a/pom.xml b/pom.xml
-index 91627ff..fd051da 100644
+index 91627ff0c4a127320768fc5b288d9541cacfdff8..fd051da01efd5780982174171277ad2ab66d31d9 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -1,12 +1,12 @@
@@ -129,10 +129,11 @@ index 91627ff..fd051da 100644
                              <Implementation-Vendor>Bukkit Team</Implementation-Vendor>
                              <Specification-Title>Bukkit</Specification-Title>
                              <Specification-Version>${api.version}</Specification-Version>
-@@ -172,26 +164,6 @@
+@@ -171,26 +163,6 @@
+                     </archive>
                  </configuration>
              </plugin>
-             <plugin>
+-            <plugin>
 -                <groupId>org.codehaus.mojo</groupId>
 -                <artifactId>animal-sniffer-maven-plugin</artifactId>
 -                <version>1.13</version>
@@ -152,12 +153,11 @@ index 91627ff..fd051da 100644
 -                    </signature>
 -                </configuration>
 -            </plugin>
--            <plugin>
+             <plugin>
                  <groupId>org.apache.maven.plugins</groupId>
                  <artifactId>maven-shade-plugin</artifactId>
-                 <version>2.3</version>
 diff --git a/src/main/java/net/minecraft/server/PathfinderGoalNearestAttackableTarget.java b/src/main/java/net/minecraft/server/PathfinderGoalNearestAttackableTarget.java
-index c110e0c..5540dde 100644
+index c110e0c2b960fe0301f634d14bef7aa4cb42cf1a..5540dde51885bc7579f2f86808ac1663c3c6874d 100644
 --- a/src/main/java/net/minecraft/server/PathfinderGoalNearestAttackableTarget.java
 +++ b/src/main/java/net/minecraft/server/PathfinderGoalNearestAttackableTarget.java
 @@ -11,7 +11,7 @@ public class PathfinderGoalNearestAttackableTarget<T extends EntityLiving> exten
@@ -170,7 +170,7 @@ index c110e0c..5540dde 100644
  
      public PathfinderGoalNearestAttackableTarget(EntityCreature entitycreature, Class<T> oclass, boolean flag) {
 diff --git a/src/main/java/org/bukkit/craftbukkit/util/Versioning.java b/src/main/java/org/bukkit/craftbukkit/util/Versioning.java
-index 9304637..3a4b142 100644
+index 93046379d0cefd5d3236fc59e698809acdc18f80..3a4b14246bb99b989a4685242ccedd0030e481aa 100644
 --- a/src/main/java/org/bukkit/craftbukkit/util/Versioning.java
 +++ b/src/main/java/org/bukkit/craftbukkit/util/Versioning.java
 @@ -11,7 +11,7 @@ public final class Versioning {
@@ -182,6 +182,3 @@ index 9304637..3a4b142 100644
          Properties properties = new Properties();
  
          if (stream != null) {
--- 
-2.7.1
-

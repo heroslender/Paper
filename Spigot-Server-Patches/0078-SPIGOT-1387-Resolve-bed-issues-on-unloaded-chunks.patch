@@ -1,11 +1,11 @@
-From a18b77ffab781c98e48ceea4c21cf68acab350ee Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: chickeneer <emcchickeneer@gmail.com>
 Date: Mon, 4 Jan 2016 00:19:32 -0600
 Subject: [PATCH] SPIGOT-1387: Resolve bed issues on unloaded chunks
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityHuman.java b/src/main/java/net/minecraft/server/EntityHuman.java
-index cc1e33c..0ad4edb 100644
+index cc1e33c75abf33da195f1be4c02af98b16467f37..0ad4edb8390f396d935d321caf67af0f209d5420 100644
 --- a/src/main/java/net/minecraft/server/EntityHuman.java
 +++ b/src/main/java/net/minecraft/server/EntityHuman.java
 @@ -1271,7 +1271,17 @@ public abstract class EntityHuman extends EntityLiving {
@@ -26,6 +26,3 @@ index cc1e33c..0ad4edb 100644
          ((ChunkProviderServer) world.chunkProvider).getChunkAt(blockposition.getX() >> 4, blockposition.getZ() >> 4); // CraftBukkit
          Block block = world.getType(blockposition).getBlock();
  
--- 
-2.7.0.windows.2
-

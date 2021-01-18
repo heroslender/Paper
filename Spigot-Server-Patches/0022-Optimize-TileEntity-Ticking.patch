@@ -1,11 +1,11 @@
-From 107454d78a44a4dd3d04fc0f68cce6b476ae6274 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Sun, 8 Mar 2015 22:55:25 -0600
 Subject: [PATCH] Optimize TileEntity Ticking
 
 
 diff --git a/src/main/java/net/minecraft/server/TileEntityChest.java b/src/main/java/net/minecraft/server/TileEntityChest.java
-index 5eb55e5..5192d95 100644
+index 5eb55e578f33f288083efb19e5666dfeb989496d..5192d959b3e0f655e8fbfe6da09ef04194371326 100644
 --- a/src/main/java/net/minecraft/server/TileEntityChest.java
 +++ b/src/main/java/net/minecraft/server/TileEntityChest.java
 @@ -8,17 +8,17 @@ import org.bukkit.craftbukkit.entity.CraftHumanEntity;
@@ -116,7 +116,7 @@ index 5eb55e5..5192d95 100644
  
              // CraftBukkit start - Call redstone event
 diff --git a/src/main/java/net/minecraft/server/TileEntityEnderChest.java b/src/main/java/net/minecraft/server/TileEntityEnderChest.java
-index 794cdc8..00fceda 100644
+index 794cdc809d4ddfbba45f3890a77ccaf2caf29aee..00fceda84bd7e3fd95b60182c8e8b73bbf5131f4 100644
 --- a/src/main/java/net/minecraft/server/TileEntityEnderChest.java
 +++ b/src/main/java/net/minecraft/server/TileEntityEnderChest.java
 @@ -1,15 +1,17 @@
@@ -186,7 +186,7 @@ index 794cdc8..00fceda 100644
      }
  
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index acfceb8..4b642ba 100644
+index acfceb8aa765f54ac1a7a8685796fe2cc3043d19..4b642ba5b4f4418f95b3d462908d7d62a9353664 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -52,7 +52,7 @@ public abstract class World implements IBlockAccess {
@@ -243,6 +243,3 @@ index acfceb8..4b642ba 100644
                  this.tileEntityList.remove(tileentity);
              }
  
--- 
-2.6.1.windows.1
-

@@ -1,11 +1,11 @@
-From dc74220050b2649edcd76d58e5becfe9f8280d9d Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <zach.brown@destroystokyo.com>
 Date: Tue, 29 Mar 2016 23:20:10 -0500
 Subject: [PATCH] PaperMC/Paper/GH-166
 
 
 diff --git a/src/main/java/net/minecraft/server/PacketDataSerializer.java b/src/main/java/net/minecraft/server/PacketDataSerializer.java
-index f426c2e..e2eb305 100644
+index f426c2e11e86b2977fb4de69845e38b35334afea..e2eb305468ff76026dc9b24d59394cfc94501273 100644
 --- a/src/main/java/net/minecraft/server/PacketDataSerializer.java
 +++ b/src/main/java/net/minecraft/server/PacketDataSerializer.java
 @@ -46,8 +46,16 @@ public class PacketDataSerializer extends ByteBuf {
@@ -27,7 +27,7 @@ index f426c2e..e2eb305 100644
          this.readBytes(abyte);
          return abyte;
 diff --git a/src/main/java/net/minecraft/server/PacketLoginInEncryptionBegin.java b/src/main/java/net/minecraft/server/PacketLoginInEncryptionBegin.java
-index 1d2e855..da9d4d8 100644
+index 1d2e8556d6d3a38f2eb0e5fdea882a84abc4bd70..da9d4d84a9e7659ceca37987e5fff8245e226032 100644
 --- a/src/main/java/net/minecraft/server/PacketLoginInEncryptionBegin.java
 +++ b/src/main/java/net/minecraft/server/PacketLoginInEncryptionBegin.java
 @@ -12,8 +12,10 @@ public class PacketLoginInEncryptionBegin implements Packet<PacketLoginInListene
@@ -43,6 +43,3 @@ index 1d2e855..da9d4d8 100644
      }
  
      public void b(PacketDataSerializer packetdataserializer) throws IOException {
--- 
-2.7.4
-

@@ -1,4 +1,4 @@
-From eb89a2994624f064ca2508434247629e746a8dd4 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Isaac Moore <rmsy@me.com>
 Date: Mon, 27 Apr 2015 21:41:39 -0500
 Subject: [PATCH] Add PlayerLocaleChangeEvent
@@ -6,7 +6,7 @@ Subject: [PATCH] Add PlayerLocaleChangeEvent
 
 diff --git a/src/main/java/org/bukkit/event/player/PlayerLocaleChangeEvent.java b/src/main/java/org/bukkit/event/player/PlayerLocaleChangeEvent.java
 new file mode 100644
-index 0000000..3efd159
+index 0000000000000000000000000000000000000000..3efd15972e79afebce3d30a24b7dabdf8b963d7c
 --- /dev/null
 +++ b/src/main/java/org/bukkit/event/player/PlayerLocaleChangeEvent.java
 @@ -0,0 +1,46 @@
@@ -57,6 +57,3 @@ index 0000000..3efd159
 +    }
 +}
 \ No newline at end of file
--- 
-1.9.1
-

@@ -1,11 +1,11 @@
-From d7b725f84544da3633918ede5a0d708504bb80c8 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Sudzzy <originmc@outlook.com>
 Date: Tue, 14 Jul 2015 09:30:28 -0700
 Subject: [PATCH] Disable mood sounds
 
 
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index 68cb798..64713bd 100644
+index c1d0e5179a9c72747c7a2c7bf123d85e0079a570..46a82293e8bd9777ae59645c547b43df00d2ce09 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -2248,7 +2248,7 @@ public abstract class World implements IBlockAccess {
@@ -18,7 +18,7 @@ index 68cb798..64713bd 100644
              int k = this.m >> 2;
              int l = k & 15;
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index da5030a..469b620 100644
+index da5030ae5c5355e0ebf368941924f3b157130f88..469b620079af1978baf662ef4266c29c02ddd27b 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -346,4 +346,10 @@ public class PaperSpigotWorldConfig
@@ -32,6 +32,3 @@ index da5030a..469b620 100644
 +        disableMoodSounds = getBoolean( "disable-mood-sounds", false );
 +    }
  }
--- 
-2.7.0
-

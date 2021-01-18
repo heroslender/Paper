@@ -1,11 +1,11 @@
-From 915587ce38bd3ddc6843111678206ccc2bce8e25 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Iceee <andrew@opticgaming.tv>
 Date: Wed, 15 Jul 2015 02:41:12 -0700
 Subject: [PATCH] ChunkMap caching
 
 
 diff --git a/src/main/java/net/minecraft/server/Chunk.java b/src/main/java/net/minecraft/server/Chunk.java
-index 5a3b22a..7efacfa 100644
+index 5a3b22a3162a830ab82dd071ac0c8ed3e50ad3a0..7efacfac3bbf14d837710d538fc1f0e6ef114ed1 100644
 --- a/src/main/java/net/minecraft/server/Chunk.java
 +++ b/src/main/java/net/minecraft/server/Chunk.java
 @@ -50,6 +50,49 @@ public class Chunk {
@@ -59,7 +59,7 @@ index 5a3b22a..7efacfa 100644
      private int neighbors = 0x1 << 12;
  
 diff --git a/src/main/java/net/minecraft/server/ChunkSection.java b/src/main/java/net/minecraft/server/ChunkSection.java
-index f734ab0..907c57b 100644
+index f734ab05b125aaeabd0d992296dad1778025146e..907c57b8cc6eba92597e5c2819bc972b05fd366b 100644
 --- a/src/main/java/net/minecraft/server/ChunkSection.java
 +++ b/src/main/java/net/minecraft/server/ChunkSection.java
 @@ -8,6 +8,7 @@ public class ChunkSection {
@@ -95,7 +95,7 @@ index f734ab0..907c57b 100644
  
      public int e(int i, int j, int k) {
 diff --git a/src/main/java/net/minecraft/server/PacketPlayOutMapChunk.java b/src/main/java/net/minecraft/server/PacketPlayOutMapChunk.java
-index 58c0275..a0021fb 100644
+index 58c0275f43f46ff3fbe5382f1caa91f7d1bb3bb1..a0021fb96bac484f69e9d7c5c935c034d56358f9 100644
 --- a/src/main/java/net/minecraft/server/PacketPlayOutMapChunk.java
 +++ b/src/main/java/net/minecraft/server/PacketPlayOutMapChunk.java
 @@ -18,7 +18,7 @@ public class PacketPlayOutMapChunk implements Packet<PacketListenerPlayOut> {
@@ -108,7 +108,7 @@ index 58c0275..a0021fb 100644
      }
  
 diff --git a/src/main/java/net/minecraft/server/PacketPlayOutMapChunkBulk.java b/src/main/java/net/minecraft/server/PacketPlayOutMapChunkBulk.java
-index 10c0e34..00c0538 100644
+index 10c0e34a0636847bc3c186885ddc414b05adf713..00c05385066dc2dafad5fd2fc891295cd65bc2df 100644
 --- a/src/main/java/net/minecraft/server/PacketPlayOutMapChunkBulk.java
 +++ b/src/main/java/net/minecraft/server/PacketPlayOutMapChunkBulk.java
 @@ -23,7 +23,7 @@ public class PacketPlayOutMapChunkBulk implements Packet<PacketListenerPlayOut>
@@ -121,7 +121,7 @@ index 10c0e34..00c0538 100644
              this.a[j] = chunk.locX;
              this.b[j] = chunk.locZ;
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 8247aef..54f432d 100644
+index 8247aef474899cc147ddcb0f9468b5cd6add4ead..54f432d50785403364bfed255a77bd52df690216 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -358,4 +358,10 @@ public class PaperSpigotWorldConfig
@@ -135,6 +135,3 @@ index 8247aef..54f432d 100644
 +        cacheChunkMaps = getBoolean( "cache-chunk-maps", false );
 +    }
  }
--- 
-2.7.0
-

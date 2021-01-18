@@ -1,11 +1,11 @@
-From 6a96486151df3e2561efe99e284926b68531aef0 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Sun, 30 Nov 2014 18:58:07 -0600
 Subject: [PATCH] Allow specified ItemStacks to retain their invalid data
 
 
 diff --git a/src/main/java/net/minecraft/server/ItemStack.java b/src/main/java/net/minecraft/server/ItemStack.java
-index 5496805..015ce28 100644
+index 5496805a526876065d890a919a1ef72c4a795532..015ce283495dc57c8a9dc018ad36a04ebfd637d0 100644
 --- a/src/main/java/net/minecraft/server/ItemStack.java
 +++ b/src/main/java/net/minecraft/server/ItemStack.java
 @@ -18,6 +18,8 @@ import org.bukkit.entity.Player;
@@ -34,7 +34,7 @@ index 5496805..015ce28 100644
              }
          }
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
-index 5df90f9..744773d 100644
+index 884b30ad4473895a967a36a93a8b8472eef9ff72..778db7e3d87054e2279b0c3fb289ea38be9ddc9d 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 @@ -6,11 +6,10 @@ import java.io.IOException;
@@ -63,6 +63,3 @@ index 5df90f9..744773d 100644
 +        Bukkit.getLogger().info( "Data value allowed items: " + StringUtils.join(dataValueAllowedItems, ", ") );
 +    }
  }
--- 
-2.5.2
-

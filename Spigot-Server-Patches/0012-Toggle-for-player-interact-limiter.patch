@@ -1,11 +1,11 @@
-From 0c1371c36a93de12180683ee8c33bb9fb8d61cec Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Zach Brown <zach.brown@destroystokyo.com>
 Date: Sat, 7 Mar 2015 21:07:10 -0600
 Subject: [PATCH] Toggle for player interact limiter
 
 
 diff --git a/src/main/java/net/minecraft/server/PlayerConnection.java b/src/main/java/net/minecraft/server/PlayerConnection.java
-index 68358e9..7ea74c0 100644
+index 5740e49219c8d96c5e28b877bc8ebf50afeba0a0..4d5ef49de00e05ce9dac977e937c3e4a4951d0cc 100644
 --- a/src/main/java/net/minecraft/server/PlayerConnection.java
 +++ b/src/main/java/net/minecraft/server/PlayerConnection.java
 @@ -661,7 +661,8 @@ public class PlayerConnection implements PacketListenerPlayIn, IUpdatePlayerList
@@ -19,7 +19,7 @@ index 68358e9..7ea74c0 100644
          } else if ( packetplayinblockplace.timestamp - lastPlace >= 30 || lastPlace == -1 )
          {
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
-index 85ee51b..b0dd5b0 100644
+index 4daf77efcffbfa2ead6974fa67139a9d58f3a748..770e0f8b432d2b3cd608cb3019f0be52825e0a35 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotConfig.java
 @@ -144,4 +144,14 @@ public class PaperSpigotConfig
@@ -37,6 +37,3 @@ index 85ee51b..b0dd5b0 100644
 +        }
 +    }
  }
--- 
-2.5.1
-

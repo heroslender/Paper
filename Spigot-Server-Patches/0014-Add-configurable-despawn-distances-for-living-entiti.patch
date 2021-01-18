@@ -1,11 +1,11 @@
-From 38ac29dbbda20d4ba78b51249c311026d597a50d Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Suddenly <suddenly@suddenly.coffee>
 Date: Sat, 7 Mar 2015 21:40:48 -0600
 Subject: [PATCH] Add configurable despawn distances for living entities
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityInsentient.java b/src/main/java/net/minecraft/server/EntityInsentient.java
-index aa38fe6..2d4d34c 100644
+index aa38fe667fe6a350af95c7ad935196dd6e9bd56c..2d4d34c882da3f785711731ffbcbcccb9c136b99 100644
 --- a/src/main/java/net/minecraft/server/EntityInsentient.java
 +++ b/src/main/java/net/minecraft/server/EntityInsentient.java
 @@ -439,13 +439,13 @@ public abstract class EntityInsentient extends EntityLiving {
@@ -26,7 +26,7 @@ index aa38fe6..2d4d34c 100644
                  }
              }
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 23a2a96..1164186 100644
+index 23a2a967f016dc599626d47da08ac371332f0dd8..1164186c2e10f932a2cdf7b965bdaaa88331271a 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -122,4 +122,21 @@ public class PaperSpigotWorldConfig
@@ -51,6 +51,3 @@ index 23a2a96..1164186 100644
 +        hardDespawnDistance = hardDespawnDistance*hardDespawnDistance;
 +    }
  }
--- 
-2.5.1
-

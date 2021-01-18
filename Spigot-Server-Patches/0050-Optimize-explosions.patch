@@ -1,4 +1,4 @@
-From d5ef4de366d7f65280dd0466a92f71a09b1120fd Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Tue, 16 Jun 2015 00:43:17 -0700
 Subject: [PATCH] Optimize explosions
@@ -10,7 +10,7 @@ This patch adds a per-tick cache that is used for storing and retrieving
 an entity's exposure during an explosion.
 
 diff --git a/src/main/java/net/minecraft/server/Explosion.java b/src/main/java/net/minecraft/server/Explosion.java
-index 0e8af2e..f6067ce 100644
+index 0e8af2e10af9bbfaf9a3b5634a2f15d5b229befe..f6067ce28eee83e8b51c542f43cac3c9fb6079a1 100644
 --- a/src/main/java/net/minecraft/server/Explosion.java
 +++ b/src/main/java/net/minecraft/server/Explosion.java
 @@ -129,7 +129,7 @@ public class Explosion {
@@ -110,7 +110,7 @@ index 0e8af2e..f6067ce 100644
 +    // PaperSpigot end
  }
 diff --git a/src/main/java/net/minecraft/server/MinecraftServer.java b/src/main/java/net/minecraft/server/MinecraftServer.java
-index 06ae3fc..eac71e8 100644
+index 06ae3fc1a87fb0f7062ddef90f82114eac9ecee7..eac71e82d80acc1f95fcf0f1263189b01af63a55 100644
 --- a/src/main/java/net/minecraft/server/MinecraftServer.java
 +++ b/src/main/java/net/minecraft/server/MinecraftServer.java
 @@ -861,6 +861,7 @@ public abstract class MinecraftServer implements Runnable, ICommandListener, IAs
@@ -122,7 +122,7 @@ index 06ae3fc..eac71e8 100644
  
              // this.i[i][this.ticks % 100] = System.nanoTime() - j; // CraftBukkit
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index 7660356..68cb798 100644
+index b90de8c9676e12830a29c571671b567edcb86840..c1d0e5179a9c72747c7a2c7bf123d85e0079a570 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -135,6 +135,7 @@ public abstract class World implements IBlockAccess {
@@ -134,7 +134,7 @@ index 7660356..68cb798 100644
      public static long chunkToKey(int x, int z)
      {
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index ef59074..e42b574 100644
+index ef590747e2dfeab64fc7f28fafb044050b59135a..e42b574f67d976a2892b7ba379d95037e857f7c6 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -306,4 +306,10 @@ public class PaperSpigotWorldConfig
@@ -148,6 +148,3 @@ index ef59074..e42b574 100644
 +        optimizeExplosions = getBoolean( "optimize-explosions", false );
 +    }
  }
--- 
-2.7.0
-

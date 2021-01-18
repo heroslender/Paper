@@ -1,4 +1,4 @@
-From 301c9572f887f801b027e43cfc4121e4fd520828 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Thinkofdeath <thinkofdeath@spigotmc.org>
 Date: Mon, 15 Feb 2016 23:16:00 -0600
 Subject: [PATCH] Fix FurnaceMinecarts losing all of their velocity on certain
@@ -6,7 +6,7 @@ Subject: [PATCH] Fix FurnaceMinecarts losing all of their velocity on certain
 
 
 diff --git a/src/main/java/net/minecraft/server/EntityMinecartFurnace.java b/src/main/java/net/minecraft/server/EntityMinecartFurnace.java
-index 55f04b4..908620d 100644
+index 55f04b4745cb29f4bc326c6955e4dba5fbdce57b..908620d41116f7d0474b11ec823acf8222bebe80 100644
 --- a/src/main/java/net/minecraft/server/EntityMinecartFurnace.java
 +++ b/src/main/java/net/minecraft/server/EntityMinecartFurnace.java
 @@ -58,17 +58,12 @@ public class EntityMinecartFurnace extends EntityMinecartAbstract {
@@ -33,6 +33,3 @@ index 55f04b4..908620d 100644
          }
  
      }
--- 
-2.7.1
-

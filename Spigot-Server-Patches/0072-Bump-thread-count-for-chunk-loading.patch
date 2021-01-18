@@ -1,11 +1,11 @@
-From c128310e73948cd22b1912eff4f5fc234427a681 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Sun, 15 Nov 2015 19:36:37 -0600
 Subject: [PATCH] Bump thread count for chunk loading
 
 
 diff --git a/src/main/java/org/bukkit/craftbukkit/chunkio/ChunkIOExecutor.java b/src/main/java/org/bukkit/craftbukkit/chunkio/ChunkIOExecutor.java
-index e4fd9bc..69e5da4 100644
+index e4fd9bc6044ebb782424ffff3a29019009b32ff3..69e5da4c65da46ad9d1456266cd4ad15b136f6e4 100644
 --- a/src/main/java/org/bukkit/craftbukkit/chunkio/ChunkIOExecutor.java
 +++ b/src/main/java/org/bukkit/craftbukkit/chunkio/ChunkIOExecutor.java
 @@ -7,7 +7,7 @@ import net.minecraft.server.World;
@@ -17,6 +17,3 @@ index e4fd9bc..69e5da4 100644
      static final int PLAYERS_PER_THREAD = 50;
  
      private static final AsynchronousExecutor<QueuedChunk, Chunk, Runnable, RuntimeException> instance = new AsynchronousExecutor<QueuedChunk, Chunk, Runnable, RuntimeException>(new ChunkIOProvider(), BASE_THREADS);
--- 
-2.6.3
-

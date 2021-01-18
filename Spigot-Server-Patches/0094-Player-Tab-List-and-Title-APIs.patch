@@ -1,11 +1,11 @@
-From 88944a9edb0263524b98a1f1731831a360de0bd9 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Techcable <Techcable@outlook.com>
 Date: Tue, 16 Feb 2016 19:45:55 -0600
 Subject: [PATCH] Player Tab List and Title APIs
 
 
 diff --git a/src/main/java/net/minecraft/server/PacketPlayOutPlayerListHeaderFooter.java b/src/main/java/net/minecraft/server/PacketPlayOutPlayerListHeaderFooter.java
-index 1606d6d..795e70a 100644
+index 1606d6d91a9e14b82477fa498bf993a92f9c3da5..795e70aa7134065dad1841709afc1a2ad5bbf013 100644
 --- a/src/main/java/net/minecraft/server/PacketPlayOutPlayerListHeaderFooter.java
 +++ b/src/main/java/net/minecraft/server/PacketPlayOutPlayerListHeaderFooter.java
 @@ -4,6 +4,8 @@ import java.io.IOException;
@@ -51,7 +51,7 @@ index 1606d6d..795e70a 100644
 +    // PaperSpigot end
  }
 diff --git a/src/main/java/net/minecraft/server/PacketPlayOutTitle.java b/src/main/java/net/minecraft/server/PacketPlayOutTitle.java
-index 2711298..20016b5 100644
+index 27112986a73384048674417e80819b79a4701d8d..20016b5c4f6c3aa8782555b3ffeeead0b7c46844 100644
 --- a/src/main/java/net/minecraft/server/PacketPlayOutTitle.java
 +++ b/src/main/java/net/minecraft/server/PacketPlayOutTitle.java
 @@ -10,6 +10,18 @@ public class PacketPlayOutTitle implements Packet<PacketListenerPlayOut> {
@@ -103,7 +103,7 @@ index 2711298..20016b5 100644
      public static enum EnumTitleAction {
  
 diff --git a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
-index dba0520..3075076 100644
+index dba0520d23faaaa3610690a8e16613209b0b612a..3075076e202a0fcae7ac6d212db34c0315c7c59f 100644
 --- a/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
 +++ b/src/main/java/org/bukkit/craftbukkit/entity/CraftPlayer.java
 @@ -64,6 +64,9 @@ import org.bukkit.metadata.MetadataValue;
@@ -200,6 +200,3 @@ index dba0520..3075076 100644
      // Paper end
  
      @Override
--- 
-2.7.1
-

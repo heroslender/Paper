@@ -1,11 +1,11 @@
-From a4fdf33885e7cc6ab538e1bc98e867fa74c33956 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Byteflux <byte@byteflux.net>
 Date: Tue, 30 Jun 2015 20:45:24 -0700
 Subject: [PATCH] Force load chunks for specific entities that fly through
 
 
 diff --git a/src/main/java/net/minecraft/server/ChunkProviderServer.java b/src/main/java/net/minecraft/server/ChunkProviderServer.java
-index ae0f276..0e6a37f 100644
+index ae0f2765a4389e331fefb63d262e9b06d51bef83..0e6a37f719c6ee715482c74f35e3e5b71caf2154 100644
 --- a/src/main/java/net/minecraft/server/ChunkProviderServer.java
 +++ b/src/main/java/net/minecraft/server/ChunkProviderServer.java
 @@ -59,6 +59,17 @@ public class ChunkProviderServer implements IChunkProvider {
@@ -27,7 +27,7 @@ index ae0f276..0e6a37f 100644
              if (!this.world.c(i, j)) {
                  // CraftBukkit start
 diff --git a/src/main/java/net/minecraft/server/Entity.java b/src/main/java/net/minecraft/server/Entity.java
-index a3b4cdb..68126c4 100644
+index a3b4cdbb39f6ce8e1bd1407b80eebf334b97d349..68126c47dacdbc48e840cf292d1d3ce7b09e65c4 100644
 --- a/src/main/java/net/minecraft/server/Entity.java
 +++ b/src/main/java/net/minecraft/server/Entity.java
 @@ -116,6 +116,7 @@ public abstract class Entity implements ICommandListener {
@@ -61,7 +61,7 @@ index a3b4cdb..68126c4 100644
              this.a(this.getBoundingBox().c(d0, d1, d2));
              this.recalcPosition();
 diff --git a/src/main/java/net/minecraft/server/EntityEnderPearl.java b/src/main/java/net/minecraft/server/EntityEnderPearl.java
-index f4b5032..319c0bc 100644
+index f4b50323698afedaf7cb5c5232141d46e2e041b8..319c0bc6f621d54ca36e6e2b210a308122f1e070 100644
 --- a/src/main/java/net/minecraft/server/EntityEnderPearl.java
 +++ b/src/main/java/net/minecraft/server/EntityEnderPearl.java
 @@ -12,11 +12,13 @@ public class EntityEnderPearl extends EntityProjectile {
@@ -79,7 +79,7 @@ index f4b5032..319c0bc 100644
  
      protected void a(MovingObjectPosition movingobjectposition) {
 diff --git a/src/main/java/net/minecraft/server/EntityFallingBlock.java b/src/main/java/net/minecraft/server/EntityFallingBlock.java
-index b34e93c..f2d0eee 100644
+index b34e93ce6aa9b8b85a91b99caeb982b807c272f2..f2d0eee0aff0b914d820ce395e818cdb9c365406 100644
 --- a/src/main/java/net/minecraft/server/EntityFallingBlock.java
 +++ b/src/main/java/net/minecraft/server/EntityFallingBlock.java
 @@ -26,6 +26,7 @@ public class EntityFallingBlock extends Entity {
@@ -99,7 +99,7 @@ index b34e93c..f2d0eee 100644
  
      protected boolean s_() {
 diff --git a/src/main/java/net/minecraft/server/EntityTNTPrimed.java b/src/main/java/net/minecraft/server/EntityTNTPrimed.java
-index f415248..7a5fb2a 100644
+index f41524838a366b561145dc4217f997d216dc8507..7a5fb2ac958767764e212d6664f4a151f9a1518e 100644
 --- a/src/main/java/net/minecraft/server/EntityTNTPrimed.java
 +++ b/src/main/java/net/minecraft/server/EntityTNTPrimed.java
 @@ -21,6 +21,7 @@ public class EntityTNTPrimed extends Entity {
@@ -141,7 +141,7 @@ index f415248..7a5fb2a 100644
  
      protected void b(NBTTagCompound nbttagcompound) {
 diff --git a/src/main/java/net/minecraft/server/World.java b/src/main/java/net/minecraft/server/World.java
-index 82c43e3..d2cb1f1 100644
+index 82c43e3c60ab416a604f6f6a428c6a5da5e963b7..d2cb1f111421a90611379d074fee211ca94369a7 100644
 --- a/src/main/java/net/minecraft/server/World.java
 +++ b/src/main/java/net/minecraft/server/World.java
 @@ -1167,8 +1167,14 @@ public abstract class World implements IBlockAccess {
@@ -170,7 +170,7 @@ index 82c43e3..d2cb1f1 100644
                      this.getChunkAt(entity.ae, entity.ag).a(entity, entity.af);
                  }
 diff --git a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
-index 00ca118..65e0f12 100644
+index 00ca11837fbf2d89c7ced4626141f20e791d2c53..65e0f1269f73a6ac7770516f8cf87ccaf232e6b7 100644
 --- a/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 +++ b/src/main/java/org/github/paperspigot/PaperSpigotWorldConfig.java
 @@ -227,4 +227,14 @@ public class PaperSpigotWorldConfig
@@ -189,7 +189,7 @@ index 00ca118..65e0f12 100644
 +    }
  }
 diff --git a/src/main/java/org/spigotmc/ActivationRange.java b/src/main/java/org/spigotmc/ActivationRange.java
-index d6311bd..5b0c64d 100644
+index d6311bdb707acf858aaee5548b3564f3f4d9b49b..5b0c64d291aa74c522771904293e91885251c319 100644
 --- a/src/main/java/org/spigotmc/ActivationRange.java
 +++ b/src/main/java/org/spigotmc/ActivationRange.java
 @@ -252,7 +252,7 @@ public class ActivationRange
@@ -201,6 +201,3 @@ index d6311bd..5b0c64d 100644
              SpigotTimings.checkIfActiveTimer.stopTiming();
              return true;
          }
--- 
-2.7.0
-

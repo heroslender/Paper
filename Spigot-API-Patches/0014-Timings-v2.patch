@@ -1,30 +1,30 @@
-From b5e8582ab199f61b7dcdf2520e9a921907f4e35f Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Aikar <aikar@aikar.co>
 Date: Fri, 8 Jan 2016 23:12:28 -0600
 Subject: [PATCH] Timings v2
 
 
 diff --git a/pom.xml b/pom.xml
-index d63151f..fe9d6d2 100644
+index d63151f1c7593c027fc65b65d65030a65f0b35d0..fe9d6d265b686ae1c373e4fdcd202b16673366f1 100644
 --- a/pom.xml
 +++ b/pom.xml
-@@ -48,6 +48,13 @@
+@@ -47,6 +47,13 @@
+     </pluginRepositories>
  
      <dependencies>
-         <dependency>
++        <dependency>
 +            <groupId>net.sf.trove4j</groupId>
 +            <artifactId>trove4j</artifactId>
 +            <version>3.0.3</version>
 +            <!-- Trove Provided by CraftBukkit -->
 +            <scope>provided</scope>
 +        </dependency>
-+        <dependency>
+         <dependency>
              <groupId>commons-lang</groupId>
              <artifactId>commons-lang</artifactId>
-             <version>2.6</version>
 diff --git a/src/main/java/co/aikar/timings/FullServerTickHandler.java b/src/main/java/co/aikar/timings/FullServerTickHandler.java
 new file mode 100644
-index 0000000..cb4e7ba
+index 0000000000000000000000000000000000000000..cb4e7ba8358015914aeb12a96dfe84efe3280de6
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/FullServerTickHandler.java
 @@ -0,0 +1,79 @@
@@ -109,7 +109,7 @@ index 0000000..cb4e7ba
 +}
 diff --git a/src/main/java/co/aikar/timings/NullTimingHandler.java b/src/main/java/co/aikar/timings/NullTimingHandler.java
 new file mode 100644
-index 0000000..c73b617
+index 0000000000000000000000000000000000000000..c73b617c5a0be69111f142a3ef9344a5a22dfa12
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/NullTimingHandler.java
 @@ -0,0 +1,61 @@
@@ -176,7 +176,7 @@ index 0000000..c73b617
 +}
 diff --git a/src/main/java/co/aikar/timings/TimedEventExecutor.java b/src/main/java/co/aikar/timings/TimedEventExecutor.java
 new file mode 100644
-index 0000000..e3da034
+index 0000000000000000000000000000000000000000..e3da034fcbdda91532e2882bbd1f09d31ef4b727
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/TimedEventExecutor.java
 @@ -0,0 +1,81 @@
@@ -263,7 +263,7 @@ index 0000000..e3da034
 +}
 diff --git a/src/main/java/co/aikar/timings/Timing.java b/src/main/java/co/aikar/timings/Timing.java
 new file mode 100644
-index 0000000..4d990b1
+index 0000000000000000000000000000000000000000..4d990b130c5fa0e80982f010d171bca7902480e8
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/Timing.java
 @@ -0,0 +1,72 @@
@@ -341,7 +341,7 @@ index 0000000..4d990b1
 +}
 diff --git a/src/main/java/co/aikar/timings/TimingData.java b/src/main/java/co/aikar/timings/TimingData.java
 new file mode 100644
-index 0000000..b62e428
+index 0000000000000000000000000000000000000000..b62e428c5422ab10e8f44d94e6d59d431aceb83a
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/TimingData.java
 @@ -0,0 +1,105 @@
@@ -452,7 +452,7 @@ index 0000000..b62e428
 +}
 diff --git a/src/main/java/co/aikar/timings/TimingHandler.java b/src/main/java/co/aikar/timings/TimingHandler.java
 new file mode 100644
-index 0000000..4918a17
+index 0000000000000000000000000000000000000000..4918a17c5a26e3afa2ed7ccad60163325ba07071
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/TimingHandler.java
 @@ -0,0 +1,193 @@
@@ -651,7 +651,7 @@ index 0000000..4918a17
 +}
 diff --git a/src/main/java/co/aikar/timings/TimingHistory.java b/src/main/java/co/aikar/timings/TimingHistory.java
 new file mode 100644
-index 0000000..7a04770
+index 0000000000000000000000000000000000000000..7a04770932ec734d149facc5479a75ce635785d4
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/TimingHistory.java
 @@ -0,0 +1,276 @@
@@ -933,7 +933,7 @@ index 0000000..7a04770
 +}
 diff --git a/src/main/java/co/aikar/timings/TimingHistoryEntry.java b/src/main/java/co/aikar/timings/TimingHistoryEntry.java
 new file mode 100644
-index 0000000..eac4e21
+index 0000000000000000000000000000000000000000..eac4e218b37efce30eb577908c2b8d272d95eef0
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/TimingHistoryEntry.java
 @@ -0,0 +1,59 @@
@@ -998,7 +998,7 @@ index 0000000..eac4e21
 +}
 diff --git a/src/main/java/co/aikar/timings/TimingIdentifier.java b/src/main/java/co/aikar/timings/TimingIdentifier.java
 new file mode 100644
-index 0000000..623dda4
+index 0000000000000000000000000000000000000000..623dda49c0d7c09a7c121e0289cf61d8aca2729a
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/TimingIdentifier.java
 @@ -0,0 +1,102 @@
@@ -1106,7 +1106,7 @@ index 0000000..623dda4
 +}
 diff --git a/src/main/java/co/aikar/timings/Timings.java b/src/main/java/co/aikar/timings/Timings.java
 new file mode 100644
-index 0000000..0f7be03
+index 0000000000000000000000000000000000000000..0f7be036bc528ee2371fe83512f9066608d3b3a2
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/Timings.java
 @@ -0,0 +1,273 @@
@@ -1385,7 +1385,7 @@ index 0000000..0f7be03
 +}
 diff --git a/src/main/java/co/aikar/timings/TimingsCommand.java b/src/main/java/co/aikar/timings/TimingsCommand.java
 new file mode 100644
-index 0000000..3dba3aa
+index 0000000000000000000000000000000000000000..3dba3aa17314d2d1977278c55974093c9c46148f
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/TimingsCommand.java
 @@ -0,0 +1,110 @@
@@ -1501,7 +1501,7 @@ index 0000000..3dba3aa
 +}
 diff --git a/src/main/java/co/aikar/timings/TimingsExport.java b/src/main/java/co/aikar/timings/TimingsExport.java
 new file mode 100644
-index 0000000..fe19ea0
+index 0000000000000000000000000000000000000000..fe19ea003eedfe21c6400d83430d87ddba8f5f6e
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/TimingsExport.java
 @@ -0,0 +1,373 @@
@@ -1880,7 +1880,7 @@ index 0000000..fe19ea0
 +}
 diff --git a/src/main/java/co/aikar/timings/TimingsManager.java b/src/main/java/co/aikar/timings/TimingsManager.java
 new file mode 100644
-index 0000000..67c39df
+index 0000000000000000000000000000000000000000..67c39df8a5a339256983011fbd82edca27f030b5
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/TimingsManager.java
 @@ -0,0 +1,194 @@
@@ -2080,7 +2080,7 @@ index 0000000..67c39df
 +}
 diff --git a/src/main/java/co/aikar/timings/UnsafeTimingHandler.java b/src/main/java/co/aikar/timings/UnsafeTimingHandler.java
 new file mode 100644
-index 0000000..e3b0ed8
+index 0000000000000000000000000000000000000000..e3b0ed8371d20bb598053561b3e4e48c00ff03db
 --- /dev/null
 +++ b/src/main/java/co/aikar/timings/UnsafeTimingHandler.java
 @@ -0,0 +1,51 @@
@@ -2137,7 +2137,7 @@ index 0000000..e3b0ed8
 +}
 diff --git a/src/main/java/co/aikar/util/JSONUtil.java b/src/main/java/co/aikar/util/JSONUtil.java
 new file mode 100644
-index 0000000..5fdf7c4
+index 0000000000000000000000000000000000000000..5fdf7c4cd2dbd356eab80d47ecde8beb928e0b8b
 --- /dev/null
 +++ b/src/main/java/co/aikar/util/JSONUtil.java
 @@ -0,0 +1,123 @@
@@ -2266,7 +2266,7 @@ index 0000000..5fdf7c4
 +}
 diff --git a/src/main/java/co/aikar/util/LoadingIntMap.java b/src/main/java/co/aikar/util/LoadingIntMap.java
 new file mode 100644
-index 0000000..8d0f269
+index 0000000000000000000000000000000000000000..8d0f2691944c0db7c3221524848dbd95b4904fdf
 --- /dev/null
 +++ b/src/main/java/co/aikar/util/LoadingIntMap.java
 @@ -0,0 +1,63 @@
@@ -2335,7 +2335,7 @@ index 0000000..8d0f269
 +}
 diff --git a/src/main/java/co/aikar/util/LoadingMap.java b/src/main/java/co/aikar/util/LoadingMap.java
 new file mode 100644
-index 0000000..a9f2919
+index 0000000000000000000000000000000000000000..a9f2919997db476d1aefe66fcc6fcac8e9f98be2
 --- /dev/null
 +++ b/src/main/java/co/aikar/util/LoadingMap.java
 @@ -0,0 +1,332 @@
@@ -2673,7 +2673,7 @@ index 0000000..a9f2919
 +}
 diff --git a/src/main/java/co/aikar/util/MRUMapCache.java b/src/main/java/co/aikar/util/MRUMapCache.java
 new file mode 100644
-index 0000000..3a288d2
+index 0000000000000000000000000000000000000000..3a288d2afec996ab29a1dcf3abaa609263065b47
 --- /dev/null
 +++ b/src/main/java/co/aikar/util/MRUMapCache.java
 @@ -0,0 +1,100 @@
@@ -2778,7 +2778,7 @@ index 0000000..3a288d2
 +    }
 +}
 diff --git a/src/main/java/org/bukkit/Bukkit.java b/src/main/java/org/bukkit/Bukkit.java
-index 584fe11..a4396e8 100644
+index 584fe113879de4c51f1924fed00531b0a7d91818..a4396e8bf034f51ffeec07b56afeea0c29eee247 100644
 --- a/src/main/java/org/bukkit/Bukkit.java
 +++ b/src/main/java/org/bukkit/Bukkit.java
 @@ -533,7 +533,6 @@ public final class Bukkit {
@@ -2790,7 +2790,7 @@ index 584fe11..a4396e8 100644
  
      /**
 diff --git a/src/main/java/org/bukkit/Server.java b/src/main/java/org/bukkit/Server.java
-index 26acdda..ae75bd4 100644
+index 26acdda0cb42703074691e7b22c30092fd0837e2..ae75bd45ab485762381d34c9fc8ffe1ed0e13f96 100644
 --- a/src/main/java/org/bukkit/Server.java
 +++ b/src/main/java/org/bukkit/Server.java
 @@ -926,12 +926,27 @@ public interface Server extends PluginMessageRecipient {
@@ -2823,7 +2823,7 @@ index 26acdda..ae75bd4 100644
           * Sends the component to the player
           *
 diff --git a/src/main/java/org/bukkit/command/Command.java b/src/main/java/org/bukkit/command/Command.java
-index 0ba9b1c..548d570 100644
+index 0ba9b1c9c98ff928640c27b08d47897505b1476a..548d570910098222ed3fed2bda2d76f2368d600e 100644
 --- a/src/main/java/org/bukkit/command/Command.java
 +++ b/src/main/java/org/bukkit/command/Command.java
 @@ -31,7 +31,8 @@ public abstract class Command {
@@ -2853,7 +2853,7 @@ index 0ba9b1c..548d570 100644
              return true;
          }
 diff --git a/src/main/java/org/bukkit/command/FormattedCommandAlias.java b/src/main/java/org/bukkit/command/FormattedCommandAlias.java
-index 3f07d7f..f89ad07 100644
+index 3f07d7f4a36bde7b2fff8007c353301b40f0ad75..f89ad0759a9ac8b82ff6ea52338c918ca6396350 100644
 --- a/src/main/java/org/bukkit/command/FormattedCommandAlias.java
 +++ b/src/main/java/org/bukkit/command/FormattedCommandAlias.java
 @@ -14,6 +14,7 @@ public class FormattedCommandAlias extends Command {
@@ -2875,7 +2875,7 @@ index 3f07d7f..f89ad07 100644
          return i >= j && i <= k;
      }
 diff --git a/src/main/java/org/bukkit/command/SimpleCommandMap.java b/src/main/java/org/bukkit/command/SimpleCommandMap.java
-index a08a49d..a300ae7 100644
+index a08a49da75fb01bdd13c4da32b682e7ffbf41e2d..a300ae7ebeba927347818cb6451fcc45b2bbf2aa 100644
 --- a/src/main/java/org/bukkit/command/SimpleCommandMap.java
 +++ b/src/main/java/org/bukkit/command/SimpleCommandMap.java
 @@ -31,7 +31,7 @@ public class SimpleCommandMap implements CommandMap {
@@ -2896,7 +2896,7 @@ index a08a49d..a300ae7 100644
          fallbackPrefix = fallbackPrefix.toLowerCase().trim();
          boolean registered = register(label, command, false, fallbackPrefix);
 diff --git a/src/main/java/org/bukkit/command/defaults/TimingsCommand.java b/src/main/java/org/bukkit/command/defaults/TimingsCommand.java
-index 9782a3b..80e0b0f 100644
+index 9782a3bb91ed38f2646f1b857ae0c9527ad6d23c..80e0b0f15c6db2cf4f5cddaab85fa8d2caf525af 100644
 --- a/src/main/java/org/bukkit/command/defaults/TimingsCommand.java
 +++ b/src/main/java/org/bukkit/command/defaults/TimingsCommand.java
 @@ -33,87 +33,22 @@ import org.spigotmc.CustomTimingsHandler;
@@ -3048,7 +3048,7 @@ index 9782a3b..80e0b0f 100644
 -    // Spigot end
  }
 diff --git a/src/main/java/org/bukkit/entity/Player.java b/src/main/java/org/bukkit/entity/Player.java
-index 7522d45..c0ebe65 100644
+index 7522d455bf52ebb79ae8cb3830ba318631d0f202..c0ebe6551941be5fbe54efc426600f3ff2511127 100644
 --- a/src/main/java/org/bukkit/entity/Player.java
 +++ b/src/main/java/org/bukkit/entity/Player.java
 @@ -1203,6 +1203,11 @@ public interface Player extends HumanEntity, Conversable, CommandSender, Offline
@@ -3064,7 +3064,7 @@ index 7522d45..c0ebe65 100644
  
      Spigot spigot();
 diff --git a/src/main/java/org/bukkit/plugin/SimplePluginManager.java b/src/main/java/org/bukkit/plugin/SimplePluginManager.java
-index c9d23d6..1325b03 100644
+index c9d23d6348d976e9ba56a471c9ff96b71a91e485..1325b032a2a05b56a87ae58b7c80fd03d52ea6ad 100644
 --- a/src/main/java/org/bukkit/plugin/SimplePluginManager.java
 +++ b/src/main/java/org/bukkit/plugin/SimplePluginManager.java
 @@ -295,7 +295,6 @@ public final class SimplePluginManager implements PluginManager {
@@ -3121,7 +3121,7 @@ index c9d23d6..1325b03 100644
      }
  }
 diff --git a/src/main/java/org/bukkit/plugin/java/JavaPluginLoader.java b/src/main/java/org/bukkit/plugin/java/JavaPluginLoader.java
-index 7bf2fa6..4983ea8 100644
+index 7bf2fa6e6dffdcfc6058d7abaf05f23ff0a61f38..4983ea8f8c1463192c86e2fc1f34f3261b39401e 100644
 --- a/src/main/java/org/bukkit/plugin/java/JavaPluginLoader.java
 +++ b/src/main/java/org/bukkit/plugin/java/JavaPluginLoader.java
 @@ -39,7 +39,6 @@ import org.bukkit.plugin.PluginLoader;
@@ -3170,7 +3170,7 @@ index 7bf2fa6..4983ea8 100644
                  eventSet.add(new TimedRegisteredListener(listener, executor, eh.priority(), plugin, eh.ignoreCancelled()));
              } else {
 diff --git a/src/main/java/org/bukkit/plugin/java/PluginClassLoader.java b/src/main/java/org/bukkit/plugin/java/PluginClassLoader.java
-index 4cffa13..b2cbf9e 100644
+index 4cffa137591d353eafb9ec573a176e8b5d6ccc4e..b2cbf9e43b5858d81fa1f3493b04896bc8462eb7 100644
 --- a/src/main/java/org/bukkit/plugin/java/PluginClassLoader.java
 +++ b/src/main/java/org/bukkit/plugin/java/PluginClassLoader.java
 @@ -15,7 +15,8 @@ import org.bukkit.plugin.PluginDescriptionFile;
@@ -3184,7 +3184,7 @@ index 4cffa13..b2cbf9e 100644
      private final Map<String, Class<?>> classes = new java.util.concurrent.ConcurrentHashMap<String, Class<?>>(); // Spigot
      private final PluginDescriptionFile description;
 diff --git a/src/main/java/org/bukkit/util/CachedServerIcon.java b/src/main/java/org/bukkit/util/CachedServerIcon.java
-index 5ca863b..0480470 100644
+index 5ca863b3692b2e1b58e7fb4d82f554a92cc4f01e..0480470678af31f9543b778e460a63fc0a30b2d8 100644
 --- a/src/main/java/org/bukkit/util/CachedServerIcon.java
 +++ b/src/main/java/org/bukkit/util/CachedServerIcon.java
 @@ -12,4 +12,6 @@ import org.bukkit.event.server.ServerListPingEvent;
@@ -3196,7 +3196,7 @@ index 5ca863b..0480470 100644
 +    public String getData(); // Spigot
 +}
 diff --git a/src/main/java/org/spigotmc/CustomTimingsHandler.java b/src/main/java/org/spigotmc/CustomTimingsHandler.java
-index 8d98297..7e89b97 100644
+index 8d982974e497556d31ce8fa3b14c98a073d73ebb..7e89b97b60d547c75bde6d54f1512b0277099034 100644
 --- a/src/main/java/org/spigotmc/CustomTimingsHandler.java
 +++ b/src/main/java/org/spigotmc/CustomTimingsHandler.java
 @@ -1,165 +1,76 @@
@@ -3425,6 +3425,3 @@ index 8d98297..7e89b97 100644
 -        timingDepth = 0;
 -    }
  }
--- 
-2.7.1
-
