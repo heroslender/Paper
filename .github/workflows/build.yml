@@ -32,21 +32,21 @@ jobs:
           git config --global user.email "no-reply@github.com"
           git config --global user.name "Github Actions"
           mvn clean package
-      - name: Archive PaperSpigot jar
-        uses: actions/upload-artifact@v2
-        with:
-          name: PaperSpigot-1.8.8.jar
-          path: PaperSpigot-Server/target/paperspigot-1.8.8-R0.1-SNAPSHOT.jar
-      - name: Create paperclip
-        run: |
-          git config --global user.email "no-reply@github.com"
-          git config --global user.name "Github Actions"
-          ./paper paperclip
-      - name: Archive Paperclip jar
-        uses: actions/upload-artifact@v2
-        with:
-          name: Paperclip-1.8.8.jar
-          path: Paperclip-1.8.8.jar
+#      - name: Archive PaperSpigot jar
+#        uses: actions/upload-artifact@v2
+#        with:
+#          name: PaperSpigot-1.8.8.jar
+#          path: PaperSpigot-Server/target/paperspigot-1.8.8-R0.1-SNAPSHOT.jar
+#      - name: Create paperclip
+#        run: |
+#          git config --global user.email "no-reply@github.com"
+#          git config --global user.name "Github Actions"
+#          ./paper paperclip
+#      - name: Archive Paperclip jar
+#        uses: actions/upload-artifact@v2
+#        with:
+#          name: Paperclip-1.8.8.jar
+#          path: Paperclip-1.8.8.jar
       - name: Release Maven package
         uses: samuelmeuli/action-maven-publish@v1
         with:
@@ -54,4 +54,4 @@ jobs:
 #          gpg_passphrase: ${{ secrets.gpg_passphrase }}
           nexus_username: ${{ secrets.nexus_username }}
           nexus_password: ${{ secrets.nexus_password }}
-          directory: PaperSpigot-Server
+#          directory: PaperSpigot-Server
