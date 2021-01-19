@@ -5,7 +5,7 @@ Subject: [PATCH] POM changes
 
 
 diff --git a/pom.xml b/pom.xml
-index cb142f2162ce053578dfb18db0b50fb4bf6c4dca..d63151f1c7593c027fc65b65d65030a65f0b35d0 100644
+index cb142f2162ce053578dfb18db0b50fb4bf6c4dca..760dc0d0d51028fe14ae4660105ac5fe1da2afac 100644
 --- a/pom.xml
 +++ b/pom.xml
 @@ -4,35 +4,37 @@
@@ -48,14 +48,14 @@ index cb142f2162ce053578dfb18db0b50fb4bf6c4dca..d63151f1c7593c027fc65b65d65030a6
          <repository>
 -            <id>spigotmc-releases</id>
 -            <url>https://hub.spigotmc.org/nexus/content/repositories/releases/</url>
-+            <id>destroystokyo-releases</id>
-+            <url>https://repo.destroystokyo.com/content/repositories/releases/</url>
++            <id>heroslender-releases</id>
++            <url>https://nexus.heroslender.com/repository/maven-releases/</url>
          </repository>
          <snapshotRepository>
 -            <id>spigotmc-snapshots</id>
 -            <url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url>
-+            <id>destroystokyo-snapshots</id>
-+            <url>https://repo.destroystokyo.com/content/repositories/snapshots/</url>
++            <id>heroslender-snapshots</id>
++            <url>https://nexus.heroslender.com/repository/maven-snapshots/</url>
          </snapshotRepository>
      </distributionManagement>
  
