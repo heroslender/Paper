@@ -14,6 +14,9 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
+          server-id: heroslender-snapshots # Value of the distributionManagement/repository/id field of the pom.xml
+          server-username: ${{ secrets.nexus_username }} # env variable for username in deploy
+          server-password: ${{ secrets.nexus_password }} # env variable for token in deploy
       - name: Cache maven
         uses: actions/cache@v2
         with:
@@ -32,6 +35,12 @@ jobs:
           git config --global user.email "no-reply@github.com"
           git config --global user.name "Github Actions"
           mvn clean package
+      - name: Publish to Maven
+        run: mvn deploy
+#        env:
+#          MAVEN_USERNAME: maven_username123
+#          MAVEN_CENTRAL_TOKEN: ${{ secrets.MAVEN_CENTRAL_TOKEN }}
+#          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
 #      - name: Archive PaperSpigot jar
 #        uses: actions/upload-artifact@v2
 #        with:
@@ -47,12 +56,12 @@ jobs:
 #        with:
 #          name: Paperclip-1.8.8.jar
 #          path: Paperclip-1.8.8.jar
-      - name: Release Maven package
-        uses: samuelmeuli/action-maven-publish@v1
-        with:
-#          gpg_private_key: ${{ secrets.gpg_private_key }}
-#          gpg_passphrase: ${{ secrets.gpg_passphrase }}
-          nexus_username: ${{ secrets.nexus_username }}
-          nexus_password: ${{ secrets.nexus_password }}
-          server_id: heroslender-snapshots
-#          directory: PaperSpigot-Server
+#      - name: Release Maven package
+#        uses: samuelmeuli/action-maven-publish@v1
+#        with:
+##          gpg_private_key: ${{ secrets.gpg_private_key }}
+##          gpg_passphrase: ${{ secrets.gpg_passphrase }}
+#          nexus_username: ${{ secrets.nexus_username }}
+#          nexus_password: ${{ secrets.nexus_password }}
+#          server_id: heroslender-snapshots
+##          directory: PaperSpigot-Server
